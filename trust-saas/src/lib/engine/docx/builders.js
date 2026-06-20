@@ -2750,3 +2750,21 @@ export function previewAnnexHTML(form) { state.form = form; return renderAnnexPr
 export function previewAnnex4HTML(form) { state.form = form; return renderAnnex4PreviewHTML(); }
 export function buildContractHTML(form) { state.form = form; return buildContractFullHTML(); }
 export function buildAppformHTML(form) { state.form = form; return buildAppformFullHTML(); }
+
+/* 미리보기 자동 인쇄 스크립트 제거 — PDF 빌더의 완성 HTML 을 iframe 미리보기에
+   그대로 띄울 때 setTimeout(window.print()) 이 발동하지 않도록 <script> 블록만 제거.
+   조문·표·CSS 등 본문은 무손상(실제 생성물과 동일). */
+function stripAutoPrint(html) {
+  return String(html).replace(/<script\b[\s\S]*?<\/script>/gi, "");
+}
+
+/** 서류별 실시간 미리보기 HTML(완성 문서, iframe srcdoc 용) — 실제 PDF/생성물과 동일.
+ *  docId 에 따라 contract/appform/그 외(generic) 빌더를 그대로 사용해 WYSIWYG 보장. */
+export function previewDocHTML(form, docId) {
+  state.form = form;
+  const meta = COLLATERAL_OUTPUT_DOCS.find(d => d.id === docId);
+  const html = docId === "contract" ? buildContractFullHTML()
+             : docId === "appform"  ? buildAppformFullHTML()
+             : (meta ? buildGenericDocFullHTML(docId, meta) : "");
+  return stripAutoPrint(html);
+}

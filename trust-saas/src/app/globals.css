@@ -1372,6 +1372,11 @@ body {
 .preview-doc + .preview-annex { margin-top: 16px; }
 .preview-doc table { width: 100%; border-collapse: collapse; }
 .preview-doc th, .preview-doc td { border: 1px solid var(--c-line); padding: 4px 6px; }
+/* 서류별 완성 미리보기 — PDF 빌더 HTML 을 격리(iframe srcdoc)해 WYSIWYG 표시 */
+.preview-frame {
+  flex: 1; width: 100%; min-height: 420px; border: none;
+  background: #fff; display: block;
+}
 
 /* ================================================================
    M2-2 · 검증 게이트 안내 박스

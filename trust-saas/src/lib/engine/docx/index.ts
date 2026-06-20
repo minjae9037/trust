@@ -36,3 +36,8 @@ export function previewAnnexHTML(form: ContractForm): string {
 export function previewAnnex4HTML(form: ContractForm): string {
   return B.previewAnnex4HTML(form);
 }
+
+/** 서류별 완성 미리보기 HTML(iframe srcdoc 용) — 실제 생성물(PDF/DOCX)과 동일한 WYSIWYG */
+export function previewDocHTML(form: ContractForm, docId: DocId): string {
+  return B.previewDocHTML(form, docId);
+}

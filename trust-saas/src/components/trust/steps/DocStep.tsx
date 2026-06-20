@@ -1,16 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { DOC_FIELDS, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 import type { DocId } from "@/lib/engine/model";
 import {
   generateCollateralDoc,
   generateCollateralPDF,
-  previewBodyHTML,
-  previewAnnexHTML,
+  previewDocHTML,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
+
+// 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다
+// 무거운 완성 문서 HTML(계약서 본문 37KB+) 재생성·iframe srcDoc 재파싱을 막는다.
+// 입력 필드/검증 게이트는 store를 직접 읽어 즉시 반영(이 디바운스 영향 없음).
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 export function DocStep({ docId }: { docId: DocId }) {
   const { form, updateDocContent } = useContractStore();
@@ -23,21 +34,18 @@ export function DocStep({ docId }: { docId: DocId }) {
   // ── 검증 게이트 (M2-2) — 필수 입력 충족 시에만 생성 활성화 ──
   const { ok, missing } = useMemo(() => validateDoc(form, docId), [form, docId]);
 
-  // ── 실시간 미리보기 (M2-1) — 본문 + 별지 ──
-  const previewBody = useMemo(() => {
+  // ── 실시간 미리보기 (M2-1) — 선택한 서류의 완성 문서를 그대로 렌더(WYSIWYG).
+  //    docId별 PDF 빌더 HTML을 iframe srcdoc로 격리 표시 → 실제 생성물과 동일.
+  //    form은 250ms 디바운스: 빠른 연속 입력 시 재생성 횟수를 줄여 타이핑 끊김 방지.
+  //    docId 전환은 즉시(서류 바꾸면 debouncedForm은 이미 최신이라 지연 없음).
+  const debouncedForm = useDebounced(form, 250);
+  const previewHtml = useMemo(() => {
     try {
-      return previewBodyHTML(form);
+      return previewDocHTML(debouncedForm, docId);
     } catch {
       return "";
     }
-  }, [form]);
-  const previewAnnex = useMemo(() => {
-    try {
-      return previewAnnexHTML(form);
-    } catch {
-      return "";
-    }
-  }, [form]);
+  }, [debouncedForm, docId]);
 
   const setField = (key: string, value: unknown) =>
     updateDocContent(docId, { [key]: value } as never);
@@ -201,30 +209,25 @@ export function DocStep({ docId }: { docId: DocId }) {
         </div>
       </div>
 
-      {/* ── 우: 실시간 미리보기 ── */}
+      {/* ── 우: 실시간 미리보기 (선택 서류 그대로, 실제 생성물과 동일) ── */}
       <aside className="doc-split-preview">
         <div className="preview-head">
           <span className="preview-badge">실시간 미리보기</span>
-          <span className="field-hint">입력값이 즉시 반영됩니다 (담보신탁계약서 본문·별지)</span>
+          <span className="field-hint">입력값이 즉시 반영됩니다 ({meta?.name})</span>
         </div>
-        <div className="preview-scroll">
-          {previewBody ? (
-            <div
-              className="preview-doc"
-              dangerouslySetInnerHTML={{ __html: previewBody }}
-            />
-          ) : (
+        {previewHtml ? (
+          <iframe
+            className="preview-frame"
+            srcDoc={previewHtml}
+            title={`${meta?.name ?? "서류"} 미리보기`}
+          />
+        ) : (
+          <div className="preview-scroll">
             <p className="field-hint" style={{ padding: 16 }}>
-              관계사·물건·금액을 입력하면 계약서 본문 미리보기가 나타납니다.
+              관계사·물건·금액을 입력하면 {meta?.name ?? "서류"} 미리보기가 나타납니다.
             </p>
-          )}
-          {previewAnnex && (
-            <div
-              className="preview-doc preview-annex"
-              dangerouslySetInnerHTML={{ __html: previewAnnex }}
-            />
-          )}
-        </div>
+          </div>
+        )}
       </aside>
     </div>
   );
