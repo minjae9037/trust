@@ -1,0 +1,11 @@
+# Vercel 업로드 제외 (배포 경량화 + 대외비/로그 비반영)
+node_modules
+.next
+out
+.env.local
+advisor-logs
+src/lib/advisor/_backdata-index.json
+reference
+scripts
+docs
+*.png

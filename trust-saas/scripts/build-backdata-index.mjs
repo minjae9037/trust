@@ -13,6 +13,8 @@ import { promises as fs } from "fs";
 import path from "path";
 
 const SRC = "D:\\Claude_Cowork\\back-data\\knowledge";
+// 사용자가 직접 올리는 Q&A 근거 자료 (trust-qna/references) — 큐레이션된 것으로 보고 도메인게이트 면제
+const QNA_SRC = path.join(process.cwd(), "..", "trust-qna", "references");
 const OUT = path.join(process.cwd(), "src", "lib", "advisor", "_backdata-index.json");
 
 // 포함 신호(일반 지식). 경로 또는 파일명에 하나라도 있으면 후보.
@@ -35,6 +37,18 @@ function walk(dir) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) out.push(...(await walk(p)));
       else if (e.isFile() && e.name.endsWith(".md")) out.push(p);
+    }
+    return out;
+  });
+}
+
+function walkAll(dir) {
+  return fs.readdir(dir, { withFileTypes: true }).then(async (ents) => {
+    const out = [];
+    for (const e of ents) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) out.push(...(await walkAll(p)));
+      else if (e.isFile()) out.push(p);
     }
     return out;
   });
@@ -144,12 +158,36 @@ async function main() {
     });
   }
 
+  // ── 사용자 업로드 Q&A 근거 (trust-qna/references) 인제스트 ──
+  // 사용자가 의도적으로 올린 자료 → 도메인게이트/allowlist 면제, 정제·누출필터만 적용.
+  let qnaFiles = [];
+  try {
+    const all = await walkAll(QNA_SRC);
+    qnaFiles = all.filter((f) => /\.(md|txt)$/i.test(f) && !/[\\/]README\.md$/i.test(f));
+  } catch { qnaFiles = []; }
+  let nQna = 0;
+  for (const f of qnaFiles) {
+    let raw;
+    try { raw = await fs.readFile(f, "utf8"); } catch { continue; }
+    let body = raw.replace(/^---[\s\S]*?---\n/, "").replace(/<!--[\s\S]*?-->/g, "");
+    body = body.split("\n").filter((ln) => !/(원본\s*:|Z:\\Drive|W:\\|\\Drive\\|^!\[)/.test(ln)).join("\n");
+    const parts = chunkText(body);
+    if (parts.length === 0) continue;
+    nQna++;
+    const topicBase = cleanBase(path.basename(f));
+    parts.forEach((text, i) => {
+      if (LEAK.test(text)) return;
+      chunks.push({ id: `qna-${nQna}-${i}`, topic: topicBase, tags: topTags(text), text, _src: "qna:" + path.basename(f) });
+    });
+  }
+
   await fs.mkdir(path.dirname(OUT), { recursive: true });
   await fs.writeFile(OUT, JSON.stringify(chunks), "utf8");
 
-  console.log("==== back-data RAG 인덱스 빌드 ====");
-  console.log(`총 .md: ${files.length}`);
-  console.log(`포함(도메인 관련): 문서 ${nDoc} → 청크 ${chunks.length}`);
+  console.log("==== Q&A RAG 인덱스 빌드 ====");
+  console.log(`back-data 총 .md: ${files.length}`);
+  console.log(`trust-qna/references 업로드 문서: ${nQna} (도메인게이트 면제)`);
+  console.log(`포함(도메인 관련): 문서 ${nDoc} → 총 청크 ${chunks.length}`);
   console.log(`제외(딜/고객 특정 규칙): ${excludedByRule.length}`);
   console.log(`제외(매뉴얼/지침 아님): ${notGeneral.length}`);
   console.log(`제외(도메인 무관, 키워드<${DOMAIN_MIN}): ${offDomain.length}`);

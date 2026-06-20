@@ -19,8 +19,10 @@ trust-corp/logs/
 **/state/worker.lock
 **/state/worker-stop.flag
 
-# ===== 대외비: 실제 신탁사 계약서 원본·추출본 (공개 저장소 커밋 절대 금지) =====
-trust-automatic/한국투자부동산신탁/
+# ===== 대외비: 참조 아카이브(구 trust-automatic) + Q&A 업로드 자료 (공개 금지) =====
+trust-saas/reference/
+trust-qna/references/
+!trust-qna/references/README.md
 
 # ===== 상담 로그·RAG 인덱스 (사용자 질문·대외비 가능 → 공개 금지) =====
 advisor-logs/
