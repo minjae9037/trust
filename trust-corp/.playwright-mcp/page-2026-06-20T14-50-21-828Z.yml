@@ -1,0 +1,84 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic "홈으로" [ref=e3] [cursor=pointer]:
+      - generic [ref=e4]: 信託
+      - generic [ref=e5]:
+        - generic [ref=e6]: TrustForm
+        - generic [ref=e7]: 트러스트폼 · 신탁 서류 자동화
+    - navigation [ref=e8]:
+      - generic [ref=e9] [cursor=pointer]: 신탁사 선택
+      - generic [ref=e10]: ·
+      - generic [ref=e11] [cursor=pointer]: 내 계약
+      - generic [ref=e12]: ·
+      - link "💬 상담 →" [ref=e13] [cursor=pointer]:
+        - /url: /advisor
+  - link "‹ 이전 (홈)" [ref=e15] [cursor=pointer]:
+    - /url: /
+  - main [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]: 신탁사 선택
+      - heading "신탁사를 선택해 주세요" [level=1] [ref=e19]
+      - paragraph [ref=e20]:
+        - text: 현재
+        - strong [ref=e21]: 한국투자부동산신탁
+        - text: 이 활성화되어 있습니다. 나머지 신탁사는 표준양식 수급 후 순차 오픈됩니다.
+    - generic [ref=e22]:
+      - button "준비중 대신자산신탁 준비중" [disabled] [ref=e23]:
+        - generic [ref=e24]: 준비중
+        - generic [ref=e25]: 대신자산신탁
+        - generic [ref=e27]: 준비중
+      - button "준비중 대한토지신탁 준비중" [disabled] [ref=e28]:
+        - generic [ref=e29]: 준비중
+        - generic [ref=e30]: 대한토지신탁
+        - generic [ref=e32]: 준비중
+      - button "준비중 무궁화신탁 준비중" [disabled] [ref=e33]:
+        - generic [ref=e34]: 준비중
+        - generic [ref=e35]: 무궁화신탁
+        - generic [ref=e37]: 준비중
+      - button "준비중 신영부동산신탁 준비중" [disabled] [ref=e38]:
+        - generic [ref=e39]: 준비중
+        - generic [ref=e40]: 신영부동산신탁
+        - generic [ref=e42]: 준비중
+      - button "준비중 신한자산신탁 준비중" [disabled] [ref=e43]:
+        - generic [ref=e44]: 준비중
+        - generic [ref=e45]: 신한자산신탁
+        - generic [ref=e47]: 준비중
+      - button "준비중 아시아신탁 준비중" [disabled] [ref=e48]:
+        - generic [ref=e49]: 준비중
+        - generic [ref=e50]: 아시아신탁
+        - generic [ref=e52]: 준비중
+      - button "준비중 우리자산신탁 준비중" [disabled] [ref=e53]:
+        - generic [ref=e54]: 준비중
+        - generic [ref=e55]: 우리자산신탁
+        - generic [ref=e57]: 준비중
+      - button "준비중 코람코자산신탁 준비중" [disabled] [ref=e58]:
+        - generic [ref=e59]: 준비중
+        - generic [ref=e60]: 코람코자산신탁
+        - generic [ref=e62]: 준비중
+      - button "준비중 코리아신탁 준비중" [disabled] [ref=e63]:
+        - generic [ref=e64]: 준비중
+        - generic [ref=e65]: 코리아신탁
+        - generic [ref=e67]: 준비중
+      - button "준비중 하나자산신탁 준비중" [disabled] [ref=e68]:
+        - generic [ref=e69]: 준비중
+        - generic [ref=e70]: 하나자산신탁
+        - generic [ref=e72]: 준비중
+      - button "준비중 한국자산신탁 준비중" [disabled] [ref=e73]:
+        - generic [ref=e74]: 준비중
+        - generic [ref=e75]: 한국자산신탁
+        - generic [ref=e77]: 준비중
+      - button "준비중 한국토지신탁 준비중" [disabled] [ref=e78]:
+        - generic [ref=e79]: 준비중
+        - generic [ref=e80]: 한국토지신탁
+        - generic [ref=e82]: 준비중
+      - button "활성 한국투자부동산신탁 사용 가능" [ref=e83] [cursor=pointer]:
+        - generic [ref=e84]: 활성
+        - generic [ref=e85]: 한국투자부동산신탁
+        - generic [ref=e87]: 사용 가능
+      - button "준비중 KB부동산신탁 준비중" [disabled] [ref=e88]:
+        - generic [ref=e89]: 준비중
+        - generic [ref=e90]: KB부동산신탁
+        - generic [ref=e92]: 준비중
+  - button "💬 AI 어시스턴트" [ref=e93] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e99] [cursor=pointer]:
+    - img [ref=e100]
