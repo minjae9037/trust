@@ -42,8 +42,9 @@ export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []):
     return { chunk, score };
   });
 
+  // 임계: 기본 KNOWLEDGE 는 3, back-data(bd-)는 노이즈 차단 위해 더 높게(6).
   return scored
-    .filter((s) => s.score >= 3) // 최소 관련성 임계
+    .filter((s) => s.score >= (s.chunk.id.startsWith("bd-") ? 6 : 3))
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
 }

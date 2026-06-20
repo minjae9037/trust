@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TrustForm">
+  <defs>
+    <linearGradient id="tf-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B6E4F"/>
+      <stop offset="1" stop-color="#5C4836"/>
+    </linearGradient>
+  </defs>
+  <!-- 브랜드 라운드 사각 배경 (TrustForm 브라운 그라데이션) -->
+  <rect width="32" height="32" rx="7" fill="url(#tf-bg)"/>
+  <!-- 서류(form) 시트 + 접힘 모서리 -->
+  <path d="M9 7.5h8.5L23 13v11.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1Z" fill="#F5E8D2"/>
+  <path d="M17.5 7.5 23 13h-4.5a1 1 0 0 1-1-1V7.5Z" fill="#C9A875"/>
+  <!-- TrustForm 모노그램 'T' (서류 위에 신뢰/확정 표시) -->
+  <path d="M11.5 15.5h8v1.9h-3.05v6.1h-1.9v-6.1H11.5v-1.9Z" fill="#5C4836"/>
+</svg>

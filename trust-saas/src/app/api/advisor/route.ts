@@ -64,6 +64,17 @@ export async function POST(req: Request) {
   const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
 
+  // 근거 출처(중복 topic 제거, 최대 4) → 응답 헤더로 클라이언트에 전달
+  const seenTopic = new Set<string>();
+  const sources: { topic: string; kind: "backdata" | "core" }[] = [];
+  for (const r of retrieved) {
+    const topic = r.chunk.topic;
+    if (seenTopic.has(topic)) continue;
+    seenTopic.add(topic);
+    sources.push({ topic, kind: r.chunk.id.startsWith("bd-") ? "backdata" : "core" });
+  }
+  const sourcesHeader = Buffer.from(JSON.stringify(sources), "utf8").toString("base64");
+
   // [수집] 자가고도화 루프 — 질문·RAG 적중여부 로깅(검색 0건 = 지식 공백 후보)
   if (lastUser) {
     void logQuery(
@@ -111,6 +122,8 @@ export async function POST(req: Request) {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
+      "X-Advisor-Sources": sourcesHeader,
+      "Access-Control-Expose-Headers": "X-Advisor-Sources",
     },
   });
 }

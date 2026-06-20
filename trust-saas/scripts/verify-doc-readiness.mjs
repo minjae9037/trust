@@ -79,7 +79,10 @@ console.log("\n[C] appform 가격 + valReport 원본가액까지 → 7종 전부
 console.log("\n[D] 마커 대상 = docId 있는 step만 (관계사/조건 step 제외)");
 {
   const nonDoc = STEPS.filter((s) => !s.docId);
-  ok(nonDoc.length === 5, `비서류 step 5개 (실제 ${nonDoc.length})`);
+  // 비서류(입력) step 수는 입력 UX 확장(예: STEP 05 조건·특약 신설)에 따라 변하므로
+  // 하드코딩하지 않고 STEPS에서 파생한다 — STEP 추가 시 가드가 stale 되는 문제를 정적 차단.
+  ok(docSteps.length + nonDoc.length === STEPS.length, `서류(${docSteps.length})+비서류(${nonDoc.length}) = 전체 STEPS(${STEPS.length}) 파티션 완전`);
+  ok(nonDoc.length >= 1, `비서류(입력) step 최소 1개 존재 (실제 ${nonDoc.length})`);
   ok(nonDoc.every((s) => !s.docId), "비서류 step은 docId 없음 → 마커 미표시");
 }
 

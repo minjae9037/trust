@@ -28,5 +28,14 @@ $wTrig   = New-ScheduledTaskTrigger -Daily -At '08:00'
 $wSet    = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Hours 0)
 Register-ScheduledTask -TaskName 'TrustCorp-08-WorkStart' -Action $wAction -Trigger $wTrig -Settings $wSet -Description 'trust-corp 08시 개발 워커 가동(24h 연속, 이미 실행중이면 유지)' -Force | Out-Null
 Write-Output 'registered: TrustCorp-08-WorkStart @ 08:00 (start 24h dev worker)'
+
+# 05:30 advisor 자가고도화 [분석] — gap-report 생성(node 전용, 06 prep 직전)
+$aiScript = 'd:\Claude_Cowork\trust\trust-corp\scripts\run-advisor-improve.ps1'
+$aiArg    = '-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $aiScript
+$aiAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $aiArg
+$aiTrig   = New-ScheduledTaskTrigger -Daily -At '05:30'
+$aiSet    = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 20)
+Register-ScheduledTask -TaskName 'TrustCorp-0530-AdvisorImprove' -Action $aiAction -Trigger $aiTrig -Settings $aiSet -Description 'trust-corp 05:30 상담 자가고도화 gap-report 생성' -Force | Out-Null
+Write-Output 'registered: TrustCorp-0530-AdvisorImprove @ 05:30 (advisor gap-report)'
 Write-Output '---- registered tasks ----'
 Get-ScheduledTask -TaskName 'TrustCorp-*' | Select-Object TaskName, State | Format-Table -AutoSize

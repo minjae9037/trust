@@ -5,11 +5,13 @@
 - d:\Claude_Cowork\trust\trust-corp\reports\<YDATE>\21-final.md (어제 최종 보고 — 있으면)
 - d:\Claude_Cowork\trust\trust-corp\decisions\inbox.md (대표님 지시)
 - d:\Claude_Cowork\trust\trust-corp\state\backlog.md
+- d:\Claude_Cowork\trust\trust-saas\advisor-logs\gap-report.md (05:30 생성 — 상담 지식 공백·부정피드백, 있으면)
 
 할 일 (피드백 정리 → 9시 보고 지원):
 1. 02시 검증 결과와 어제 성과를 종합해, 9시 아침 보고에 바로 쓸 수 있는 형태로 정리한다:
    - 어제 잘된 점 / 고칠 점(검증 근거 포함)
    - 오늘 우선 처리해야 할 항목 후보(우선순위·담당팀)
+   - 상담 지식 공백(gap-report)이 있으면 "보강 필요 주제"로 사업팀 검수 후보에 포함
    - 대표님 결정 필요 후보
 2. d:\Claude_Cowork\trust\trust-corp\state\morning-feedback.md 에 저장한다(9시 morning 보고가 이 파일을 읽음).
 

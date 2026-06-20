@@ -4,9 +4,26 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 
+interface Source {
+  topic: string;
+  kind: "backdata" | "core";
+}
 interface Msg {
   role: "user" | "assistant";
   content: string;
+  sources?: Source[];
+}
+
+/** 응답 헤더 X-Advisor-Sources(base64 JSON) → 근거 목록 디코드 */
+function decodeSources(header: string | null): Source[] {
+  if (!header) return [];
+  try {
+    const json = decodeURIComponent(escape(atob(header)));
+    const arr = JSON.parse(json);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -75,6 +92,7 @@ export function AdvisorChat() {
         const t = await res.text().catch(() => "");
         throw new Error(t || "요청 실패");
       }
+      const srcs = decodeSources(res.headers.get("X-Advisor-Sources"));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = "";
@@ -84,7 +102,7 @@ export function AdvisorChat() {
         acc += decoder.decode(value, { stream: true });
         setMsgs((m) => {
           const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: acc };
+          copy[copy.length - 1] = { role: "assistant", content: acc, sources: srcs };
           return copy;
         });
         scrollDown();
@@ -133,6 +151,16 @@ export function AdvisorChat() {
                 <div className="md">
                   {body ? <ReactMarkdown>{body}</ReactMarkdown> : <span className="blink">▍</span>}
                 </div>
+                {body && !busy && m.sources && m.sources.length > 0 && (
+                  <div className="advisor-sources">
+                    <span className="advisor-sources-label">📚 참고한 자료</span>
+                    {m.sources.map((s, k) => (
+                      <span key={k} className={"src-chip " + s.kind} title={s.kind === "backdata" ? "내부 지식베이스(back-data)" : "기본 지식"}>
+                        {s.topic}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {docId && (
                   <Link href={`/app?doc=${docId}`} className="doc-action-btn">
                     📄 {DOC_LABEL[docId]} 서류 작성하기 →
