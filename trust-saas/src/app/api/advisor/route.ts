@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
   // RAG-lite: 최근 사용자 발화로 지식코퍼스 검색 → 근거 주입
   const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
-  const retrieved = lastUser ? retrieve(lastUser.content, 3) : [];
+  const retrieved = lastUser ? retrieve(lastUser.content, 4) : [];
   const contextText = formatContext(retrieved);
 
   const systemBlocks: Anthropic.TextBlockParam[] = [
