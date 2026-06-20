@@ -1,0 +1,233 @@
+"use client";
+
+/* ================================================================
+   STEP 05 · 계약 조건·특약 (경우의 수)
+   실제 한국투자부동산신탁 담보신탁계약서 7건 비교에서 도출한 분기 항목을
+   한 화면에서 선택한다. 본문(제1~31조)은 고정, 차이는 별첨2/3/4에 집중.
+   - [조문 자동반영] majorityCriteria·agentBank·includeArt21·builderName → annex.ts 별첨4
+   - [프로파일 기록] 나머지 → 계약 프로파일·메모 컨텍스트 (조문 연동 예정)
+   ================================================================ */
+import { useContractStore } from "@/lib/store/contractStore";
+import type { ContractForm } from "@/lib/engine/model";
+
+type CC = ContractForm["docContents"]["contract"];
+
+const COLLATERAL_TYPES: { v: NonNullable<CC["collateralType"]>; l: string }[] = [
+  { v: "land", l: "토지담보" },
+  { v: "apartment", l: "공동주택" },
+  { v: "mixed", l: "주상복합" },
+  { v: "officetel", l: "오피스텔" },
+  { v: "logistics", l: "물류센터" },
+  { v: "solar", l: "태양광 발전" },
+  { v: "etc", l: "기타" },
+];
+
+const LICENSE_TYPES: { v: NonNullable<CC["licenseType"]>; l: string }[] = [
+  { v: "building", l: "건축허가" },
+  { v: "housing", l: "주택건설사업계획승인" },
+  { v: "urban", l: "도시개발사업" },
+  { v: "remodel", l: "대수선" },
+  { v: "none", l: "해당 없음(순수 담보)" },
+];
+
+const MAJORITY: { v: NonNullable<CC["majorityCriteria"]>; l: string }[] = [
+  { v: "half", l: "과반수 초과" },
+  { v: "twothird", l: "3분의 2 초과 (표준)" },
+  { v: "fourfifth", l: "5분의 4 초과" },
+  { v: "unanimous", l: "우선수익자 전원 동의" },
+];
+
+function EngineBadge() {
+  return (
+    <span className="badge ready" style={{ marginLeft: 6, fontSize: 10 }} title="이 선택은 별첨4 신탁특약 조문에 자동 반영됩니다.">
+      조문 자동반영
+    </span>
+  );
+}
+function ProfileBadge() {
+  return (
+    <span className="badge soon" style={{ marginLeft: 6, fontSize: 10 }} title="계약 프로파일·생성 컨텍스트로 기록됩니다. 표준양식 수급 시 해당 조문에 연동됩니다.">
+      프로파일 기록
+    </span>
+  );
+}
+
+export function StepConditions() {
+  const { form, updateDocContent } = useContractStore();
+  const c = (form.docContents.contract || {}) as CC;
+  const set = (patch: Partial<CC>) => updateDocContent("contract", patch as never);
+
+  // 우선수익자 구조 — priorities 중 실제 이름이 있는 행 수로 단독/복수 판정
+  const priorityCount = form.priorities.filter((p) => (p.name || "").trim()).length;
+  const isMulti = priorityCount >= 2;
+
+  const collateralLabel = COLLATERAL_TYPES.find((t) => t.v === (c.collateralType || "land"))?.l;
+  const licenseLabel = LICENSE_TYPES.find((t) => t.v === (c.licenseType || "building"))?.l;
+  const majorityLabel = MAJORITY.find((m) => m.v === (c.majorityCriteria || "twothird"))?.l;
+
+  return (
+    <div className="cond-wrap" style={{ maxWidth: 760 }}>
+      {/* ── 1. 담보물/사업 유형 ── */}
+      <Section title="담보물 / 사업 유형" badge="profile"
+        hint="별첨1 표시 양식과 인허가 특약 분기의 1차 축입니다. (예: 토지담보·공동주택·주상복합·물류·태양광)">
+        <div className="field full">
+          <select className="select" value={c.collateralType || "land"} onChange={(e) => set({ collateralType: e.target.value as CC["collateralType"] })}>
+            {COLLATERAL_TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+          </select>
+        </div>
+      </Section>
+
+      {/* ── 2. 우선수익자 구조 (자동 판정) ── */}
+      <Section title="우선수익자 구조" badge="auto"
+        hint="STEP 02에서 입력한 우선수익자 수로 자동 판정됩니다.">
+        <div className="cond-readout" style={{ padding: "10px 12px", background: "var(--c-paper)", border: "1px solid var(--c-line)", borderRadius: "var(--r-md)", fontSize: 13.5 }}>
+          {priorityCount === 0 ? (
+            <span className="field-hint" style={{ color: "var(--c-danger)" }}>아직 우선수익자가 입력되지 않았습니다 (STEP 02).</span>
+          ) : (
+            <span>
+              현재 <strong>{priorityCount}인</strong> → <strong>{isMulti ? "복수(대주단) 구조" : "단독 우선수익자"}</strong>
+              {isMulti
+                ? " — 처분 의사결정 정족수·대리금융기관 조항이 의미를 가집니다."
+                : " — 단독이므로 정족수 조항은 사실상 적용되지 않습니다."}
+            </span>
+          )}
+        </div>
+      </Section>
+
+      {/* ── 3. 처분 의사결정 정족수 (복수일 때) ── */}
+      <Section title="처분 의사결정 정족수 (제3조 제3항)" badge="engine"
+        hint="개별 우선수익자의 공매 요청에 따른 공매실행(처분) 결정 기준. 대출약정에서 정한 값을 선택하세요.">
+        <div className="field full">
+          <select className="select" value={c.majorityCriteria || "twothird"}
+            disabled={!isMulti}
+            onChange={(e) => set({ majorityCriteria: e.target.value as CC["majorityCriteria"] })}>
+            {MAJORITY.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}
+          </select>
+          {!isMulti && <div className="field-hint">단독 우선수익자에서는 비활성화됩니다(전원=단독).</div>}
+        </div>
+      </Section>
+
+      {/* ── 4. 대리금융기관 ── */}
+      <Section title="대리금융기관 (제20조)" badge="engine"
+        hint="다수 우선수익자(대주단)가 권한을 위임하는 대리금융기관. 단독이면 보통 미지정입니다.">
+        <label className="inline-check" style={{ marginBottom: 8 }}>
+          <input type="checkbox" checked={!!c.agentBankEnabled}
+            onChange={(e) => set({ agentBankEnabled: e.target.checked, agentBank: e.target.checked ? c.agentBank : "" })} />
+          <span><strong>대리금융기관 지정</strong></span>
+        </label>
+        {c.agentBankEnabled && (
+          <div className="field full">
+            <input className="input" placeholder="예) ○○신용협동조합 / 한국투자증권 주식회사"
+              value={c.agentBank || ""} onChange={(e) => set({ agentBank: e.target.value })} />
+            <div className="field-hint">입력한 회사명이 별첨4 제20조에 자동 기재됩니다(빈 값이면 빈칸 출력).</div>
+          </div>
+        )}
+      </Section>
+
+      {/* ── 5. 인허가 / 건축주 권한 ── */}
+      <Section title="인허가 업무 및 건축주의 권한 (제21조)" badge="engine"
+        hint="인허가 진행 사업이면 포함, 순수 단순담보이면 제외합니다.">
+        <label className="inline-check" style={{ marginBottom: 8 }}>
+          <input type="checkbox" checked={c.includeArt21 !== false}
+            onChange={(e) => set({ includeArt21: e.target.checked })} />
+          <span><strong>제21조 인허가 조항 포함</strong></span>
+        </label>
+        {c.includeArt21 !== false && (
+          <div className="field-grid">
+            <div className="field full">
+              <div className="field-label">건축주(인허가) 명의 <EngineBadge /></div>
+              <select className="select" value={c.builderName || "truster"} onChange={(e) => set({ builderName: e.target.value as CC["builderName"] })}>
+                <option value="truster">위탁자(시행사) 명의 (표준)</option>
+                <option value="trustee">수탁자(신탁사) 명의</option>
+              </select>
+            </div>
+            <div className="field full">
+              <div className="field-label">인허가 유형 <ProfileBadge /></div>
+              <select className="select" value={c.licenseType || "building"} onChange={(e) => set({ licenseType: e.target.value as CC["licenseType"] })}>
+                {LICENSE_TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+              <div className="field-hint">계약서별로 「건축허가」/「주택건설사업계획승인」/「도시개발사업」 등 명칭이 다릅니다.</div>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* ── 6. 처분(공매) 방식 ── */}
+      <Section title="처분(공매) 방식" badge="profile"
+        hint="공매 진행 방식과 수의계약 조건의 케이스별 차이입니다.">
+        <label className="inline-check" style={{ marginBottom: 6 }}>
+          <input type="checkbox" checked={c.onbid !== false} onChange={(e) => set({ onbid: e.target.checked })} />
+          <span>온비드(한국자산관리공사 전자자산처분시스템) 공매 이용</span>
+        </label>
+        <label className="inline-check">
+          <input type="checkbox" checked={c.privateSaleAppraisal6m !== false} onChange={(e) => set({ privateSaleAppraisal6m: e.target.checked })} />
+          <span>수의계약 시 감정평가금액(6개월 이내) 이상 제한</span>
+        </label>
+      </Section>
+
+      {/* ── 7. 보수 / 자금관리 ── */}
+      <Section title="보수 · 자금관리" badge="profile"
+        hint="담보보수 납부 주체와 자금관리계좌 특약 병행 여부.">
+        <div className="field full">
+          <div className="field-label">담보보수 납부 주체</div>
+          <div style={{ display: "flex", gap: 14, marginTop: 6 }}>
+            {(["truster", "priority"] as const).map((v) => (
+              <label key={v} className="inline-check">
+                <input type="radio" name="feePayer" checked={(c.feePayer || "truster") === v} onChange={() => set({ feePayer: v })} />
+                {v === "truster" ? "위탁자" : "우선수익자(안분)"}
+              </label>
+            ))}
+          </div>
+        </div>
+        <label className="inline-check" style={{ marginTop: 10 }}>
+          <input type="checkbox" checked={!!c.fundMgmtAccount} onChange={(e) => set({ fundMgmtAccount: e.target.checked })} />
+          <span>자금관리계좌(자금집행요청·별첨5) 특약 병행</span>
+        </label>
+      </Section>
+
+      {/* ── 8. 담보 차수 ── */}
+      <Section title="담보 차수" badge="profile"
+        hint="추가담보(2·3차)는 선순위 잔존 전제·조사분석서 생략 등 차이가 있습니다.">
+        <div style={{ display: "flex", gap: 14, marginTop: 2 }}>
+          {(["new", "additional"] as const).map((v) => (
+            <label key={v} className="inline-check">
+              <input type="radio" name="collateralOrder" checked={(c.collateralOrder || "new") === v} onChange={() => set({ collateralOrder: v })} />
+              {v === "new" ? "신규(1차) 담보" : "추가(2·3차) 담보"}
+            </label>
+          ))}
+        </div>
+      </Section>
+
+      {/* ── 계약 프로파일 요약 ── */}
+      <div className="panel-footnote" style={{ marginTop: 22 }}>
+        <strong>📋 계약 프로파일 요약</strong>
+        <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
+          <li>유형: <strong>{collateralLabel}</strong> · 인허가: {c.includeArt21 === false ? "미포함" : licenseLabel} · 차수: {c.collateralOrder === "additional" ? "추가담보" : "신규담보"}</li>
+          <li>우선수익자: {priorityCount}인({isMulti ? "복수" : "단독"}) · 정족수: {isMulti ? majorityLabel : "단독"} · 대리금융기관: {c.agentBankEnabled ? (c.agentBank || "(이름 미입력)") : "미지정"}</li>
+          <li>처분: {c.onbid !== false ? "온비드 공매" : "일반 공매"}{c.privateSaleAppraisal6m !== false ? " · 수의계약 6개월 감정제한" : ""} · 보수납부: {c.feePayer === "priority" ? "우선수익자" : "위탁자"}{c.fundMgmtAccount ? " · 자금관리계좌 병행" : ""}</li>
+        </ul>
+        <div className="field-hint" style={{ marginTop: 8 }}>
+          <span className="badge ready" style={{ fontSize: 10 }}>조문 자동반영</span> 정족수·대리금융기관·인허가 포함·건축주 명의는 별첨4 조문에 즉시 반영됩니다.{" "}
+          <span className="badge soon" style={{ fontSize: 10 }}>프로파일 기록</span> 나머지는 계약 프로파일로 기록되며, 회사 표준양식(.docx) 수급 시 해당 조문에 연동됩니다.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, hint, badge, children }: {
+  title: string; hint?: string; badge?: "engine" | "profile" | "auto"; children: React.ReactNode;
+}) {
+  return (
+    <div className="cond-section" style={{ padding: "16px 0", borderBottom: "1px solid var(--c-line)" }}>
+      <div className="field-label" style={{ fontSize: 15, fontWeight: 700 }}>
+        {title}
+        {badge === "engine" && <EngineBadge />}
+        {badge === "profile" && <ProfileBadge />}
+        {badge === "auto" && <span className="badge" style={{ marginLeft: 6, fontSize: 10 }}>자동 판정</span>}
+      </div>
+      {hint && <div className="field-hint" style={{ marginBottom: 10 }}>{hint}</div>}
+      {children}
+    </div>
+  );
+}

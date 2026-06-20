@@ -6,6 +6,24 @@
 export type PartyType = "법인" | "개인";
 export type InputMethod = "manual" | "ocr";
 
+/** 담보물/사업 유형 — 별첨1 표기·인허가 특약 분기의 1차 축 */
+export type CollateralType =
+  | "land" // 토지담보
+  | "apartment" // 공동주택
+  | "mixed" // 주상복합
+  | "officetel" // 오피스텔
+  | "logistics" // 물류센터
+  | "solar" // 태양광 발전
+  | "etc"; // 기타
+
+/** 인허가 유형 — 제21조 인허가 업무 조항의 명칭 분기 */
+export type LicenseType =
+  | "building" // 건축허가
+  | "housing" // 주택건설사업계획승인
+  | "urban" // 도시개발사업
+  | "remodel" // 대수선
+  | "none"; // 해당 없음(순수 담보)
+
 /** 위탁자·채무자·수익자·우선수익자 공통 관계사 */
 export interface Party {
   type: PartyType;
@@ -56,12 +74,21 @@ export interface DocContents {
     extraNotes: string;
   };
   contract: {
-    // 별첨4 특약 가변 4요소 (annex.ts getAnnex4Options 가 읽는 키)
+    // 별첨4 특약 가변 4요소 (annex.ts getAnnex4Options 가 읽는 키) — 조문 자동 반영
     majorityCriteria: "half" | "twothird" | "fourfifth" | "unanimous"; // 제3조3항 기준
-    agentBank: string; // 제20조 대리금융기관명
+    agentBank: string; // 제20조 대리금융기관명 (빈 값 = 미지정)
     includeArt21: boolean; // 제21조 인허가 조항 포함 여부 (기본 true)
     builderName: "truster" | "trustee"; // 제21조 건축주 명의
     notes: string;
+    // ── 경우의 수 (실제 계약서 차이 기반) — 계약 프로파일로 기록·요약, 일부는 조문 연동 예정 ──
+    collateralType?: CollateralType; // 담보물/사업 유형 (토지담보·공동주택·주상복합·오피스텔·물류·태양광·기타)
+    licenseType?: LicenseType; // 인허가 유형 (건축허가·주택건설사업계획승인·도시개발사업·대수선·해당없음)
+    agentBankEnabled?: boolean; // 대리금융기관 지정 여부 (false=단독/미지정)
+    onbid?: boolean; // 공매 시 온비드(한국자산관리공사) 이용
+    privateSaleAppraisal6m?: boolean; // 수의계약 시 감정평가 6개월 이내 제한
+    fundMgmtAccount?: boolean; // 자금관리계좌(자금집행) 특약 병행
+    feePayer?: "truster" | "priority"; // 담보보수 납부 주체 (위탁자 / 우선수익자)
+    collateralOrder?: "new" | "additional"; // 담보 차수 (신규 1차 / 추가 2·3차)
   };
   poa: { scope?: string; delegatee?: string; notes: string };
   valReport: { principalValue?: string; valuationDate?: string; valuationMethod?: string; notes: string };
@@ -166,6 +193,14 @@ export function blankContractForm(): ContractForm {
         includeArt21: true,
         builderName: "truster",
         notes: "",
+        collateralType: "land",
+        licenseType: "building",
+        agentBankEnabled: false,
+        onbid: true,
+        privateSaleAppraisal6m: true,
+        fundMgmtAccount: false,
+        feePayer: "truster",
+        collateralOrder: "new",
       },
       poa: { notes: "" },
       valReport: { notes: "" },

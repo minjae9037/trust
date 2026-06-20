@@ -28,6 +28,8 @@ interface ContractState {
   jointForm: JointForm;
   currentContractId: string | null;
   title: string;
+  /** 마지막 저장(또는 불러오기) 시점의 form 직렬화 스냅샷. 미저장 변경 감지용. null=아직 저장 안 됨 */
+  savedHash: string | null;
 
   // 네비게이션
   setDocType: (id: string) => void;
@@ -64,6 +66,8 @@ interface ContractState {
   // 저장/재개
   setTitle: (t: string) => void;
   setCurrentContractId: (id: string | null) => void;
+  /** 현재 form을 "저장됨" 기준선으로 기록 (저장 성공 직후 호출) */
+  markSaved: () => void;
   loadContract: (row: {
     id: string;
     doc_type: string;
@@ -87,6 +91,7 @@ export const useContractStore = create<ContractState>((set) => ({
   jointForm: blankJointForm(),
   currentContractId: null,
   title: "",
+  savedHash: null,
 
   setDocType: (id) => set({ docTypeId: id }),
   setCategory: (c) => set({ category: c }),
@@ -159,16 +164,27 @@ export const useContractStore = create<ContractState>((set) => ({
 
   setTitle: (t) => set({ title: t }),
   setCurrentContractId: (id) => set({ currentContractId: id }),
-  loadContract: (row) =>
+  markSaved: () => set((st) => ({ savedHash: JSON.stringify(st.form) })),
+  loadContract: (row) => {
+    // 얕은 스프레드는 구버전 저장본의 docContents가 일부 서류 키를 누락하면
+    // 그대로 비게 된다(예: c.appform 미존재 → validate 등에서 크래시). docContents는
+    // 한 단계 더 병합해 모든 서류 키의 기본 구조를 보장한다.
+    const base = blankContractForm();
+    const merged: ContractForm = { ...base, ...row.form_data };
+    merged.docContents = { ...base.docContents, ...(merged.docContents ?? {}) };
+    const loaded = withRecalc(merged);
     set({
       docTypeId: row.doc_type,
       category: (row.category as Category) || "new",
       title: row.title,
       currentContractId: row.id,
-      form: withRecalc({ ...blankContractForm(), ...row.form_data }),
+      form: loaded,
+      // 불러온 직후 = 저장본과 동일 상태 → 기준선으로 기록(미저장 변경 false)
+      savedHash: JSON.stringify(loaded),
       tab: 1,
       step: 1,
-    }),
+    });
+  },
 
   reset: () =>
     set({
@@ -180,12 +196,29 @@ export const useContractStore = create<ContractState>((set) => ({
       jointForm: blankJointForm(),
       currentContractId: null,
       title: "",
+      savedHash: null,
     }),
 }));
 
 /* common 패치 후 파생값 재계산 */
 function withRecalcState(form: ContractForm, common: ContractForm["common"]) {
   return { form: recalcDerived({ ...form, common }) };
+}
+
+/**
+ * 미저장 변경 여부.
+ * - savedHash 존재(저장/불러오기 1회 이상): 현재 form이 그 스냅샷과 다르면 dirty.
+ * - savedHash null(아직 한 번도 저장 안 함): 빈 양식에서 입력이 시작됐으면 dirty,
+ *   손대지 않은 빈 양식이면 false(불필요한 "저장 필요" 노이즈 방지).
+ */
+let _blankHash: string | null = null;
+export function isFormDirty(form: ContractForm, savedHash: string | null): boolean {
+  const cur = JSON.stringify(form);
+  if (savedHash === null) {
+    if (_blankHash === null) _blankHash = JSON.stringify(blankContractForm());
+    return cur !== _blankHash;
+  }
+  return cur !== savedHash;
 }
 
 /* ---------------- deep merge (Claude 부분 패치용) ---------------- */

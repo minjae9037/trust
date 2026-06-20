@@ -373,6 +373,16 @@ body {
     background: rgba(255,255,255,0.25);
     color: var(--c-paper);
   }
+  /* 서류 생성 가능 여부 마커 (검증 게이트 연동) */
+  .sub-step-flag {
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .sub-step-flag.ok { color: var(--c-success); }
+  .sub-step-flag.warn { color: var(--c-danger); }
+  .sub-step.active .sub-step-flag.ok,
+  .sub-step.active .sub-step-flag.warn { color: var(--c-paper); }
 
   /* TOP BAR brand hover effect */
   .brand { transition: opacity 0.2s; }
@@ -462,35 +472,55 @@ body {
     border-bottom: 1px dotted var(--c-line);
   }
   .step-section:first-child { margin-top: 0; }
-  .step {
+  .stepper-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 0;
+    gap: 16px;            /* 숫자 ↔ 글자 간격 확대 */
+    padding: 13px 8px;    /* 문장 위아래 간격 확대 */
+    border-radius: var(--r-md);
     cursor: pointer;
     color: var(--c-ink-mute);
-    font-size: 12.5px;
-    transition: all 0.2s;
+    font-size: 13px;
+    line-height: 1.5;     /* 줄바꿈되는 항목의 줄 간격 */
+    transition: all 0.18s;
   }
-  .step:hover { color: var(--c-ink); }
-  .step.active { color: var(--c-ink); font-weight: 700; }
-  .step.done { color: var(--c-ink-soft); }
-  .step-num {
-    width: 22px;
-    height: 22px;
+  .stepper-item:hover { color: var(--c-ink); background: var(--c-bg-soft, rgba(0,0,0,0.025)); }
+  .stepper-item.active { color: var(--c-ink); font-weight: 700; background: var(--c-bg-soft, rgba(0,0,0,0.04)); }
+  .stepper-item.done { color: var(--c-ink-soft); }
+  .stepper-num {
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     border: 1px solid var(--c-line);
-    background: var(--c-paper);
+    /* 입체(엠보싱) 배지 효과 */
+    background: linear-gradient(145deg, #ffffff 0%, #ece3d2 100%);
+    box-shadow: 0 1px 2px rgba(60,40,20,0.16), inset 0 1px 0 rgba(255,255,255,0.85);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--c-ink-soft);
     flex-shrink: 0;
-    transition: all 0.2s;
+    transition: all 0.18s;
   }
-  .step.active .step-num { border-color: var(--c-brown); background: var(--c-brown); color: var(--c-paper); }
-  .step.done .step-num { border-color: var(--c-success); background: var(--c-success); color: var(--c-paper); }
+  .stepper-item:hover .stepper-num { transform: translateY(-1px); }
+  .stepper-item.active .stepper-num {
+    border-color: var(--c-brown);
+    background: linear-gradient(145deg, #b98a5a 0%, var(--c-brown) 60%, #6f4f31 100%);
+    color: #fff;
+    box-shadow: 0 3px 7px rgba(120,80,40,0.38), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .stepper-item.done .stepper-num {
+    border-color: var(--c-success);
+    background: linear-gradient(145deg, #5fb87e 0%, var(--c-success) 70%, #2f7a4f 100%);
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(40,120,70,0.34), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  /* 진행단계 사이드바 readiness 배지 (sub-step pill과 동일 의미: ✓ 생성가능 / ⚠ 필수입력 누락) */
+  .stepper-flag { margin-left: auto; font-size: 11px; line-height: 1; flex-shrink: 0; }
+  .stepper-flag.ok { color: var(--c-success); }
+  .stepper-flag.warn { color: var(--c-danger); }
 
   /* ============================================================
      FORM PANEL

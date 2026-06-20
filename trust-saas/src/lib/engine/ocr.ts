@@ -33,28 +33,45 @@ function cleanText(s: string): string {
   return (s || "").replace(/\s+/g, " ").trim();
 }
 
-/* ---- 동적 스크립트 로더 (public/lib) ---- */
+/* ---- 에셋 경로 (GitHub Pages basePath 대응) ----
+   배포 환경(서브경로)에서 /lib 절대경로가 404 나는 것을 방지. NEXT_PUBLIC_BASE_PATH 가
+   설정되면(예: "/trust-saas") 그 접두어를 붙이고, 없으면(dev·Vercel) 빈 문자열. */
+const ASSET_PREFIX = process.env.NEXT_PUBLIC_BASE_PATH || "";
+const LIB = `${ASSET_PREFIX}/lib`;
+
+/* ---- 동적 스크립트 로더 (public/lib) ----
+   실패한 <script> 태그가 DOM에 남아 다음 호출에서 "로드된 것"으로 오인되지 않도록,
+   성공 태그만 data-loaded 로 표시하고 실패/미완료 태그는 제거 후 재시도한다. */
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-src="${src}"]`);
+    if (existing && existing.dataset.loaded === "1") return resolve();
+    if (existing) existing.remove();
     const s = document.createElement("script");
     s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`스크립트 로드 실패: ${src}`));
+    s.dataset.src = src;
+    s.onload = () => {
+      s.dataset.loaded = "1";
+      resolve();
+    };
+    s.onerror = () => {
+      s.remove();
+      reject(new Error(`스크립트 로드 실패: ${src}`));
+    };
     document.head.appendChild(s);
   });
 }
 
 async function ensurePdfjs(): Promise<any> {
-  if (!(window as any).pdfjsLib) await loadScript("/lib/pdfjs/pdf.min.js");
+  if (!(window as any).pdfjsLib) await loadScript(`${LIB}/pdfjs/pdf.min.js`);
   const lib = (window as any).pdfjsLib;
   if (!lib) throw new Error("pdf.js 로드 실패");
-  lib.GlobalWorkerOptions.workerSrc = "/lib/pdfjs/pdf.worker.min.js";
+  lib.GlobalWorkerOptions.workerSrc = `${LIB}/pdfjs/pdf.worker.min.js`;
   return lib;
 }
 
 async function ensureTesseract(): Promise<any> {
-  if (!(window as any).Tesseract) await loadScript("/lib/tesseract/tesseract.min.js");
+  if (!(window as any).Tesseract) await loadScript(`${LIB}/tesseract/tesseract.min.js`);
   const T = (window as any).Tesseract;
   if (!T) throw new Error("tesseract.js 로드 실패");
   return T;
@@ -72,9 +89,9 @@ class OcrEngine {
       const Tesseract = await ensureTesseract();
       this.onProgress?.({ status: "loading-engine", progress: 0 });
       const w = await Tesseract.createWorker("kor", 1, {
-        workerPath: "/lib/tesseract/worker.min.js",
-        corePath: "/lib/tesseract/",
-        langPath: "/lib/tesseract/",
+        workerPath: `${LIB}/tesseract/worker.min.js`,
+        corePath: `${LIB}/tesseract/`,
+        langPath: `${LIB}/tesseract/`,
         gzip: false,
         cacheMethod: "none",
         workerBlobURL: true,

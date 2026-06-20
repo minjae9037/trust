@@ -1,0 +1,21 @@
+# 24시간 연속 개발 워크로그 — 2026-06-21
+
+> 형식: `- HH:MM [팀] 작업 / 검증결과 / 다음스텝`. 연속 워커가 iteration마다 append.
+
+- 00:12 [개발] **dirty 가드 확장 — 위저드 미저장 상태에서 다른 계약 열기(loadContract) 시 유실 경고 (직전 iteration 다음스텝·백로그 기술부채 마감).**
+  - 문제: 위저드에서 입력/편집 후(미저장) "내 계약"으로 이동(뷰 전환은 form 보존) → 다른 계약 **열기**를 누르면 `loadContract`가 현재 form을 **조용히 덮어써** 미저장 입력이 유실. `goHome`/`beforeunload`는 이미 가드되어 있었으나 이 경로만 무방비였음(localStorage 무자동저장 구조의 마지막 유실 갭).
+  - 작업(1파일): `TrustApp.tsx`의 `openContract(row)`에 가드 추가 — `isFormDirty(store.form, store.savedHash)`가 true면 `confirm("저장되지 않은 변경이 있습니다. 저장하지 않고 다른 계약을 열까요?")`로 확인, 취소 시 `return`(로드 차단). 기존 `goHome` 가드와 동일 패턴·동일 인프라(savedHash/isFormDirty) 재사용. 조문·엔진·DOCX·저장로직 무손상(뷰 전환 가드 UX만).
+  - 검증결과: 회귀 가드 `scripts/verify-dirty-tracking.mjs`에 [G] 시나리오 추가(편집된 계약에서 다른 계약 열기→가드 발동 dirty=true, 로드 후 새 기준선 dirty=false) → **9/9 PASS**(기존 7 + 신규 2). `npx tsc --noEmit` **EXIT 0** / `npx next build` **EXIT 0**(전 8라우트). `next dev -p 3100`+Playwright **실동작 가시 확인**: 계약 A 저장→위탁자명 재편집(`● 저장되지 않은 변경`)→내 계약→열기 클릭 시 confirm 다이얼로그 "저장되지 않은 변경이 있습니다. 저장하지 않고 다른 계약을 열까요?" 표출, **취소 시 덮어쓰기 차단**(계약목록 유지) 확인. 콘솔 에러는 favicon 404 기존 이슈뿐(변경 무관).
+  - 다음스텝: (개발 후보) dirty 가드 트리오(goHome/beforeunload/loadContract) 완비 → 유실 경로 마감. 남은 후보=`priorityRankLabel` 공동순위(동순위) 라벨(UX 정의 선행 필요). (사업) verbatim 실물 대조 마감 대기. (마케팅) 상표·도메인 조회 미결.
+
+- 00:16 [개발] **위저드 서류별 생성 가능 여부(readiness) 마커 — 검증 게이트를 네비에서 한눈에 (전체 플로우 손질 + 위저드 UX 정비).**
+  - 배경/문제: 검증 게이트(`validateDoc`)·미리보기 2분할은 이미 `DocStep.tsx`에 구현·연결되어 있었으나(확인 완료), 게이트 안내는 **각 서류 step에 직접 들어가야만** 보였다. 7종 서류 중 어떤 게 필수 입력 누락으로 생성 불가인지 위저드에서 한눈에 알 수 없어, 사용자가 Doc 01~07을 일일이 클릭해 확인해야 하는 UX 갭.
+  - 작업(2파일): ①`Wizard.tsx` — `docReady` 맵(`useMemo`로 `STEPS` 중 docId 있는 서류 step마다 `validateDoc(form, docId).ok` 계산, form 변경 시 재산정) 추가. tab3 서류 sub-step pill에 ✓(생성 가능)/⚠(필수 입력 누락) 마커 + `title`/`aria-label` 표출. 비서류 step(관계사·조건)엔 마커 없음. ②`globals.css` — `.sub-step-flag.ok`(success)/`.warn`(danger), active pill에선 흰색. **기존 `validateDoc` 그대로 재사용 — 조문·엔진·DOCX·검증로직 무손상**(네비 표시 UX만).
+  - 검증결과: 신규 회귀 가드 `scripts/verify-doc-readiness.mjs` **13/13 PASS**([A]빈양식→7종 전부 ⚠, [B]공통필수만→appform·valReport만 ⚠ 나머지 5종 ✓, [C]가격·원본가액까지→7종 전부 ✓, [D]마커 대상=docId 보유 서류 5+7 분리). `npx tsc --noEmit` **EXIT 0** / `npx next build` **EXIT 0**(전 8라우트). `next dev -p 3100`+Playwright **실동작 가시 확인**: 빈 양식 시 Doc 01~07 전부 ⚠(`doc-readiness-warn.png`)→위탁자명·우선수익자명·대출금액·물건소재지 입력 후 tab3 복귀 시 Doc 02·03·05·06·07 ✓로 **즉시 전환**, Doc 01(가격)·Doc 04(원본가액)만 ⚠ 유지(`doc-readiness-mixed.png`, 시나리오 [B] 일치). 콘솔 에러는 favicon 404 기존 이슈뿐(변경 무관).
+  - 다음스텝: (개발 후보) 좌측 `진행 단계`(stepper) 사이드바는 `stepper-item`/`stepper-num` CSS 미정의로 무스타일 렌더 중 — 별도 iteration에서 스타일 보강+동일 readiness 배지 검토. 남은 후보=`priorityRankLabel` 공동순위 라벨(UX 정의 선행). (사업) verbatim 실물 대조 대기. (마케팅) 상표·도메인 조회 미결.
+
+- 00:24 [개발] **위저드 좌측 `진행 단계`(stepper) 사이드바 무스타일 수정 + readiness 배지 통일 (직전 iteration 다음스텝·백로그 기술부채 마감).**
+  - 문제: `Wizard.tsx`는 좌측 사이드바 항목에 `.stepper-item`/`.stepper-num` 클래스를 쓰는데 `globals.css`엔 동일 디자인이 **죽은 `.step`/`.step-num`** 선택자로만 정의돼 있어(클래스명 drift) 항목이 **무스타일 평문**으로 렌더(번호 원형 배지·활성 하이라이트·hover 모두 미적용). 11종 코드 사용처 전수 확인 결과 `.step`/`.step-num`은 **어떤 컴포넌트도 사용하지 않는 죽은 CSS**였음(유일 소비자 Wizard.tsx는 stepper-* 사용).
+  - 작업(2파일): ①`globals.css` — 죽은 `.step`/`.step-num` 선택자(hover/active/done/num 전 규칙)를 실제 사용명 `.stepper-item`/`.stepper-num`으로 **개명**(의도된 디자인이 실 마크업에 적용). + 진행단계 readiness 배지 `.stepper-flag`(`.ok` success/`.warn` danger, `margin-left:auto` 우측 정렬) 신규. ②`Wizard.tsx` — stepper 항목에 sub-step pill과 **동일 패턴**의 ✓(생성가능)/⚠(필수입력 누락) 배지 추가(기존 `docReady` 맵 그대로 재사용, `title`/`aria-label` 동반). **조문·엔진·DOCX·검증로직 무손상**(사이드바 표시 UX·CSS만).
+  - 검증결과: 신규 회귀 가드 `scripts/verify-stepper-styling.mjs` **15/15 PASS**([A]Wizard 사용 stepper 클래스 5종 전부 globals.css 정의 존재, [B]죽은 `.step`/`.step-num` 잔존 없음, [C]`.stepper-flag.ok/.warn` 정의 + sub-step 대조) — 동일 유형 클래스 drift 재발 정적 차단. `npx tsc --noEmit` **EXIT 0** / `npx next build` **EXIT 0**(전 8라우트). `next dev -p 3100`+Playwright **실동작 가시 확인**: 위저드 진입 시 좌측 `진행 단계` 12항목이 번호 원형 배지(22×22 border-radius 50%·1px border)+flex 정렬+활성항목 브라운 하이라이트로 정상 렌더, 빈 양식 시 서류 7종 stepper 항목에 ⚠(danger color) 우측 표출(`stepper-styled-empty.png`, 직전 sub-step pill과 동일 판정). 콘솔 에러는 favicon 404 기존 이슈뿐(변경 무관).
+  - 다음스텝: (개발 후보) 데스크톱 stepper UX 마감 → 남은 후보=`priorityRankLabel` 공동순위(동순위) 라벨(UX 정의 선행 필요), 모바일(<980px) stepper는 의도적 `display:none`이라 별도 진행표시 검토 가능. (사업) verbatim 실물 대조 대기. (마케팅) 상표·도메인 조회 미결.

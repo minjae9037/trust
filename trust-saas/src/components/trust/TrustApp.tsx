@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useContractStore } from "@/lib/store/contractStore";
+import { useContractStore, isFormDirty } from "@/lib/store/contractStore";
 import {
   DOCUMENT_TYPES,
   CATEGORIES,
@@ -52,6 +52,14 @@ export function TrustApp() {
   }, []);
 
   function goHome() {
+    // 위저드에서 미저장 변경이 있으면 초기화(reset) 전 확인 — 데이터 유실 방지
+    if (
+      view === "wizard" &&
+      isFormDirty(store.form, store.savedHash) &&
+      !confirm("저장되지 않은 변경이 있습니다. 저장하지 않고 처음으로 돌아갈까요?")
+    ) {
+      return;
+    }
     reset();
     setCompany(null);
     setView("company");
@@ -79,6 +87,14 @@ export function TrustApp() {
     setView("wizard");
   }
   function openContract(row: ContractRow) {
+    // 위저드에 미저장 변경이 있는데 다른 계약을 열면 loadContract가 현재 form을
+    // 조용히 덮어쓴다(데이터 유실). 덮어쓰기 전 확인 — goHome과 동일 가드.
+    if (
+      isFormDirty(store.form, store.savedHash) &&
+      !confirm("저장되지 않은 변경이 있습니다. 저장하지 않고 다른 계약을 열까요?")
+    ) {
+      return;
+    }
     loadContract(row);
     setView("wizard");
   }
@@ -172,10 +188,33 @@ export function TrustApp() {
 }
 
 function SaveBar() {
-  const { form, docTypeId, category, title, setTitle, currentContractId, setCurrentContractId } =
-    useContractStore();
+  const {
+    form,
+    docTypeId,
+    category,
+    title,
+    setTitle,
+    currentContractId,
+    setCurrentContractId,
+    savedHash,
+    markSaved,
+  } = useContractStore();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // 미저장 변경 여부 — 저장 기준선(savedHash)과 현재 form 비교
+  const dirty = isFormDirty(form, savedHash);
+
+  // 미저장 변경이 있을 때 탭 닫기/새로고침 시 이탈 경고(데이터 유실 방지)
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   async function save() {
     setBusy(true);
@@ -189,6 +228,7 @@ function SaveBar() {
         formData: form,
       });
       setCurrentContractId(id);
+      markSaved(); // 현재 form을 저장됨 기준선으로 기록 → dirty=false
       setMsg("✓ 저장됨");
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
@@ -206,10 +246,26 @@ function SaveBar() {
         onChange={(e) => setTitle(e.target.value)}
         style={{ maxWidth: 320 }}
       />
-      <button className="btn btn-ghost btn-sm" onClick={save} disabled={busy}>
+      <button
+        className={"btn btn-sm " + (dirty ? "btn-primary" : "btn-ghost")}
+        onClick={save}
+        disabled={busy}
+      >
         💾 저장
       </button>
-      {msg && <span className="field-hint">{msg}</span>}
+      {/* 저장 상태 표시: 변경됨(미저장) ↔ 저장됨 */}
+      {dirty ? (
+        <span className="field-hint" style={{ color: "var(--c-danger)" }}>
+          ● 저장되지 않은 변경
+        </span>
+      ) : (
+        currentContractId && (
+          <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}>
+            ✓ 저장됨
+          </span>
+        )
+      )}
+      {msg && msg.startsWith("오류") && <span className="field-hint" style={{ color: "var(--c-danger)" }}>{msg}</span>}
     </div>
   );
 }

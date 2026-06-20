@@ -61,7 +61,7 @@ export const CATEGORIES: CategoryDef[] = [
     id: "new",
     label: "신규",
     name: "신규 계약",
-    desc: "계약 체결을 위한 관계사 정보 입력, 계약 조건, 서류 생성",
+    desc: "관계사 입력 → 계약 조건·특약(경우의 수) 선택 → 7종 서류 생성",
     ready: true,
   },
   {
@@ -120,13 +120,14 @@ export const STEPS: StepDef[] = [
   { idx: 3, tab: 1, key: "loanCalc", label: "STEP 02-1", title: "우선수익한도금액 산정", desc: "각 우선수익자의 대출금액과 비율(100~150%)을 입력하면 우선수익한도금액이 자동 산정됩니다." },
   { idx: 4, tab: 1, key: "property", label: "STEP 03", title: "신탁 부동산 목록", desc: "토지·건물 등기부등본 PDF 업로드 또는 직접 입력으로 부동산 목록 작성." },
   { idx: 5, tab: 2, key: "basic", label: "STEP 04", title: "계약 기본 정보", desc: "계약 체결일, 신탁보수, 신탁보수율(우선수익한도금액 대비), 신탁기간 등 공통 항목." },
-  { idx: 6, tab: 3, key: "doc1", label: "Doc 01", docId: "appform", title: "담보신탁 신청 및 우선수익권증서 발급의뢰서", desc: "신청서 고유 정보를 입력한 뒤 파일로 생성합니다." },
-  { idx: 7, tab: 3, key: "doc2", label: "Doc 02", docId: "contract", title: "담보신탁계약서", desc: "본 계약서 고유 정보(특약사항 등)를 입력한 뒤 파일로 생성합니다." },
-  { idx: 8, tab: 3, key: "doc3", label: "Doc 03", docId: "poa", title: "위임장", desc: "위임 범위·수임자 등 위임장 고유 정보를 입력한 뒤 파일로 생성합니다." },
-  { idx: 9, tab: 3, key: "doc4", label: "Doc 04", docId: "valReport", title: "신탁재산 원본가액 신고서", desc: "신탁재산의 원본가액(평가액)·평가기준일 등을 입력한 뒤 파일로 생성합니다." },
-  { idx: 10, tab: 3, key: "doc5", label: "Doc 05", docId: "boardMin", title: "이사회 의사록(위탁자)", desc: "위탁자(법인) 이사회의 담보신탁 결의 의사록 정보를 입력한 뒤 파일로 생성합니다." },
-  { idx: 11, tab: 3, key: "doc6", label: "Doc 06", docId: "cdd", title: "고객거래확인서", desc: "특정금융정보법(특금법)상 거래 목적·자금 출처 등 정보를 입력한 뒤 파일로 생성합니다." },
-  { idx: 12, tab: 3, key: "doc7", label: "Doc 07", docId: "ubo", title: "실제소유자확인서", desc: "실제 소유자(25% 이상 지분 보유자) 정보를 입력한 뒤 파일로 생성합니다." },
+  { idx: 6, tab: 2, key: "conditions", label: "STEP 05", title: "계약 조건·특약 (경우의 수)", desc: "실제 계약서마다 달라지는 항목을 한 곳에서 선택합니다. 선택값은 별첨4 신탁특약 조문에 자동 반영되거나 계약 프로파일로 기록됩니다." },
+  { idx: 7, tab: 3, key: "doc1", label: "Doc 01", docId: "appform", title: "담보신탁 신청 및 우선수익권증서 발급의뢰서", desc: "신청서 고유 정보를 입력한 뒤 파일로 생성합니다." },
+  { idx: 8, tab: 3, key: "doc2", label: "Doc 02", docId: "contract", title: "담보신탁계약서", desc: "특약 등 계약 조건은 STEP 05에서 선택합니다. 여기서는 메모만 추가 후 파일로 생성합니다." },
+  { idx: 9, tab: 3, key: "doc3", label: "Doc 03", docId: "poa", title: "위임장", desc: "위임 범위·수임자 등 위임장 고유 정보를 입력한 뒤 파일로 생성합니다." },
+  { idx: 10, tab: 3, key: "doc4", label: "Doc 04", docId: "valReport", title: "신탁재산 원본가액 신고서", desc: "신탁재산의 원본가액(평가액)·평가기준일 등을 입력한 뒤 파일로 생성합니다." },
+  { idx: 11, tab: 3, key: "doc5", label: "Doc 05", docId: "boardMin", title: "이사회 의사록(위탁자)", desc: "위탁자(법인) 이사회의 담보신탁 결의 의사록 정보를 입력한 뒤 파일로 생성합니다." },
+  { idx: 12, tab: 3, key: "doc6", label: "Doc 06", docId: "cdd", title: "고객거래확인서", desc: "특정금융정보법(특금법)상 거래 목적·자금 출처 등 정보를 입력한 뒤 파일로 생성합니다." },
+  { idx: 13, tab: 3, key: "doc7", label: "Doc 07", docId: "ubo", title: "실제소유자확인서", desc: "실제 소유자(25% 이상 지분 보유자) 정보를 입력한 뒤 파일로 생성합니다." },
 ];
 
 export const TAB_LABELS: Record<number, string> = {
@@ -162,11 +163,7 @@ export const DOC_FIELDS: Record<DocId, DocField[]> = {
     { key: "extraNotes", type: "textarea", label: "특이사항 (추가 기재)", hint: "표준 11개 문구 다음에 추가로 기재됩니다." },
   ],
   contract: [
-    { key: "majorityCriteria", type: "select", label: "제3조 제3항 — 다수우선수익자 의사결정 기준", hint: "개별 우선수익자의 공매 요청에 따른 공매실행(처분) 결정 기준. 대출약정에서 정한 값을 선택하세요.", options: [{ v: "half", l: "과반수 초과" }, { v: "twothird", l: "3분의 2 초과 (표준)" }, { v: "fourfifth", l: "5분의 4 초과" }, { v: "unanimous", l: "우선수익자 전원 동의" }], default: "twothird" },
-    { key: "agentBank", type: "text", label: "제20조 — 대리금융기관 (회사명)", hint: "우선수익자 전원이 선임하는 대리금융기관. 비워두면 조항에 빈칸으로 출력됩니다.", placeholder: "예) ○○신용협동조합" },
-    { key: "includeArt21", type: "toggle", label: "제21조 — 인허가 업무 및 건축주의 권한 조항", hint: "인허가 진행 사업이면 포함. 인허가·대수선·기타 용처가 전혀 없는 순수 단순담보일 때만 제외합니다.", default: true },
-    { key: "builderName", type: "select", label: "제21조 — 건축주(인허가) 명의", hint: "제21조 포함 시에만 적용. 건축허가(사업계획승인 등) 명의를 누구로 둘지 선택합니다.", options: [{ v: "truster", l: "위탁자(시행사) 명의 (표준)" }, { v: "trustee", l: "수탁자(신탁사) 명의" }], default: "truster" },
-    { key: "notes", type: "textarea", label: "기타 특이사항 / 메모", placeholder: "위 4개 옵션 외에 별첨4에 반영할 사항을 기록 (예: 특정 조항 추가·삭제 요청)" },
+    { key: "notes", type: "textarea", label: "기타 특이사항 / 메모", hint: "특약 조건(정족수·대리금융기관·인허가 등)은 STEP 05 「계약 조건·특약」에서 선택합니다. 여기에는 그 외 별첨4에 반영할 사항을 기록하세요.", placeholder: "예) 특정 조항 추가·삭제 요청, 컨설팅 수수료채권 우선수익자 편입 등" },
   ],
   poa: [
     { key: "scope", type: "textarea", label: "위임 범위", placeholder: "예) 신탁등기 신청 및 부속 절차, 신탁사무 일체" },

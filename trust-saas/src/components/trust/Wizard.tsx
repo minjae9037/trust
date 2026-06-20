@@ -1,12 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
+import { validateDoc } from "@/lib/engine/validate";
 import type { Category } from "@/lib/engine/model";
 import { StepParties, StepPriority } from "./steps/StepParties";
 import { StepLoanCalc } from "./steps/StepLoanCalc";
 import { StepProperty } from "./steps/StepProperty";
 import { StepBasic } from "./steps/StepBasic";
+import { StepConditions } from "./steps/StepConditions";
 import { DocStep } from "./steps/DocStep";
 import { JointForm } from "./JointForm";
 
@@ -38,11 +41,21 @@ function FundPlaceholder({ docName }: { docName: string }) {
 }
 
 function CollateralWizard({ docName, category }: { docName: string; category: Category }) {
-  const { tab, step, setTab, setStep } = useContractStore();
+  const { form, tab, step, setTab, setStep } = useContractStore();
 
   const current = STEPS.find((s) => s.idx === step) || STEPS[0];
   const tabSteps = STEPS.filter((s) => s.tab === tab);
   const totalSteps = STEPS.length;
+
+  // ── 서류별 생성 가능 여부(검증 게이트 재사용) — 각 서류 step에 들어가지 않고도
+  //    어떤 서류가 필수 입력 누락으로 막혔는지 위저드 네비에서 한눈에 표시. (조문·엔진 무손상)
+  const docReady = useMemo(() => {
+    const map: Record<number, boolean> = {};
+    for (const s of STEPS) {
+      if (s.docId) map[s.idx] = validateDoc(form, s.docId).ok;
+    }
+    return map;
+  }, [form]);
 
   function goStep(idx: number) {
     const s = STEPS.find((x) => x.idx === idx);
@@ -57,8 +70,9 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
         <div className="page-eyebrow">{docName}</div>
         <h1 className="page-title">담보신탁계약</h1>
         <p className="page-desc">
-          관계사 정보를 입력하고, 계약 조건을 정한 뒤, 마지막 단계에서 7종 서류를 Word·PDF로
-          생성합니다. (단계: {category === "new" ? "신규" : category})
+          ① 관계사 정보 → ② <strong>계약 조건·특약(경우의 수)</strong> 선택 → ③ 7종 서류 Word·PDF 생성.
+          담보물 유형·우선수익자 구조·정족수·대리금융기관·인허가 등 계약서마다 달라지는 항목은
+          <strong> STEP 05</strong>에서 한 번에 선택합니다. (단계: {category === "new" ? "신규" : category})
         </p>
       </div>
 
@@ -81,32 +95,68 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
 
       {/* 서브스텝 pill */}
       <div className="sub-steps">
-        {tabSteps.map((s) => (
-          <button
-            key={s.idx}
-            className={"sub-step" + (s.idx === step ? " active" : "")}
-            onClick={() => goStep(s.idx)}
-          >
-            {s.label}
-          </button>
-        ))}
+        {tabSteps.map((s) => {
+          const ready = s.docId ? docReady[s.idx] : undefined;
+          return (
+            <button
+              key={s.idx}
+              className={"sub-step" + (s.idx === step ? " active" : "")}
+              onClick={() => goStep(s.idx)}
+              title={
+                ready === undefined
+                  ? undefined
+                  : ready
+                    ? "필수 입력 충족 — 생성 가능"
+                    : "필수 입력 누락 — 입력 후 생성 가능"
+              }
+            >
+              {s.label}
+              {ready !== undefined && (
+                <span
+                  className={"sub-step-flag " + (ready ? "ok" : "warn")}
+                  aria-label={ready ? "생성 가능" : "필수 입력 누락"}
+                >
+                  {ready ? "✓" : "⚠"}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="wizard-layout">
         <aside className="stepper">
           <div className="stepper-title">진행 단계</div>
           <div>
-            {STEPS.map((s) => (
-              <div
-                key={s.idx}
-                className={"stepper-item" + (s.idx === step ? " active" : "")}
-                onClick={() => goStep(s.idx)}
-                style={{ cursor: "pointer" }}
-              >
-                <span className="stepper-num">{s.idx}</span>
-                <span>{s.title}</span>
-              </div>
-            ))}
+            {STEPS.map((s) => {
+              const ready = s.docId ? docReady[s.idx] : undefined;
+              return (
+                <div
+                  key={s.idx}
+                  className={"stepper-item" + (s.idx === step ? " active" : "")}
+                  onClick={() => goStep(s.idx)}
+                  style={{ cursor: "pointer" }}
+                  title={
+                    ready === undefined
+                      ? undefined
+                      : ready
+                        ? "필수 입력 충족 — 생성 가능"
+                        : "필수 입력 누락 — 입력 후 생성 가능"
+                  }
+                >
+                  <span className="stepper-num">{s.idx}</span>
+                  <span>{s.title}</span>
+                  {ready !== undefined && (
+                    <span
+                      className={"stepper-flag " + (ready ? "ok" : "warn")}
+                      aria-label={ready ? "생성 가능" : "필수 입력 누락"}
+                    >
+                      {ready ? "✓" : "⚠"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </aside>
 
@@ -158,6 +208,8 @@ function StepContent({ stepKey, docId }: { stepKey: string; docId?: string }) {
       return <StepProperty />;
     case "basic":
       return <StepBasic />;
+    case "conditions":
+      return <StepConditions />;
     default:
       if (docId) return <DocStep docId={docId as never} />;
       return null;

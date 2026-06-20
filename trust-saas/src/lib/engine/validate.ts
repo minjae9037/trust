@@ -46,14 +46,15 @@ function commonMissing(form: ContractForm): Missing[] {
 /** 서류별 추가 필수 입력 */
 function docMissing(form: ContractForm, docId: DocId): Missing[] {
   const m: Missing[] = [];
-  const c = form.docContents;
+  // 구버전 저장본은 docContents 하위 키가 일부 없을 수 있다 → 옵셔널 체이닝으로 크래시 방지.
+  const c = form.docContents ?? ({} as ContractForm["docContents"]);
   if (docId === "appform") {
-    if (!hasText(c.appform.valuationPrice)) {
+    if (!hasText(c.appform?.valuationPrice)) {
       m.push({ label: "신탁부동산 가격", where: "Doc 01 신청서" });
     }
   }
   if (docId === "valReport") {
-    if (!hasText(c.valReport.principalValue)) {
+    if (!hasText(c.valReport?.principalValue)) {
       m.push({ label: "신탁재산 원본가액", where: "Doc 04 원본가액 신고서" });
     }
   }
