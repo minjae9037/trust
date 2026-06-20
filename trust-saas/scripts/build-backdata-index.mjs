@@ -1,0 +1,150 @@
+/* ================================================================
+   back-data → 상담 RAG 인덱스 빌더 (#3 대량 인제스트)
+   D:\Claude_Cowork\back-data\knowledge\**.md 중 "일반 지침/매뉴얼"만 골라
+   청크로 쪼개 src/lib/advisor/_backdata-index.json 생성(서버 전용·gitignore).
+   ⚠️ 대외비 보호:
+     - allowlist(업무매뉴얼·지침·실무·요령·기준·평가론·방법론 등)만 포함
+     - 딜/고객 특정 문서(IM·사업수지·계약서·심사·제안서·의뢰서·약정서·확약서·
+       투자설명서·확인서·견적·감정평가서·보고서·현황·명세 등) 제외
+     - 산출 JSON은 절대 공개 저장소 커밋 금지(.gitignore 처리됨). 로컬/서버 전용.
+   실행: node scripts/build-backdata-index.mjs
+   ================================================================ */
+import { promises as fs } from "fs";
+import path from "path";
+
+const SRC = "D:\\Claude_Cowork\\back-data\\knowledge";
+const OUT = path.join(process.cwd(), "src", "lib", "advisor", "_backdata-index.json");
+
+// 포함 신호(일반 지식). 경로 또는 파일명에 하나라도 있으면 후보.
+const INCLUDE = /업무매뉴얼|지침|매뉴얼|실무|요령|기준|평가론|방법론|가이드|해설|개론|규정|약관|표준/;
+// 제외 신호(딜/고객 특정). 하나라도 있으면 제외(대외비 우선).
+const EXCLUDE = /IM_|_IM|사업수지|계약서|심사|제안서|의뢰서|약정서|확약서|투자설명서|설명서|확인서|동의서|합의서|현황|명세|내역|견적|감정평가서|보고서|심의|송부|날인|천공|수지분석|매입약정|대출/;
+// 특정사 내부자료(고유명) 폴더/문서 제외 — 발견 시 추가
+const COMPANY_EXCLUDE = /동부건설/;
+// 청크 본문에 남으면 누출로 보고 폐기하는 패턴(경로·원본주석 잔재)
+const LEAK = /Z:\\Drive|W:\\|\\Drive\\|원본\s*:/;
+
+function walk(dir) {
+  return fs.readdir(dir, { withFileTypes: true }).then(async (ents) => {
+    const out = [];
+    for (const e of ents) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) out.push(...(await walk(p)));
+      else if (e.isFile() && e.name.endsWith(".md")) out.push(p);
+    }
+    return out;
+  });
+}
+
+function tokenize(s) {
+  return Array.from(new Set((s.toLowerCase().match(/[가-힣]{2,}|[a-z0-9]{2,}/g) || [])));
+}
+function topTags(text, n = 8) {
+  const freq = new Map();
+  for (const t of tokenize(text)) {
+    if (t.length < 2) continue;
+    freq.set(t, (freq.get(t) || 0) + 1);
+  }
+  return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([t]) => t);
+}
+
+/** 긴 세그먼트를 문장/길이 기준으로 강제 분할(단일 개행 문서 대응) */
+function splitLong(seg, size) {
+  if (seg.length <= size) return [seg];
+  // 문장 경계(…다. / . / ? / !) 우선, 안 되면 하드 컷
+  const sentences = seg.split(/(?<=[다요음함])\.\s|(?<=[.?!])\s/);
+  const out = [];
+  let buf = "";
+  for (const s of sentences) {
+    if (!s) continue;
+    if ((buf + " " + s).length > size && buf) { out.push(buf.trim()); buf = s; }
+    else buf = buf ? buf + " " + s : s;
+    while (buf.length > size * 1.6) { out.push(buf.slice(0, size).trim()); buf = buf.slice(size); }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+
+/** 본문을 ~700자 단위 청크로(문단·줄·문장·길이 다단계 분할) */
+function chunkText(text, size = 700) {
+  // 문단(빈 줄) → 없으면 줄 단위로 1차 세그먼트화
+  let segs = text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+  if (segs.length <= 2) segs = text.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  // 각 세그먼트를 길이 제한으로 강제 분할
+  const pieces = segs.flatMap((s) => splitLong(s, size));
+  // 인접 조각을 ~size 로 재병합
+  const chunks = [];
+  let buf = "";
+  for (const p of pieces) {
+    if ((buf + "\n" + p).length > size && buf) { chunks.push(buf.trim()); buf = p; }
+    else buf = buf ? buf + "\n" + p : p;
+  }
+  if (buf.trim()) chunks.push(buf.trim());
+  return chunks.filter((c) => c.length >= 120 && c.length <= size * 2);
+}
+
+function cleanBase(name) {
+  return name.replace(/\.(pdf|docx|xlsx|hwp)?\.md$/i, "").replace(/\.md$/i, "").replace(/[_]+/g, " ").trim();
+}
+
+async function main() {
+  let files;
+  try {
+    files = await walk(SRC);
+  } catch (e) {
+    console.error("back-data 경로 접근 실패:", SRC, e.message);
+    process.exit(1);
+  }
+
+  const included = [];
+  const excludedByRule = [];
+  const notGeneral = [];
+  for (const f of files) {
+    const rel = f.replace(SRC + "\\", "");
+    const base = path.basename(f);
+    const hay = rel; // 경로+파일명 전체로 판정
+    if (EXCLUDE.test(hay) || COMPANY_EXCLUDE.test(hay)) { excludedByRule.push(rel); continue; }
+    if (!INCLUDE.test(hay)) { notGeneral.push(rel); continue; }
+    included.push({ f, base, rel });
+  }
+
+  const chunks = [];
+  let nDoc = 0;
+  for (const it of included) {
+    let raw;
+    try { raw = await fs.readFile(it.f, "utf8"); } catch { continue; }
+    // 정제: 프런트매터 + 추출 주석(원본 경로·회사명 포함) + 내부경로 줄 제거(대외비 누출 차단)
+    let body = raw.replace(/^---[\s\S]*?---\n/, "");
+    body = body.replace(/<!--[\s\S]*?-->/g, "");           // <!-- 원본: Z:\... --> 주석 제거
+    body = body
+      .split("\n")
+      .filter((ln) => !/(원본\s*:|Z:\\Drive|W:\\|\\Drive\\|^!\[)/.test(ln)) // 경로/이미지 줄 제거
+      .join("\n");
+    const parts = chunkText(body);
+    if (parts.length === 0) continue;
+    nDoc++;
+    const topicBase = cleanBase(it.base);
+    parts.forEach((text, i) => {
+      if (LEAK.test(text) || COMPANY_EXCLUDE.test(text)) return; // 누출/특정사명 잔존 청크 폐기
+      chunks.push({
+        id: `bd-${nDoc}-${i}`,
+        topic: topicBase,
+        tags: topTags(text),
+        text,
+        _src: it.rel, // 출처(서버 로그/디버그용, 클라이언트 노출 안 함)
+      });
+    });
+  }
+
+  await fs.mkdir(path.dirname(OUT), { recursive: true });
+  await fs.writeFile(OUT, JSON.stringify(chunks), "utf8");
+
+  console.log("==== back-data RAG 인덱스 빌드 ====");
+  console.log(`총 .md: ${files.length}`);
+  console.log(`포함(일반지식): 문서 ${included.length} → 청크 ${chunks.length}`);
+  console.log(`제외(딜/고객 특정 규칙): ${excludedByRule.length}`);
+  console.log(`제외(일반지식 아님): ${notGeneral.length}`);
+  console.log(`출력: ${OUT}  (${(JSON.stringify(chunks).length / 1024 / 1024).toFixed(2)} MB, gitignored)`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });

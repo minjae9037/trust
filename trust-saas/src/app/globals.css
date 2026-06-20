@@ -1312,6 +1312,13 @@ body {
 .doc-action-btn { display: inline-block; margin-top: 12px; text-decoration: none; background: linear-gradient(135deg, var(--c-brown), var(--c-brown-deep)); color: #fff; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: var(--r-pill); box-shadow: var(--shadow-sm); transition: transform 0.2s; }
 .doc-action-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 
+/* 상담 답변 피드백 (자가고도화 루프 입력) */
+.advisor-feedback { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--c-line); }
+.advisor-feedback-label { font-size: 12px; color: var(--c-ink-mute); }
+.fb-btn { font-size: 14px; line-height: 1; background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-pill); padding: 5px 10px; cursor: pointer; transition: all 0.15s; }
+.fb-btn:hover { background: var(--c-bg-soft, rgba(0,0,0,0.04)); transform: translateY(-1px); }
+.advisor-feedback-done { font-size: 12px; color: var(--c-blue-deep); }
+
 /* ============================================================
    버튼 시스템 (참조 CSS에 .btn 없어 신규) + 로고/뒤로가기 + 레이아웃 보정
    ============================================================ */

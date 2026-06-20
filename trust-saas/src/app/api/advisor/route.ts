@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { retrieve, formatContext } from "@/lib/advisor/retrieve";
+import { loadBackdataChunks } from "@/lib/advisor/backdata";
+import { logQuery } from "@/lib/advisor/log";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -58,8 +60,19 @@ export async function POST(req: Request) {
 
   // RAG-lite: 최근 사용자 발화로 지식코퍼스 검색 → 근거 주입
   const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
-  const retrieved = lastUser ? retrieve(lastUser.content, 4) : [];
+  // 기본 KNOWLEDGE + (있으면) back-data 인덱스 병합 검색
+  const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
+
+  // [수집] 자가고도화 루프 — 질문·RAG 적중여부 로깅(검색 0건 = 지식 공백 후보)
+  if (lastUser) {
+    void logQuery(
+      lastUser.content,
+      retrieved.length > 0,
+      retrieved[0]?.score ?? 0,
+      retrieved.map((r) => r.chunk.id)
+    );
+  }
 
   const systemBlocks: Anthropic.TextBlockParam[] = [
     { type: "text", text: ADVISOR_PERSONA, cache_control: { type: "ephemeral" } },

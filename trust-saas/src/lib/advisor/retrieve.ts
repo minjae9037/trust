@@ -19,11 +19,12 @@ export interface Retrieved {
  * 질의와 가장 관련 높은 청크 topK 반환.
  * 태그 매칭 가중(3) + 본문 등장(1). 부분문자열(한글 합성어) 매칭 포함.
  */
-export function retrieve(query: string, topK = 3): Retrieved[] {
+export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []): Retrieved[] {
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
 
-  const scored: Retrieved[] = KNOWLEDGE.map((chunk) => {
+  const corpus = extra.length ? [...KNOWLEDGE, ...extra] : KNOWLEDGE;
+  const scored: Retrieved[] = corpus.map((chunk) => {
     const tagBlob = chunk.tags.join(" ").toLowerCase();
     const textBlob = (chunk.topic + " " + chunk.text).toLowerCase();
     let score = 0;

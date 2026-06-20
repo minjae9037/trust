@@ -33,7 +33,24 @@ export function AdvisorChat() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState<Record<number, "up" | "down">>({});
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // [수집] 답변 피드백 — 자가고도화 루프 입력
+  async function sendFeedback(i: number, rating: "up" | "down") {
+    if (feedbackSent[i]) return;
+    const q = msgs[i - 1]?.role === "user" ? msgs[i - 1].content : "";
+    setFeedbackSent((s) => ({ ...s, [i]: rating }));
+    try {
+      await fetch("/api/advisor/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q, rating }),
+      });
+    } catch {
+      /* 피드백 실패는 무시 */
+    }
+  }
 
   function scrollDown() {
     setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 30);
@@ -120,6 +137,21 @@ export function AdvisorChat() {
                   <Link href={`/app?doc=${docId}`} className="doc-action-btn">
                     📄 {DOC_LABEL[docId]} 서류 작성하기 →
                   </Link>
+                )}
+                {body && !busy && (
+                  <div className="advisor-feedback">
+                    {feedbackSent[i] ? (
+                      <span className="advisor-feedback-done">
+                        {feedbackSent[i] === "up" ? "👍 의견 감사합니다" : "👎 더 개선하겠습니다"}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="advisor-feedback-label">이 답변이 도움이 됐나요?</span>
+                        <button className="fb-btn" onClick={() => sendFeedback(i, "up")} title="도움됨">👍</button>
+                        <button className="fb-btn" onClick={() => sendFeedback(i, "down")} title="개선 필요">👎</button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             );
