@@ -1412,6 +1412,12 @@ body {
 .suggest-chip { text-align: left; background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-lg); padding: 13px 15px; font-family: inherit; font-size: 13px; color: var(--c-ink-soft); cursor: pointer; transition: all 0.2s; line-height: 1.45; }
 .suggest-chip:hover { border-color: var(--c-brown); color: var(--c-ink); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 
+/* 새 대화 바 — 대화 시작 후에만 노출(빈 상태엔 숨김). 우측 정렬 고스트 버튼. */
+.advisor-bar { display: flex; justify-content: flex-end; padding: 0 2px 8px; }
+.advisor-newchat { display: inline-flex; align-items: center; gap: 5px; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--c-ink-soft); background: var(--c-paper); border: 1px solid var(--c-line); border-radius: 8px; padding: 5px 12px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.advisor-newchat:hover:not(:disabled) { background: var(--c-paper-soft); color: var(--c-brown-deep); border-color: var(--c-brown); }
+.advisor-newchat:disabled { opacity: 0.5; cursor: default; }
+
 .advisor-msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 2px 16px; }
 .advisor-msg { font-size: 14px; line-height: 1.6; }
 .advisor-msg.user { align-self: flex-end; max-width: 80%; background: var(--c-blue-pastel); padding: 11px 15px; border-radius: var(--r-lg); border-bottom-right-radius: 3px; white-space: pre-wrap; }

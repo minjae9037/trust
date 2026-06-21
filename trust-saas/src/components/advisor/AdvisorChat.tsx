@@ -53,6 +53,21 @@ export function AdvisorChat() {
     abortRef.current?.abort();
   }
 
+  // 새 대화 시작 — 현재 대화 이력·피드백·복사 상태를 비워 빈 상태(제안 칩)로 되돌린다.
+  // ★정확성 가치: 시맨틱 Q&A 캐시는 fresh single-turn 에만 적용되고(멀티턴 미적용),
+  //   누적된 이전 턴은 무관한 새 질문의 맥락을 오염시킬 수 있다 → "새 대화"로 컨텍스트를
+  //   리셋하면 캐시 적격이 회복되고 직전 주제 오염이 사라진다(주제 전환 동선).
+  //   ★입력란(초안)은 건드리지 않는다 — 실패 재시도 무손실(retry) 원칙과 동일(setInput 무호출)이라
+  //   "새 대화"를 눌러도 막 타이핑하던 새 질문은 보존돼 그대로 첫 질문으로 보낼 수 있다.
+  //   생성 중에는 무동작(버튼도 disabled) — 진행 중 스트림과의 race 를 피한다(먼저 '중지').
+  function newConversation() {
+    if (busy) return;
+    abortRef.current?.abort(); // 방어적(비-busy 라 보통 null)
+    setMsgs([]);
+    setFeedbackSent({});
+    setCopied(null);
+  }
+
   // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
   // ★내부 액션 마커(<<doc:…>>)가 제거된 body 만 복사(원시 마커 미노출=action-marker 계약 유지).
   async function copyAnswer(i: number, text: string) {
@@ -179,6 +194,21 @@ export function AdvisorChat() {
 
   return (
     <div className="advisor-wrap">
+      {/* 대화가 시작된 뒤에만 노출 — 빈 상태(제안 칩)에서는 리셋할 것이 없어 숨긴다.
+          생성 중에는 disabled(먼저 '중지') — 진행 중 스트림과의 race 방지. */}
+      {msgs.length > 0 && (
+        <div className="advisor-bar">
+          <button
+            type="button"
+            className="advisor-newchat"
+            onClick={newConversation}
+            disabled={busy}
+            title="현재 대화를 지우고 새 대화를 시작합니다 (입력 중인 질문은 보존됩니다)"
+          >
+            ＋ 새 대화
+          </button>
+        </div>
+      )}
       {msgs.length === 0 ? (
         <div className="advisor-empty">
           <div className="advisor-empty-glyph">信託</div>
