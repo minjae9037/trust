@@ -39,6 +39,8 @@ export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []):
         idx = textBlob.indexOf(t, idx + t.length);
       }
     }
+    // 사용자가 직접 올린 Q&A 근거(qna-)는 동일 관련도면 우선 반영되도록 소폭 가중.
+    if (chunk.id.startsWith("qna-")) score *= 1.25;
     return { chunk, score };
   });
 
