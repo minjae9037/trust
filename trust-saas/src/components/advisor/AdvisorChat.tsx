@@ -72,6 +72,9 @@ export function AdvisorChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   // 답변 생성 중지(Stop) — 진행 중 스트리밍을 사용자가 끊을 수 있게 한다.
   const abortRef = useRef<AbortController | null>(null);
+  // 답변별 렌더된 마크다운 DOM 노드(인덱스→노드) — 복사 시 서식(표·리스트·헤딩)을
+  // 보존한 text/html 을 함께 클립보드에 넣기 위해 참조를 보관한다(언마운트 시 정리).
+  const mdRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // 생성 중지: 진행 중인 fetch/스트림을 abort 한다(부분 답변은 보존, error 미표시).
   function stopGenerating() {
@@ -95,14 +98,39 @@ export function AdvisorChat() {
   }
 
   // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
-  // ★내부 액션 마커(<<doc:…>>)가 제거된 body 만 복사(원시 마커 미노출=action-marker 계약 유지).
-  async function copyAnswer(i: number, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
+  // ★서식 보존: 렌더된 HTML(표·리스트·헤딩)을 text/html 로 함께 복사해 Word·메일·
+  //   Notion 에 붙이면 표가 표 그대로 붙는다(원시 마크다운 `| a | b |` 파이프가 평문으로
+  //   깨지던 것을 해소 — 이 기능의 본래 목적인 "실무 문서로 옮겨 쓰기"에 직결).
+  // ★text/plain 폴백 = 내부 액션 마커(<<doc:…>>)가 제거된 마크다운 본문(body) —
+  //   리치 클립보드(ClipboardItem) 미지원/거부 시에도 평문은 항상 복사된다(graceful degradation,
+  //   원시 m.content·마커 비노출 계약 유지).
+  async function copyAnswer(i: number, body: string) {
+    const html = mdRefs.current.get(i)?.innerHTML ?? "";
+    const flash = () => {
       setCopied(i);
       setTimeout(() => setCopied((c) => (c === i ? null : c)), 1500);
+    };
+    try {
+      if (html && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([body], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(body);
+      }
+      flash();
     } catch {
-      /* 클립보드 미지원·권한 거부 — 조용히 무시(전송·답변 경로 무영향) */
+      // 리치 복사 실패(미지원·권한 거부) → 평문(body)으로 폴백, 그래도 실패하면 조용히 무시
+      // (클립보드 미지원·권한 거부 — 전송·답변 경로 무영향).
+      try {
+        await navigator.clipboard.writeText(body);
+        flash();
+      } catch {
+        /* 클립보드 전면 미지원·권한 거부 — 조용히 무시 */
+      }
     }
   }
 
@@ -295,7 +323,13 @@ export function AdvisorChat() {
             return (
               <div key={i} className="advisor-msg assistant">
                 <span className="sr-only">상담 답변. </span>
-                <div className="md">
+                <div
+                  className="md"
+                  ref={(el) => {
+                    if (el) mdRefs.current.set(i, el);
+                    else mdRefs.current.delete(i);
+                  }}
+                >
                   {body ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{body}</ReactMarkdown> : <span className="blink">▍</span>}
                 </div>
                 {body && !busy && m.sources && m.sources.length > 0 && (
