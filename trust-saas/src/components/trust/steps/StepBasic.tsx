@@ -103,7 +103,13 @@ export function StepBasic() {
 
       <div className="field full">
         <div className="panel-footnote warn">
-          <strong>요약</strong> 우선수익한도금액 {fmtKRW(c.priorityLimit)} · 신탁보수 {fmtKRW(c.trustFee)} ·
+          {/* ★ feeInvalid(채웠지만 0·음수·비숫자)이면 요약의 신탁보수를 "—"로 억제한다 —
+              fmtKRW 은 음수를 "-5,000,000 원"으로 그대로 렌더하므로, 위 인라인이 "이 값으로는
+              서류를 생성할 수 없습니다"라고 경고하는데 같은 화면 요약이 그 음수 금액을 자신 있게
+              표시하면 모순된 "확신 있어 보이는 잘못된 값"이 된다(StepLoanCalc 의 무효 비율 시
+              한도금액 표시 억제와 동형의 정확성 패리티). 게이트·산출물 무접촉, 표시 전용. */}
+          <strong>요약</strong> 우선수익한도금액 {fmtKRW(c.priorityLimit)} ·{" "}
+          신탁보수 {feeInvalid ? "—" : fmtKRW(c.trustFee)} ·
           보수율 {c.trustFeeRate ? c.trustFeeRate + " %" : "(대기)"}
         </div>
       </div>

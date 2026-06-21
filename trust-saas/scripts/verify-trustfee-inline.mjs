@@ -21,6 +21,10 @@
      (E) ★게이트 정합 — 인라인이 무효로 보는 값은 게이트(validateDoc)도 반드시 차단하고
          (인라인 오류인데 생성 허용되는 모순 0), 인라인이 안 켜는 값(빈 값·공백·유효 금액)은
          게이트도 신탁보수 차단을 하지 않음(오탐/나그 0).
+     (F) ★표시 정합 — 같은 화면 요약의 신탁보수 에코가 feeInvalid 일 때 억제("—")된다.
+         fmtKRW 은 음수를 "-5,000,000 원"으로 그대로 렌더하므로, 인라인 오류와 모순되는
+         "확신 있어 보이는 잘못된 값"이 남지 않도록 feeInvalid 단일 출처로 가린다
+         (StepLoanCalc 무효 비율 시 한도금액 표시 억제와 동형).
 
    실행:
      cd trust-saas
@@ -112,6 +116,20 @@ console.log("\n[E] ★게이트 정합 — 인라인 무효 ⟺ 게이트 차단
     ok(feeInvalidInline(good) === false, `인라인 OFF: feeInvalid(${JSON.stringify(good)})=false`);
     ok(hasFeeMiss(withFee(good)) === false, `→ 게이트도 신탁보수 차단 없음(오탐/나그 0)`);
   }
+}
+
+console.log("\n[F] ★표시 정합 — 요약의 신탁보수 에코가 feeInvalid 일 때 억제(\"—\")");
+{
+  const flat = step.replace(/\s+/g, " ");
+  // 요약 footer 가 신탁보수를 feeInvalid 단일 출처로 분기 — 무효면 "—", 아니면 fmtKRW(c.trustFee)
+  ok(/신탁보수 \{feeInvalid \? "—" : fmtKRW\(c\.trustFee\)\}/.test(flat),
+    '요약: 신탁보수 {feeInvalid ? "—" : fmtKRW(c.trustFee)} (무효 시 음수 금액 미표시)');
+  // 무방비 원시 에코(feeInvalid 가드 없는 `신탁보수 {fmtKRW(c.trustFee)}`)가 잔존하지 않음
+  ok(!/신탁보수 \{fmtKRW\(c\.trustFee\)\}/.test(flat),
+    "요약: 무방비 신탁보수 {fmtKRW(c.trustFee)} 에코(가드 없음) 잔존 0");
+  // 표시 억제 판정이 인라인 오류와 동일 단일 출처(feeInvalid)임을 재확인 — 표시/인라인 모순 0
+  ok(/const feeInvalid =/.test(flat),
+    "요약 억제와 인라인 오류가 같은 feeInvalid 단일 출처 사용(판정 불일치 0)");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
