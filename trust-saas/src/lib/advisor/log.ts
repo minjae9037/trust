@@ -3,9 +3,22 @@
    질문·검색 적중여부·피드백을 월별 JSONL 로 적재. 분석은 scripts/advisor-improve.mjs.
    ⚠️ 사용자 질문이 담기므로 로그 파일은 .gitignore(advisor-logs/). Vercel 서버리스는
       FS가 휘발성이라 영구 보관은 로컬/별도 스토리지에서. 실패는 조용히 무시(상담 흐름 우선).
+   ⚠️ PII 가드(CLAUDE.md 가드레일): 저장 직전 고민감 식별자(주민·사업자·법인·등기번호)를
+      tokenizePII(계약 측과 동일 단일 출처)로 1방향 치환한다. 분석에 필요한 주변 텍스트
+      (RAG 적중/공백 후보 판별용)는 보존되고, 식별번호만 토큰으로 남아 디스크에 평문 PII 가
+      남지 않는다. 상담 답변·외부 전송 경로는 무변경(로그 저장 경로에만 적용).
    ================================================================ */
 import { promises as fs } from "fs";
 import path from "path";
+import { tokenizePII } from "../privacy/tokenize";
+
+/**
+ * 로그 저장 전 PII 1방향 치환. 복원 맵은 버린다(분석 로그는 식별 불요).
+ * tokenizePII 가 매칭하는 패턴만 토큰화되고 나머지 텍스트는 그대로 보존.
+ */
+export function redactForLog(s: string): string {
+  return tokenizePII(s).text;
+}
 
 export interface QaLogEntry {
   ts: string;
@@ -37,16 +50,21 @@ export async function appendLog(entry: Omit<QaLogEntry, "ts">): Promise<void> {
   }
 }
 
-/** 질문 1건 적재 (질문은 길이 제한해 저장) */
+/** 질문 1건 적재 (PII 치환 후 길이 제한해 저장) */
 export function logQuery(
   q: string,
   hit: boolean,
   topScore: number,
   topicIds: string[]
 ): Promise<void> {
-  return appendLog({ type: "query", q: q.slice(0, 300), hit, topScore, topicIds });
+  return appendLog({ type: "query", q: redactForLog(q).slice(0, 300), hit, topScore, topicIds });
 }
 
 export function logFeedback(q: string, rating: "up" | "down", note?: string): Promise<void> {
-  return appendLog({ type: "feedback", q: q.slice(0, 300), rating, note: note?.slice(0, 500) });
+  return appendLog({
+    type: "feedback",
+    q: redactForLog(q).slice(0, 300),
+    rating,
+    note: note ? redactForLog(note).slice(0, 500) : undefined,
+  });
 }

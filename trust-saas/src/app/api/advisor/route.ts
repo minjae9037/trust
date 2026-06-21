@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { retrieve, formatContext } from "@/lib/advisor/retrieve";
 import { loadBackdataChunks } from "@/lib/advisor/backdata";
+import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
 
 export const runtime = "nodejs";
@@ -67,15 +68,11 @@ export async function POST(req: Request) {
   const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
 
-  // 근거 출처(중복 topic 제거, 최대 4) → 응답 헤더로 클라이언트에 전달
-  const seenTopic = new Set<string>();
-  const sources: { topic: string; kind: "backdata" | "core" }[] = [];
-  for (const r of retrieved) {
-    const topic = r.chunk.topic;
-    if (seenTopic.has(topic)) continue;
-    seenTopic.add(topic);
-    sources.push({ topic, kind: r.chunk.id.startsWith("bd-") ? "backdata" : "core" });
-  }
+  // 근거 출처 → 응답 헤더로 클라이언트에 전달.
+  // ★출처 식별성 차단: back-data(내부 수집 자료)의 원본 문서명은 내보내지 않고
+  //   일반 라벨로 치환한다(buildSources). 페르소나가 LLM 답변에서 막는 출처명
+  //   노출을, 헤더/칩 경로가 우회하지 않도록 전송 경계에서 일반화. core 개념어는 보존.
+  const sources = buildSources(retrieved);
   const sourcesHeader = Buffer.from(JSON.stringify(sources), "utf8").toString("base64");
 
   // [수집] 자가고도화 루프 — 질문·RAG 적중여부 로깅(검색 0건 = 지식 공백 후보)

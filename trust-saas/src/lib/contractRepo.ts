@@ -68,8 +68,63 @@ function readAll(): ContractRow[] {
     return [];
   }
 }
+
+/* ----------------------------------------------------------------
+   저장 실패(용량 초과·비활성) 가드 — 유실 방지 계열의 마지막 갭
+   로컬 우선(localStorage) 구조라 저장이 실패하면 곧 데이터 유실이다.
+   localStorage 는 보통 5~10MB로 한정돼 계약이 쌓이면 setItem 이
+   QuotaExceededError 를 던지고(용량 초과), 사생활/시크릿 모드에선
+   접근 자체가 막혀 SecurityError 를 던질 수 있다. 가드 없이 두면
+   브라우저별 영문 DOMException 이 그대로 노출돼 사용자가 무엇을 해야
+   할지 알 수 없다 → 친화적 한글 안내(백업 후 정리)로 바꿔 surface.
+   ※ 조문·엔진·산출물 무접촉 — 저장소 쓰기 신뢰성만 보강한다.
+   ---------------------------------------------------------------- */
+
+/** localStorage 쓰기 실패 — 호출 UI 가 quota 여부로 분기·안내할 수 있다. */
+export class StorageWriteError extends Error {
+  readonly quota: boolean;
+  constructor(message: string, quota: boolean) {
+    super(message);
+    this.name = "StorageWriteError";
+    this.quota = quota;
+  }
+}
+
+/**
+ * 브라우저별 용량 초과(QuotaExceededError) 식별(순수).
+ * Chrome/Safari: name "QuotaExceededError" 또는 code 22.
+ * Firefox: name "NS_ERROR_DOM_QUOTA_REACHED" 또는 code 1014.
+ * 구형(WebKit/IE): name "QUOTA_EXCEEDED_ERR".
+ * (회귀 가드에서 직접 단언)
+ */
+export function isQuotaExceeded(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as { name?: string; code?: number };
+  return (
+    err.name === "QuotaExceededError" ||
+    err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    err.name === "QUOTA_EXCEEDED_ERR" ||
+    err.code === 22 ||
+    err.code === 1014
+  );
+}
+
+/** 저장 실패 사용자 안내 문구(순수·단일 출처) — quota 여부로 분기. */
+export function storageWriteErrorMessage(quota: boolean): string {
+  return quota
+    ? "저장 공간이 가득 찼습니다. 계약을 내보내기(백업)한 뒤 오래된 계약을 삭제하고 다시 저장해 주세요."
+    : "브라우저 저장소에 접근할 수 없어 저장하지 못했습니다(사생활·시크릿 모드일 수 있습니다). 계약을 내보내기로 백업해 주세요.";
+}
+
 function writeAll(rows: ContractRow[]) {
-  localStorage.setItem(KEY, JSON.stringify(rows));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(rows));
+  } catch (e) {
+    // setItem 실패 시 기존 저장본은 그대로 유지된다(부분 기록 없음=무손상).
+    // 새 변경만 반영되지 못하므로, 사용자가 백업·정리할 수 있게 친화적으로 안내한다.
+    const quota = isQuotaExceeded(e);
+    throw new StorageWriteError(storageWriteErrorMessage(quota), quota);
+  }
 }
 function uuid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
