@@ -2,11 +2,33 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DOC_LABEL, parseAction, sanitizeHistory } from "@/lib/advisor/action-marker";
 import { advisorErrorMessage } from "@/lib/advisor/error-message";
+import { demotedHeadingTag } from "@/lib/advisor/markdown";
 import { isSubmitEnter } from "@/lib/ui/keys";
+
+// 답변 본문 마크다운 헤딩을 강등 렌더 — 상담 답변은 대화 안의 콘텐츠이지 문서 최상위
+// 섹션이 아니므로(WCAG 1.3.1/2.4.6/2.4.10), LLM 이 적극 출력하는 #/##/### 를 그대로
+// h1/h2/h3 로 두지 않고 h3 이하로 강등해 페이지 헤딩 아웃라인 오염을 막는다. 시각
+// 크기/색은 원본 레벨 클래스(.md-h-N)로 유지(표시 무변경). 모듈 레벨 상수=안정 참조.
+function makeHeading(level: number) {
+  const Tag = demotedHeadingTag(level); // "h3".."h6"
+  const cls = "md-h md-h-" + level;
+  function MdHeading({ children }: { children?: React.ReactNode }) {
+    return <Tag className={cls}>{children}</Tag>;
+  }
+  return MdHeading;
+}
+const MD_COMPONENTS: Components = {
+  h1: makeHeading(1),
+  h2: makeHeading(2),
+  h3: makeHeading(3),
+  h4: makeHeading(4),
+  h5: makeHeading(5),
+  h6: makeHeading(6),
+};
 
 interface Source {
   topic: string;
@@ -274,7 +296,7 @@ export function AdvisorChat() {
               <div key={i} className="advisor-msg assistant">
                 <span className="sr-only">상담 답변. </span>
                 <div className="md">
-                  {body ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown> : <span className="blink">▍</span>}
+                  {body ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{body}</ReactMarkdown> : <span className="blink">▍</span>}
                 </div>
                 {body && !busy && m.sources && m.sources.length > 0 && (
                   <div className="advisor-sources">
