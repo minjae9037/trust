@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { summarizeForm, toolInputToPatch, normalizePatchIds } from "@/lib/chat/formSchema";
+import { summarizeForm, toolInputToPatch, normalizePatchIds, summarizePatch } from "@/lib/chat/formSchema";
 import { isSubmitEnter } from "@/lib/ui/keys";
 import { friendlyErrorMessage } from "@/lib/ui/error-message";
 import {
@@ -16,6 +16,7 @@ interface Msg {
   role: "user" | "assistant";
   display: string; // 화면용(원문 복원)
   api: string; // 전송용(토큰화)
+  kind?: "note"; // 폼 반영 알림(시스템 표시 전용·API 전송 제외)
 }
 
 export function ChatPanel({ onClose }: { onClose: () => void }) {
@@ -49,7 +50,8 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
 
     try {
       const apiMessages = nextMsgs
-        .filter((m) => m.role === "assistant" || m.api) // 첫 인사(api="")는 제외
+        // note(반영 알림)는 전송 제외 + 첫 인사(api="")도 제외
+        .filter((m) => m.kind !== "note" && (m.role === "assistant" || m.api))
         .map((m) => ({ role: m.role, content: m.role === "user" ? m.api : m.display }));
 
       const res = await fetch("/api/chat", {
@@ -76,6 +78,14 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         const restored = restorePIIDeep(data.patch, piiMap.current);
         const patch = normalizePatchIds(toolInputToPatch(restored as Record<string, unknown>));
         mergeFormPatch(patch);
+        // ★AI 가 채운 법적 폼 항목을 사용자가 검수·신뢰할 수 있게 가시화(값 미노출·표시 전용)
+        const applied = summarizePatch(patch);
+        if (applied.length > 0) {
+          setMsgs((m) => [
+            ...m,
+            { role: "assistant", display: `✓ ${applied.join(" · ")} 반영됨`, api: "", kind: "note" },
+          ]);
+        }
       }
     } catch (e) {
       // ★표시/정보누출 경계: 네트워크 영문 오류(Failed to fetch 등)·서버 원시 JSON
@@ -101,7 +111,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
 
       <div className="chat-body" ref={scrollRef}>
         {msgs.map((m, i) => (
-          <div key={i} className={"chat-msg " + m.role}>
+          <div key={i} className={"chat-msg " + (m.kind ?? m.role)}>
             {m.display}
           </div>
         ))}

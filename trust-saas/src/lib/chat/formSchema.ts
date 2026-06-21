@@ -136,6 +136,58 @@ export function toolInputToPatch(input: Record<string, unknown>): Record<string,
   return patch;
 }
 
+/* 반영 항목 라벨 — summarizePatch 단일 출처(표시 전용·값 미노출) */
+const PATCH_PARTY_LABELS: Record<string, string> = {
+  trustors: "위탁자",
+  debtors: "채무자",
+  beneficiaries: "수익자",
+  priorities: "우선수익자",
+};
+const PATCH_COMMON_LABELS: Record<string, string> = {
+  year: "계약일",
+  month: "계약일",
+  day: "계약일",
+  trustFee: "신탁보수",
+  priorityRatio: "우선수익한도 비율",
+  priorityLimit: "우선수익한도",
+  trustPeriod: "신탁기간",
+};
+
+/** mergeFormPatch 직전 패치 → 사람이 읽는 "반영 항목" 라벨 목록.
+ *  AI 가 대화로 채운 법적 폼 필드를 사용자가 검수·신뢰할 수 있게 **표시 전용**으로 요약.
+ *  식별번호·금액 등 값은 일절 노출하지 않고, 어떤 항목이 채워졌는지만 사실 그대로 나열한다
+ *  (정확성 가드레일 — AI 의 조용한 폼 변경을 가시화). 빈 배열·빈 객체는 제외.
+ *  patch 는 normalizePatchIds(toolInputToPatch(...)) 출력(ChatPanel L77)과 동형. */
+export function summarizePatch(patch: Record<string, unknown>): string[] {
+  if (!patch || typeof patch !== "object") return [];
+  const out: string[] = [];
+  for (const [key, label] of Object.entries(PATCH_PARTY_LABELS)) {
+    const v = patch[key];
+    if (Array.isArray(v) && v.length > 0) out.push(`${label} ${v.length}명`);
+  }
+  if (Array.isArray(patch.properties) && patch.properties.length > 0) {
+    out.push(`신탁부동산 ${patch.properties.length}건`);
+  }
+  if (typeof patch.debtorSameAsTrustor === "boolean") out.push("채무자 지정");
+  if (typeof patch.beneficiarySameAsTrustor === "boolean") out.push("수익자 지정");
+  const common = patch.common;
+  if (common && typeof common === "object" && !Array.isArray(common)) {
+    const seen = new Set<string>();
+    for (const k of Object.keys(common as Record<string, unknown>)) {
+      const lbl = PATCH_COMMON_LABELS[k];
+      if (lbl && !seen.has(lbl)) {
+        seen.add(lbl);
+        out.push(lbl);
+      }
+    }
+  }
+  const dc = (patch.docContents as Record<string, unknown> | undefined)?.contract;
+  if (dc && typeof dc === "object" && Object.keys(dc as object).length > 0) {
+    out.push("특약옵션");
+  }
+  return out;
+}
+
 /** 관계사의 corpRegNo/bizNo(전체) → 저장 필드(앞/뒤, p1/p2/p3)로 분리.
  *  ⚠️ PII 복원(restorePIIDeep) 이후에 호출할 것. */
 export function normalizePatchIds(

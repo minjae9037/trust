@@ -1387,6 +1387,7 @@ body {
 }
 .chat-msg.user { align-self: flex-end; background: var(--c-blue-pastel); color: var(--c-ink); border-bottom-right-radius: 3px; }
 .chat-msg.assistant { align-self: flex-start; background: var(--c-paper-soft); border: 1px solid var(--c-line-soft); border-bottom-left-radius: 3px; }
+.chat-msg.note { align-self: center; max-width: 92%; background: var(--c-success-soft); color: var(--c-success); border: 1px solid var(--c-success); border-radius: var(--r-lg); font-size: 12.5px; font-weight: 600; text-align: center; padding: 6px 12px; }
 .chat-input-row { padding: 12px 14px; border-top: 1px solid var(--c-line-soft); display: flex; gap: 8px; align-items: flex-end; }
 .chat-input-row textarea { flex: 1; resize: none; }
 
