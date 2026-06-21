@@ -14,7 +14,7 @@ import {
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 import { validateDoc } from "@/lib/engine/validate";
 import { generateCollateralDoc } from "@/lib/engine/docx";
-import type { Category, DocId } from "@/lib/engine/model";
+import type { Category, ContractForm, DocId } from "@/lib/engine/model";
 
 /**
  * 계약별 서류 생성 준비도 — 담보신탁(collateral)만 7종 산출 서류가 정의돼 있어
@@ -30,8 +30,10 @@ import type { Category, DocId } from "@/lib/engine/model";
  */
 function readyDocIds(row: ContractRow): DocId[] | null {
   if (row.doc_type !== "collateral") return null;
+  // doc_type==="collateral" 가드로 form_data 는 ContractForm 임이 보장된다(joint 는 위에서 차단).
+  const form = row.form_data as ContractForm;
   try {
-    return COLLATERAL_OUTPUT_DOCS.filter((d) => validateDoc(row.form_data, d.id).ok).map(
+    return COLLATERAL_OUTPUT_DOCS.filter((d) => validateDoc(form, d.id).ok).map(
       (d) => d.id,
     );
   } catch {
@@ -173,6 +175,8 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
     if (batch?.busy) return;
     const ids = readyDocIds(row);
     if (!ids || ids.length === 0) return;
+    // ids 가 non-null = collateral 행만 도달 → form_data 는 ContractForm.
+    const form = row.form_data as ContractForm;
     setBatch({ id: row.id, msg: `서류 생성 중… (0/${ids.length})`, busy: true });
     try {
       for (let i = 0; i < ids.length; i++) {
@@ -182,7 +186,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
           msg: `서류 생성 중… (${i + 1}/${ids.length}) ${meta?.name ?? ids[i]}`,
           busy: true,
         });
-        await generateCollateralDoc(row.form_data, ids[i]);
+        await generateCollateralDoc(form, ids[i]);
         // 브라우저의 연속 다운로드 차단 회피용 짧은 간격.
         if (i < ids.length - 1) await new Promise((r) => setTimeout(r, 350));
       }

@@ -51,11 +51,15 @@ export function TrustApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 현재 열린 서류의 활성 폼(joint=jointForm, 그 외=form) — 미저장 변경 판정 단일 기준.
+  const isJointOpen = store.docTypeId === "joint";
+  const activeForm = isJointOpen ? store.jointForm : store.form;
+
   function goHome() {
     // 위저드에서 미저장 변경이 있으면 초기화(reset) 전 확인 — 데이터 유실 방지
     if (
       view === "wizard" &&
-      isFormDirty(store.form, store.savedHash) &&
+      isFormDirty(activeForm, store.savedHash, isJointOpen) &&
       !confirm("저장되지 않은 변경이 있습니다. 저장하지 않고 처음으로 돌아갈까요?")
     ) {
       return;
@@ -87,10 +91,10 @@ export function TrustApp() {
     setView("wizard");
   }
   function openContract(row: ContractRow) {
-    // 위저드에 미저장 변경이 있는데 다른 계약을 열면 loadContract가 현재 form을
+    // 위저드에 미저장 변경이 있는데 다른 계약을 열면 loadContract가 현재 폼을
     // 조용히 덮어쓴다(데이터 유실). 덮어쓰기 전 확인 — goHome과 동일 가드.
     if (
-      isFormDirty(store.form, store.savedHash) &&
+      isFormDirty(activeForm, store.savedHash, isJointOpen) &&
       !confirm("저장되지 않은 변경이 있습니다. 저장하지 않고 다른 계약을 열까요?")
     ) {
       return;
@@ -199,6 +203,7 @@ export function TrustApp() {
 function SaveBar() {
   const {
     form,
+    jointForm,
     docTypeId,
     category,
     title,
@@ -211,8 +216,13 @@ function SaveBar() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // 미저장 변경 여부 — 저장 기준선(savedHash)과 현재 form 비교
-  const dirty = isFormDirty(form, savedHash);
+  // 공동사업표준협약서(joint)는 입력 모델이 jointForm 으로 분리돼 있다 — 저장·미저장
+  // 판정 모두 현재 열린 서류의 활성 폼을 대상으로 해야 joint 입력이 유실되지 않는다.
+  const isJoint = docTypeId === "joint";
+  const activeForm = isJoint ? jointForm : form;
+
+  // 미저장 변경 여부 — 저장 기준선(savedHash)과 현재 활성 폼 비교
+  const dirty = isFormDirty(activeForm, savedHash, isJoint);
 
   // 미저장 변경이 있을 때 탭 닫기/새로고침 시 이탈 경고(데이터 유실 방지)
   useEffect(() => {
@@ -233,8 +243,8 @@ function SaveBar() {
         id: currentContractId ?? undefined,
         docType: docTypeId || "collateral",
         category: category,
-        title: title || form.trustors[0]?.name || "제목 없음",
-        formData: form,
+        title: title || (isJoint ? jointForm.gap.name : form.trustors[0]?.name) || "제목 없음",
+        formData: activeForm,
       });
       setCurrentContractId(id);
       markSaved(); // 현재 form을 저장됨 기준선으로 기록 → dirty=false

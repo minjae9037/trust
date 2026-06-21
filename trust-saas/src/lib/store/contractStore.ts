@@ -74,7 +74,7 @@ interface ContractState {
     doc_type: string;
     category: string | null;
     title: string;
-    form_data: ContractForm;
+    form_data: ContractForm | JointForm;
   }) => void;
 
   reset: () => void;
@@ -165,13 +165,42 @@ export const useContractStore = create<ContractState>((set) => ({
 
   setTitle: (t) => set({ title: t }),
   setCurrentContractId: (id) => set({ currentContractId: id }),
-  markSaved: () => set((st) => ({ savedHash: JSON.stringify(st.form) })),
+  // 저장 기준선은 현재 열린 서류의 활성 폼(joint=jointForm, 그 외=form)을 스냅샷한다.
+  markSaved: () =>
+    set((st) => ({
+      savedHash: JSON.stringify(st.docTypeId === "joint" ? st.jointForm : st.form),
+    })),
   loadContract: (row) => {
+    // 공동사업표준협약서(joint)는 별도 입력 모델(jointForm)이라 form 과 분리해 복원한다.
+    // gap/project 는 한 단계 더 병합해 구버전·부분 저장본의 키 누락을 안전 격리한다.
+    if (row.doc_type === "joint") {
+      const jbase = blankJointForm();
+      const jfd = (row.form_data ?? {}) as Partial<JointForm>;
+      const jloaded: JointForm = {
+        ...jbase,
+        ...jfd,
+        gap: { ...jbase.gap, ...(jfd.gap ?? {}) },
+        project: { ...jbase.project, ...(jfd.project ?? {}) },
+      };
+      set({
+        docTypeId: row.doc_type,
+        category: (row.category as Category) || "new",
+        title: row.title,
+        currentContractId: row.id,
+        jointForm: jloaded,
+        // 다른 서류 폼은 초기화(잔존 입력이 새 계약에 섞이지 않도록)
+        form: blankContractForm(),
+        savedHash: JSON.stringify(jloaded),
+        tab: 1,
+        step: 1,
+      });
+      return;
+    }
     // 얕은 스프레드는 구버전 저장본의 docContents가 일부 서류 키를 누락하면
     // 그대로 비게 된다(예: c.appform 미존재 → validate 등에서 크래시). docContents는
     // 한 단계 더 병합해 모든 서류 키의 기본 구조를 보장한다.
     const base = blankContractForm();
-    const merged: ContractForm = { ...base, ...row.form_data };
+    const merged: ContractForm = { ...base, ...(row.form_data as ContractForm) };
     merged.docContents = { ...base.docContents, ...(merged.docContents ?? {}) };
     const loaded = withRecalc(merged);
     // 이어서 작성: 저장본을 다시 열 때 항상 STEP 01이 아니라, 아직 필수 입력이
@@ -183,6 +212,8 @@ export const useContractStore = create<ContractState>((set) => ({
       title: row.title,
       currentContractId: row.id,
       form: loaded,
+      // 다른 서류 폼은 초기화(joint 잔존 입력이 섞이지 않도록)
+      jointForm: blankJointForm(),
       // 불러온 직후 = 저장본과 동일 상태 → 기준선으로 기록(미저장 변경 false)
       savedHash: JSON.stringify(loaded),
       tab: resume ? resume.tab : 1,
@@ -216,9 +247,20 @@ function withRecalcState(form: ContractForm, common: ContractForm["common"]) {
  *   손대지 않은 빈 양식이면 false(불필요한 "저장 필요" 노이즈 방지).
  */
 let _blankHash: string | null = null;
-export function isFormDirty(form: ContractForm, savedHash: string | null): boolean {
+let _blankJointHash: string | null = null;
+export function isFormDirty(
+  form: ContractForm | JointForm,
+  savedHash: string | null,
+  isJoint = false,
+): boolean {
   const cur = JSON.stringify(form);
   if (savedHash === null) {
+    // 아직 한 번도 저장 안 함: 손대지 않은 빈 양식이면 false(불필요 경고 방지).
+    // joint 는 입력 모델이 달라 빈 기준선도 blankJointForm 으로 비교한다.
+    if (isJoint) {
+      if (_blankJointHash === null) _blankJointHash = JSON.stringify(blankJointForm());
+      return cur !== _blankJointHash;
+    }
     if (_blankHash === null) _blankHash = JSON.stringify(blankContractForm());
     return cur !== _blankHash;
   }

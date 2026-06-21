@@ -2,9 +2,15 @@
    계약 저장소 — localStorage 백엔드 (무계정 동작)
    ⚠️ 출시 시 lib/contracts.ts(Supabase)로 교체하면 동일 인터페이스로 스왑 가능.
    ================================================================ */
-import type { ContractForm } from "@/lib/engine/model";
+import type { ContractForm, JointForm } from "@/lib/engine/model";
 
 const KEY = "trust_contracts";
+
+/**
+ * 저장되는 입력값 — 담보신탁 등은 ContractForm, 공동사업표준협약서(joint)는 JointForm.
+ * doc_type 으로 구분한다(localStorage 는 JSON 이라 런타임 영향 없음 · 타입만 분기).
+ */
+export type StoredForm = ContractForm | JointForm;
 
 export interface ContractRow {
   id: string;
@@ -12,7 +18,7 @@ export interface ContractRow {
   category: string | null;
   status: string;
   title: string;
-  form_data: ContractForm;
+  form_data: StoredForm;
   updated_at: string;
   created_at: string;
 }
@@ -22,7 +28,7 @@ export interface SaveInput {
   docType: string;
   category: string | null;
   title: string;
-  formData: ContractForm;
+  formData: StoredForm;
   status?: string;
 }
 
@@ -221,7 +227,7 @@ export function makeDuplicateRow(
     ...src,
     id: newId,
     title: nextCopyTitle(src.title, existingTitles),
-    form_data: JSON.parse(JSON.stringify(src.form_data)) as ContractForm,
+    form_data: JSON.parse(JSON.stringify(src.form_data)) as StoredForm,
     status: "draft",
     created_at: now,
     updated_at: now,
