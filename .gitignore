@@ -44,3 +44,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+
+# 처분신탁 조문 생성 도구(reference 경로 참조)
+trust-qna/scripts/gen-disposal-body.py
