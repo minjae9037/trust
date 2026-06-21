@@ -1622,3 +1622,62 @@ body {
   .doc-split { grid-template-columns: 1fr; }
   .doc-split-preview { position: static; max-height: 60vh; order: -1; }
 }
+
+/* 렌더 크래시 복구 화면(error.tsx · global-error.tsx, ErrorRecovery 단일 출처) */
+.error-recovery {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: var(--c-bg);
+}
+.error-recovery-card {
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg, 16px);
+  box-shadow: var(--shadow-md);
+  padding: 40px 32px;
+}
+.error-recovery-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+  border-radius: 50%;
+}
+.error-recovery-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--c-ink);
+  margin: 0 0 10px;
+}
+.error-recovery-desc {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--c-ink-soft);
+  margin: 0 0 24px;
+}
+.error-recovery-desc strong { color: var(--c-ink); font-weight: 700; }
+.error-recovery-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.error-recovery-digest {
+  font-size: 11px;
+  color: var(--c-ink-mute);
+  margin: 20px 0 0;
+}
+.error-recovery-digest code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
