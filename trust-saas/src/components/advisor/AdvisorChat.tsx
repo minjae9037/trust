@@ -44,6 +44,9 @@ export function AdvisorChat() {
   const [busy, setBusy] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState<Record<number, "up" | "down">>({});
   const [copied, setCopied] = useState<number | null>(null);
+  // 스크린리더 전용 상태 고지(WCAG 4.1.3) — 스트리밍 본문 대신 "생성 중/도착/중지" 같은
+  // 간결한 상태 변화만 폴라이트로 알린다. 시작↔도착이 교대로 바뀌어 매 답변마다 재낭독된다.
+  const [liveMsg, setLiveMsg] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   // 답변 생성 중지(Stop) — 진행 중 스트리밍을 사용자가 끊을 수 있게 한다.
   const abortRef = useRef<AbortController | null>(null);
@@ -66,6 +69,7 @@ export function AdvisorChat() {
     setMsgs([]);
     setFeedbackSent({});
     setCopied(null);
+    setLiveMsg(""); // SR 상태도 비움(빈 문자열은 재낭독되지 않음)
   }
 
   // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
@@ -108,6 +112,7 @@ export function AdvisorChat() {
   async function deliver(base: Msg[]) {
     setMsgs([...base, { role: "assistant", content: "" }]);
     setBusy(true);
+    setLiveMsg("답변을 생성하고 있습니다."); // SR 고지: 생성 시작(전송이 등록됐음을 알림)
     scrollDown();
 
     const controller = new AbortController();
@@ -141,11 +146,13 @@ export function AdvisorChat() {
         });
         scrollDown();
       }
+      setLiveMsg("답변이 도착했습니다."); // SR 고지: 정상 완료(시작↔도착 교대라 매번 재낭독)
     } catch (e) {
       // ★중지 경계: 사용자가 stopGenerating()로 abort 한 경우는 오류가 아니다.
       //   지금까지 받은 부분 답변은 그대로 보존하고, 받은 내용이 없으면 빈
       //   assistant 자리표시자를 제거(멈춘 커서 ▍ 잔류 방지). 오류 메시지 미표시.
       if (controller.signal.aborted) {
+        setLiveMsg("답변 생성을 중지했습니다."); // SR 고지: 사용자 중지(오류 아님)
         setMsgs((m) => {
           const copy = m.slice();
           const last = copy[copy.length - 1];
@@ -156,6 +163,9 @@ export function AdvisorChat() {
         // ★표시 경계: !res.ok 경로의 원시 JSON 본문(`{"error":"…"}`)·네트워크
         //   영문 오류를 친화적 한국어로 치환(서버가 보낸 한국어 {error}는 통과).
         const msg = advisorErrorMessage(e);
+        // SR 고지는 비움 — 실패 자리표시자(role="alert")가 실제 오류를 낭독하므로
+        // 여기서 liveMsg 를 또 알리면 이중 낭독이 된다(stale "생성 중"만 제거).
+        setLiveMsg("");
         // ★error:true 로 표시 — 이 자리표시자는 답변이 아니라 실패 신호이므로
         //   피드백/복사 대신 "다시 시도" 버튼을 보여 주고, 이력 말미가 사용자
         //   질문으로 보존돼(이 오류 자리표시자만 떼면 됨) retry 가 재전송한다.
@@ -194,6 +204,11 @@ export function AdvisorChat() {
 
   return (
     <div className="advisor-wrap">
+      {/* SR 전용 상태 고지 — 스트리밍 본문은 토큰마다 갱신돼 aria-live 를 직접 걸면
+          과다 낭독되므로, 본문 대신 "생성 중/도착/중지" 간결 상태만 폴라이트로 알린다. */}
+      <div className="advisor-live" role="status" aria-live="polite" aria-atomic="true">
+        {liveMsg}
+      </div>
       {/* 대화가 시작된 뒤에만 노출 — 빈 상태(제안 칩)에서는 리셋할 것이 없어 숨긴다.
           생성 중에는 disabled(먼저 '중지') — 진행 중 스트림과의 race 방지. */}
       {msgs.length > 0 && (
@@ -223,7 +238,7 @@ export function AdvisorChat() {
           </div>
         </div>
       ) : (
-        <div className="advisor-msgs" ref={scrollRef}>
+        <div className="advisor-msgs" ref={scrollRef} aria-busy={busy}>
           {msgs.map((m, i) => {
             if (m.role !== "assistant") {
               return (
