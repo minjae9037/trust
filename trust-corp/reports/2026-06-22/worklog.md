@@ -1,0 +1,9 @@
+# 24시간 연속 개발 워크로그 — 2026-06-22
+
+> 형식: `- HH:MM [팀] 작업 / 검증결과 / 다음스텝`. 연속 워커가 iteration마다 append.
+
+- 00:30 [개발] **상담(advisor·Pillar 2) "새 대화" 시작(대화 이력 리셋) — 주제 전환 시 컨텍스트·캐시 적격 회복.**
+  - 배경/문제(주제 전환 동선·정확성, 비-산출물): `AdvisorChat` 은 스트리밍·중지·재시도·출처·피드백·복사까지 갖췄으나, 한 번 대화가 시작되면 빈 상태(제안 칩)로 되돌릴 수단이 **전무**했다 → 무관한 새 주제를 물어도 이전 턴이 계속 누적. 이는 ① 시맨틱 Q&A 캐시가 **fresh single-turn 에만 적용**되므로(`verify-advisor-cache [H]` 멀티턴 미적용) 누적 이력이 **캐시 적격을 잃고** ② 누적된 직전 턴이 새 질문의 **맥락을 오염**시키는 두 결함을 키웠다.
+  - 작업(3파일, 비-산출물·조문·검색·캐시 판정·로깅 무접촉): ①`AdvisorChat.tsx` — `newConversation()` 신설(`setMsgs([])`+`setFeedbackSent({})`+`setCopied(null)` 리셋, `abortRef.current?.abort()` 방어). **★입력란(초안) 무영향**(`setInput` 무호출 — `retry()` 무손실 재전송 원칙과 동일, 막 타이핑하던 새 질문 보존). **★생성 중 무동작**(`if (busy) return` + 버튼 `disabled={busy}` — 진행 중 스트림 `deliver` 의 `setMsgs` 와 race 방지). 버튼은 `{msgs.length > 0 && …}` 으로 **대화 시작 후에만 노출**(빈 상태 미노출). ②`globals.css` — `.advisor-bar`(우측 정렬)/`.advisor-newchat`(고스트, `:hover:not(:disabled)`·`:disabled`) 신규. ③`scripts/verify-advisor-newchat.mjs` 신규 가드.
+  - 검증결과: 신규 회귀 가드 `verify-advisor-newchat.mjs` **22/22 PASS**([A]상태 리셋 [B]★초안 보존=내부 setInput 0·파일 전체 2회 유지 [C]★busy 게이트+버튼 disabled [D]조건부 노출=msgs>0 블록 내부·빈 상태 보존 [E]abort 방어 [F]CSS [G]무회귀=deliver/ask/retry/canRetry/stopGenerating 보존). `verify-all` **85/85·단언 2444/0** 회귀無(직전 84 + 신규 1). `npx tsc --noEmit` **EXIT 0** / `npx next build` **EXIT 0**(전 10라우트). `next dev --webpack -p 3100`+Playwright **실동작 가시 확인**(실 API 키): 빈 상태=새 대화 버튼 미노출·제안 칩 4개 → "담보신탁이 무엇인가요?" 전송 시 생성 중 **새 대화 버튼 disabled**+"■ 중지" → 답변 완료(실제 표·비교 렌더) 후 "＋ 새 대화" 클릭 → **빈 상태로 리셋**(제안 칩 복귀·메시지·버튼 소멸) → 두 번째 대화 후 초안 타이핑("이건 보존되어야 하는 초안") 후 새 대화 클릭 → **초안 textbox 유지**(보존 확인). 콘솔 0 errors 내내 유지. 커밋 `93be08b`.
+  - 다음스텝: (개발 후보) `priorityRankLabel` 공동순위(동순위) 라벨(UX 정의 선행 필요), 모바일(<980px) stepper 별도 진행표시(현 헤더 doc-progress 미터로 일부 보완됨), advisor 답변 스트리밍 영역 `aria-live` 검토(현재 본문 미고지). (사업) ★대표님 1차 출시 선언 게이트 대기 + conditions 8키 조문 연동 시 verbatim 게이트. (마케팅) 상표·도메인 조회 미결.
