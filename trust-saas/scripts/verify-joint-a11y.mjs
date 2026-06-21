@@ -102,10 +102,15 @@ ok(
 // (D) 메시지성 live region: role="status" + aria-live="polite" 일관 표기
 // ──────────────────────────────────────────────
 console.log("\n[메시지성 live region 일관성]");
-// JointForm 생성 메시지 span
+// JointForm 생성 메시지 span — 생성 신선도 추가로 stale 안내 span 과 msg span 두
+// 분기가 됐으나, 둘 다 live region 이어야 한다(메시지성 안내 일관성·강화).
 ok(
-  /\{msg && <span className="field-hint" role="status" aria-live="polite"/.test(joint),
-  "(D1) JointForm 생성 메시지 span: role=status + aria-live=polite",
+  /freshness === "stale" \? \(\s*<span className="field-hint" role="status" aria-live="polite"/.test(joint),
+  "(D1a) JointForm stale 안내 span: role=status + aria-live=polite",
+);
+ok(
+  /msg && <span className="field-hint" role="status" aria-live="polite"/.test(joint),
+  "(D1b) JointForm 생성 메시지 span: role=status + aria-live=polite",
 );
 // DocStep amount-echo
 ok(

@@ -273,3 +273,28 @@ export function validateJoint(form: JointForm): { ok: boolean; missing: string[]
 
   return { ok: m.length === 0, missing: m };
 }
+
+// 검증 게이트 누락 라벨 → 해당 입력 필드 DOM id. JointForm 의 누락 안내에서 항목을
+// 클릭하면 그 입력으로 스크롤·포커스한다(담보신탁 DocStep validate-jump 의 단일 폼
+// 버전 — DocStep 은 스텝 점프, joint 는 단일 스크롤 폼이라 필드 포커스). 라벨은
+// 동적 접미사("(유효하지 않은 번호)"·"(실재하지 않는 날짜)"·"(연·월·일)")가 붙을 수
+// 있어 접두사로 매칭한다. 접두사·id 는 validateJoint 가 push 하는 라벨, JointForm 의
+// id="joint-*" 와 단일 출처로 동기 유지(verify-joint-validate-jump 가 불변식 강제).
+const JOINT_FIELD_TARGETS: ReadonlyArray<readonly [string, string]> = [
+  ["갑(시행사) 상호", "joint-gapName"],
+  ["갑(시행사) 대표이사", "joint-gapRepDir"],
+  ["갑(시행사) 주소", "joint-gapAddress"],
+  ["갑(시행사) 법인등록번호", "joint-gapCorpRegFront"],
+  ["사업명", "joint-projectName"],
+  ["사업부지", "joint-projectSite"],
+  ["사업규모 및 용도", "joint-projectScaleUse"],
+  ["협약일", "joint-agreementYear"],
+];
+
+export function jointFieldIdForMissing(label: string): string | null {
+  const s = String(label ?? "");
+  for (const [prefix, id] of JOINT_FIELD_TARGETS) {
+    if (s.startsWith(prefix)) return id;
+  }
+  return null;
+}

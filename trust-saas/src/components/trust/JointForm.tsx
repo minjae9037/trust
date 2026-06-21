@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/engine/docx";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
-import { validateJoint } from "@/lib/engine/validate";
+import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
+import { genFreshness } from "@/lib/engine/genStatus";
+import { isValidCorpRegNo, isRealDate } from "@/lib/engine/calc";
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다 완성 협약서
 // HTML 재생성·iframe srcDoc 재파싱을 막는다(담보신탁 DocStep 과 동일 패턴).
@@ -24,6 +26,10 @@ export function JointForm() {
   const [msg, setMsg] = useState("");
   // "크게 보기"(새 창) 팝업 차단 안내. 차단 외에는 비워 둔다.
   const [previewNote, setPreviewNote] = useState("");
+  // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
+  // 확인이 구버전을 최신으로 오인시키므로(법적 서류=정확성) "다시 생성하세요"로
+  // 전환한다(담보신탁 DocStep onDocx/onPdf 신선도와 동일 단일 출처 판정).
+  const [genSnap, setGenSnap] = useState<string | null>(null);
   const gap = jointForm.gap;
   const project = jointForm.project;
 
@@ -46,6 +52,35 @@ export function JointForm() {
   //    미리보기와 달리 라이브 jointForm 을 직접 읽어 즉시 반영(디바운스 영향 없음).
   const { ok, missing } = useMemo(() => validateJoint(jointForm), [jointForm]);
 
+  // ── 인라인 검증 피드백 (담보신탁 PartyCard/StepBasic 패리티) — 게이트(validateJoint)는
+  //    하단 .validate-box 에 누락을 모아 알려 주지만, "그 필드 옆"에서 입력 즉시 오류를
+  //    짚어 주는 인라인 안내는 joint 에 없었다. 담보신탁 PartyCard 의 corpInvalid 와 동형으로
+  //    게이트와 같은 단일 출처(isValidCorpRegNo·isRealDate)를 써 판정 불일치를 막는다.
+  //    부분 입력 중에는 표시하지 않는다(나그 방지) — 완전 입력 + 무효일 때만 안내.
+  const gapCorpDigits = [gap.corpRegFront, gap.corpRegBack].map((x) => x ?? "").join("").replace(/\D/g, "");
+  const gapCorpInvalid = gapCorpDigits.length === 13 && !isValidCorpRegNo(gapCorpDigits);
+  // 협약일은 자유 텍스트(담보신탁은 유효일만 노출하는 드롭다운이라 인라인 불요)라 2월 31일 등
+  // 실재하지 않는 날짜를 타이핑할 수 있다 → 연·월·일 3칸이 모두 채워졌는데 달력상 없는 날짜일
+  // 때만 안내(비숫자도 Number→NaN→isRealDate=false 로 동일 처리). 게이트와 동일 isRealDate.
+  const agY = String(project.agreementYear ?? "").trim();
+  const agM = String(project.agreementMonth ?? "").trim();
+  const agD = String(project.agreementDay ?? "").trim();
+  const agreementDateInvalid =
+    agY !== "" && agM !== "" && agD !== "" && !isRealDate(Number(agY), Number(agM), Number(agD));
+
+  // ── 생성 신선도 (담보신탁 DocStep 과 동형) — 값 기반 입력 스냅샷(참조 동일성
+  //    대신 직렬화 비교, store dirty 추적과 동일 패턴). 생성 후 입력이 바뀌면
+  //    none(미생성)·fresh(무변경)·stale(변경됨) 판정으로 재생성 안내한다.
+  const formSnap = useMemo(() => JSON.stringify(jointForm), [jointForm]);
+  const freshness = genFreshness(formSnap, genSnap);
+
+  // 입력이 바뀌면 직전 생성 완료/오류 메시지는 더 이상 유효하지 않다 → 비운다
+  // (생성 자체는 jointForm 을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고,
+  //  첫 편집에 사라져 stale 안내가 드러난다 — DocStep formSnap effect 와 동형).
+  useEffect(() => {
+    setMsg("");
+  }, [formSnap]);
+
   const setGap = (patch: Partial<typeof gap>) => updateJoint({ gap: { ...gap, ...patch } });
   const setProject = (patch: Partial<typeof project>) =>
     updateJoint({ project: { ...project, ...patch } });
@@ -57,6 +92,7 @@ export function JointForm() {
     try {
       await generateJointDoc(jointForm);
       setMsg("✓ Word(.docx) 생성 완료.");
+      setGenSnap(formSnap); // 생성 시점 스냅샷 = 이후 편집을 stale 로 판정할 기준선
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -71,11 +107,14 @@ export function JointForm() {
       // 표시하면 만든 적 없는 PDF 를 성공으로 오인한다(담보신탁 DocStep onPdf 와
       // 동일 원칙 — 팝업 차단 거짓 성공 차단, 법적 서류=정확성).
       const opened = generateJointPDFDoc(jointForm);
-      setMsg(
-        opened
-          ? "PDF 인쇄창을 열었습니다 — 인쇄 대화상자에서 'PDF로 저장'을 선택하세요."
-          : "PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.",
-      );
+      if (opened) {
+        // 인쇄창이 실제로 열렸을 때만 성공 표시 + 생성 신선도 스냅샷 기록.
+        setMsg("PDF 인쇄창을 열었습니다 — 인쇄 대화상자에서 'PDF로 저장'을 선택하세요.");
+        setGenSnap(formSnap);
+      } else {
+        // 차단 시 genSnap 미기록 → freshness 가 거짓 fresh 로 남지 않는다(거짓 신선도 방지).
+        setMsg("PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.");
+      }
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     }
@@ -94,6 +133,18 @@ export function JointForm() {
         ? "새 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요."
         : "",
     );
+  }
+
+  // 검증 게이트 누락 항목 클릭 → 해당 입력 필드로 스크롤·포커스(담보신탁 DocStep
+  // validate-jump 의 단일 폼 버전 — 스텝이 없으므로 필드 자체로 데려간다). 매핑은
+  // validate.ts 단일 출처(jointFieldIdForMissing). 매칭 실패(미상 라벨)는 무동작.
+  function focusMissing(label: string) {
+    const id = jointFieldIdForMissing(label);
+    if (!id) return;
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el as HTMLElement).focus({ preventScroll: true });
   }
 
   return (
@@ -130,12 +181,21 @@ export function JointForm() {
                 role="group" aria-labelledby, 각 input 에 개별 aria-label(앞/뒷자리). */}
             <div className="field-label" id="joint-gapCorpReg">법인등록번호</div>
             <div role="group" aria-labelledby="joint-gapCorpReg" style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input className="input" maxLength={6} value={gap.corpRegFront} aria-label="법인등록번호 앞자리"
+              <input id="joint-gapCorpRegFront" className="input" maxLength={6} value={gap.corpRegFront} aria-label="법인등록번호 앞자리"
+                aria-invalid={gapCorpInvalid || undefined}
+                aria-describedby={gapCorpInvalid ? "joint-gapCorpReg-err" : undefined}
                 onChange={(e) => setGap({ corpRegFront: e.target.value.replace(/\D/g, "") })} />
               <span>-</span>
               <input className="input" maxLength={7} value={gap.corpRegBack} aria-label="법인등록번호 뒷자리"
+                aria-invalid={gapCorpInvalid || undefined}
+                aria-describedby={gapCorpInvalid ? "joint-gapCorpReg-err" : undefined}
                 onChange={(e) => setGap({ corpRegBack: e.target.value.replace(/\D/g, "") })} />
             </div>
+            {gapCorpInvalid && (
+              <div id="joint-gapCorpReg-err" className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                유효하지 않은 법인등록번호입니다 (체크섬 확인 필요)
+              </div>
+            )}
           </div>
           <div className="field">
             <label className="field-label" htmlFor="joint-representative">대표사 지정</label>
@@ -164,18 +224,31 @@ export function JointForm() {
           <div className="field">
             <label className="field-label" htmlFor="joint-agreementYear">협약 연도</label>
             <input id="joint-agreementYear" className="input" value={project.agreementYear}
+              aria-invalid={agreementDateInvalid || undefined}
+              aria-describedby={agreementDateInvalid ? "joint-agreement-err" : undefined}
               onChange={(e) => setProject({ agreementYear: e.target.value })} />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="joint-agreementMonth">월</label>
             <input id="joint-agreementMonth" className="input" value={project.agreementMonth}
+              aria-invalid={agreementDateInvalid || undefined}
+              aria-describedby={agreementDateInvalid ? "joint-agreement-err" : undefined}
               onChange={(e) => setProject({ agreementMonth: e.target.value })} />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="joint-agreementDay">일</label>
             <input id="joint-agreementDay" className="input" value={project.agreementDay}
+              aria-invalid={agreementDateInvalid || undefined}
+              aria-describedby={agreementDateInvalid ? "joint-agreement-err" : undefined}
               onChange={(e) => setProject({ agreementDay: e.target.value })} />
           </div>
+          {agreementDateInvalid && (
+            <div className="field full">
+              <div id="joint-agreement-err" className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                실재하지 않는 협약일입니다 (연·월·일 확인)
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── 검증 게이트 안내 (담보신탁 DocStep 과 동형, joint 적용) ── */}
@@ -185,7 +258,15 @@ export function JointForm() {
             <ul className="validate-list">
               {missing.map((label, i) => (
                 <li key={i}>
-                  <strong>{label}</strong>
+                  <button
+                    type="button"
+                    className="validate-jump"
+                    onClick={() => focusMissing(label)}
+                    title="입력란으로 이동"
+                  >
+                    <strong>{label}</strong>
+                    <span className="validate-where"> — 입력란으로 ›</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -209,7 +290,13 @@ export function JointForm() {
           >
             🖨 PDF 생성
           </button>
-          {msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
+          {freshness === "stale" ? (
+            <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-danger)" }}>
+              ● 입력이 변경되었습니다 — 다시 생성하세요
+            </span>
+          ) : (
+            msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>
+          )}
         </div>
       </section>
         </div>

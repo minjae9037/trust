@@ -157,7 +157,7 @@ console.log("\n[G] 배선 — JointForm + validate.ts 정적 단언");
 {
   const form = src("src/components/trust/JointForm.tsx");
   const val = src("src/lib/engine/validate.ts");
-  ok(/import\s*\{\s*validateJoint\s*\}\s*from\s*["']@\/lib\/engine\/validate["']/.test(form), "JointForm: validateJoint import");
+  ok(/import\s*\{[^}]*\bvalidateJoint\b[^}]*\}\s*from\s*["']@\/lib\/engine\/validate["']/.test(form), "JointForm: validateJoint import");
   ok(/validateJoint\(jointForm\)/.test(form), "JointForm: validateJoint(jointForm) 호출");
   ok(/disabled=\{busy \|\| !ok\}/.test(form), "JointForm: 생성 버튼 disabled={busy || !ok}");
   ok((form.match(/disabled=\{busy \|\| !ok\}/g) || []).length >= 2, "JointForm: Word·PDF 버튼 둘 다 게이트");
