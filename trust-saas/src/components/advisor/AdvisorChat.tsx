@@ -106,9 +106,20 @@ export function AdvisorChat() {
   //   원시 m.content·마커 비노출 계약 유지).
   async function copyAnswer(i: number, body: string) {
     const html = mdRefs.current.get(i)?.innerHTML ?? "";
+    // ★복사 결과 스크린리더 고지(WCAG 4.1.3 Status Messages) — 복사 버튼의 시각 토글
+    //   ("✓ 복사됨")은 정적 aria-label("답변 복사")에 가려 SR 접근명으로 안 읽히므로,
+    //   복사 성공/실패를 스트리밍 상태와 같은 폴라이트 라이브 영역(.advisor-live)으로
+    //   알린다(복사 UI 는 !busy 일 때만 노출 → 스트리밍 상태 고지와 시점이 겹치지 않음).
+    //   ★빈 문자열로 비웠다가 세팅 = 같은 문구를 연속 복사(답변 A→B)해도 내용 변화로
+    //   재낭독 보장(aria-live 는 동일 내용엔 무반응 — 라이브 영역 재고지 표준 기법).
+    const announce = (text: string) => {
+      setLiveMsg("");
+      setTimeout(() => setLiveMsg(text), 50);
+    };
     const flash = () => {
       setCopied(i);
       setTimeout(() => setCopied((c) => (c === i ? null : c)), 1500);
+      announce("답변을 복사했습니다."); // 성공 고지(리치·평문 폴백 공통 경로)
     };
     try {
       if (html && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
@@ -123,13 +134,13 @@ export function AdvisorChat() {
       }
       flash();
     } catch {
-      // 리치 복사 실패(미지원·권한 거부) → 평문(body)으로 폴백, 그래도 실패하면 조용히 무시
-      // (클립보드 미지원·권한 거부 — 전송·답변 경로 무영향).
+      // 리치 복사 실패(미지원·권한 거부) → 평문(body)으로 폴백, 그래도 실패하면 SR 로 실패 고지
+      // (시각 토글은 성공 시에만 바뀌므로 전면 실패는 라이브 영역으로만 알 수 있다 — 전송·답변 경로 무영향).
       try {
         await navigator.clipboard.writeText(body);
         flash();
       } catch {
-        /* 클립보드 전면 미지원·권한 거부 — 조용히 무시 */
+        announce("답변을 복사하지 못했습니다."); // 전면 미지원·권한 거부 — SR 고지
       }
     }
   }

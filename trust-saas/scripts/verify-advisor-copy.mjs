@@ -122,5 +122,31 @@ console.log("\n[G] ★서식 보존 — 렌더 HTML(text/html) + 평문(text/pla
   ok(!/new\s+Blob\(\[\s*m\.content/.test(chat), "ClipboardItem 에 원시 m.content 직접 주입 잔존 0");
 }
 
+console.log("\n[H] ★복사 결과 스크린리더 고지(WCAG 4.1.3) — 폴라이트 라이브 영역 재사용");
+{
+  // 시각 토글("✓ 복사됨")은 정적 aria-label("답변 복사")에 가려 SR 접근명으로 안 읽히므로,
+  // 복사 성공/실패를 스트리밍 상태와 같은 .advisor-live 폴라이트 영역으로 고지한다.
+  const caIdx = chat.indexOf("async function copyAnswer");
+  const caEnd = chat.indexOf("async function sendFeedback");
+  const ca = caIdx >= 0 ? chat.slice(caIdx, caEnd > caIdx ? caEnd : caIdx + 1400) : "";
+  // announce 헬퍼 = setLiveMsg("") 로 비운 뒤 setTimeout 으로 세팅(동일 문구 연속 복사 재낭독 보장)
+  ok(/const\s+announce\s*=\s*\(text[^)]*\)\s*=>\s*\{/.test(ca), "copyAnswer 내 announce(text) 헬퍼 존재");
+  ok(/announce\s*=\s*\([\s\S]*?setLiveMsg\(""\)[\s\S]*?setTimeout\([\s\S]*?setLiveMsg\(text\)/.test(ca),
+     "★announce 가 setLiveMsg(\"\")→setTimeout(setLiveMsg(text)) (라이브 영역 재고지 기법)");
+  // 성공 고지(리치·평문 폴백 공통) = flash() 안에서 announce(복사했습니다)
+  ok(/announce\("답변을 복사했습니다\."\)/.test(ca), "성공 고지 = announce(\"답변을 복사했습니다.\")");
+  ok(/const\s+flash\s*=\s*\(\)\s*=>\s*\{[\s\S]*?announce\("답변을 복사했습니다\."\)/.test(ca),
+     "성공 고지는 flash() 안(리치/평문 폴백 공통 성공 경로)");
+  // 전면 실패 고지 = catch-final 에서 announce(복사하지 못했습니다) — 시각 토글은 성공 시에만 변함
+  ok(/announce\("답변을 복사하지 못했습니다\."\)/.test(ca), "전면 실패 고지 = announce(\"답변을 복사하지 못했습니다.\")");
+  // 기존 .advisor-live(role=status·aria-live=polite) 재사용 — 신규 라이브 영역 0
+  const liveIdx = chat.indexOf('className="advisor-live"');
+  ok(liveIdx > 0, "기존 .advisor-live 폴라이트 영역 재사용(신규 라이브 영역 0)");
+  const liveSeg = liveIdx > 0 ? chat.slice(liveIdx, liveIdx + 160) : "";
+  ok(/role="status"/.test(liveSeg) && /aria-live="polite"/.test(liveSeg), ".advisor-live role=status·aria-live=polite 보존");
+  // 무회귀 — 시각 토글(setCopied) 경로 보존(고지는 추가일 뿐 시각 피드백 대체 아님)
+  ok(/setCopied\(i\)/.test(ca), "시각 토글 setCopied(i) 보존(고지는 추가, 시각 피드백 대체 아님)");
+}
+
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL  (단언 ${pass + fail}개)`);
 if (fail > 0) process.exit(1);

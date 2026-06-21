@@ -139,8 +139,9 @@ console.log("\n[I] 무회귀 — newConversation 리셋 + 기존 배선 보존")
   ok(/function ask\(text: string\)/.test(chat), "ask(text) 보존");
   ok(/function retry\(\)/.test(chat), "retry() 보존");
   ok(/function stopGenerating\(\)/.test(chat), "stopGenerating() 보존");
-  // setLiveMsg 총 호출 수 = 시작·완료·중지·오류비움·newConversation비움 = 5회(과다 배선 회귀 감지)
-  ok((chat.match(/setLiveMsg\(/g) || []).length === 5, "setLiveMsg 호출 총 5회(시작·완료·중지·오류비움·새대화비움)");
+  // setLiveMsg 총 호출 수 = 스트리밍 5(시작·완료·중지·오류비움·새대화비움)
+  //   + 복사 결과 고지 2(copyAnswer announce 헬퍼의 비움·세팅) = 7회(과다 배선 회귀 감지)
+  ok((chat.match(/setLiveMsg\(/g) || []).length === 7, "setLiveMsg 호출 총 7회(스트리밍 5 + 복사 고지 announce 2)");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL  (단언 ${pass + fail}개)`);
