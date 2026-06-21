@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc, type Missing } from "@/lib/engine/validate";
@@ -87,6 +87,24 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
     setStep(idx);
     setTab(s.tab);
   }
+
+  // ── 단계 이동 시 새 단계 제목으로 포커스 이동 (WCAG 2.4.3 Focus Order) ──
+  //    pill·stepper·이전/다음·진행요약 점프, 그리고 DocStep 검증박스의 누락항목 점프까지
+  //    — 어느 경로로 단계를 바꾸든 모두 store 의 step 을 갱신하므로, step 변화 한 곳에서
+  //    포커스를 새 단계 제목으로 옮긴다. 종전엔 단계만 바뀌고 포커스는 클릭한 내비 컨트롤에
+  //    남거나(이전/다음·pill) 사라져(DocStep 점프 후 언마운트) 키보드/스크린리더 사용자가
+  //    새 단계 콘텐츠를 처음부터 다시 찾아야 했다(단일 폼 JointForm 의 focusMissing 패리티).
+  //    ★최초 렌더는 건너뛴다(마운트·계약 열기 시 포커스를 가로채면 진입 흐름을 해침).
+  //    조문·엔진·검증 판정 무접촉 — 포커스/표시 경계만.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    headingRef.current?.focus();
+  }, [step]);
 
   // ── 준비된 서류 일괄 생성(.docx) — 필수 입력을 충족한 서류만 한 번에 내려받기.
   //    각 서류 step을 일일이 열어 7번 생성 클릭하던 수고를 제거(랜딩 카피 "입력 한 번으로 일괄 생성"과 일치).
@@ -317,7 +335,17 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
         </aside>
 
         <section className="form-panel">
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{current.title}</h2>
+          {/* tabIndex={-1}: 탭 순서엔 넣지 않되 단계 이동 시 프로그램적으로 포커스 받는 대상.
+              포커스 아웃라인은 억제(비-상호작용 제목이라 시각 UI 무변경) — 이동을 SR 에 알리고
+              새 단계 콘텐츠 첫머리로 포커스를 옮기는 용도. */}
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="form-panel-title"
+            style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}
+          >
+            {current.title}
+          </h2>
           <p className="field-hint" style={{ marginBottom: 18 }}>
             {current.desc}
           </p>

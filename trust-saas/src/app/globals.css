@@ -653,6 +653,9 @@ body {
     min-height: 480px;
   }
   @media (max-width: 600px) { .form-panel { padding: 26px 20px; } }
+  /* 단계 이동 시 프로그램적 포커스를 받는 제목 — 비-상호작용 요소라 포커스 링은 억제
+     (시각 무변경). 포커스 이동의 목적은 SR/키보드 위치를 새 단계로 옮기는 것. */
+  .form-panel-title:focus { outline: none; }
   .section-head {
     margin-bottom: 28px;
     padding-bottom: 16px;
