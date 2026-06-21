@@ -18,11 +18,30 @@ interface Props {
   orderable?: boolean;
   /** 같은 역할 카드 총수(순서 변경 버튼의 경계 비활성 판정용) */
   count?: number;
-  /** 순위 배지 문구(예: "제1순위 · 최선순위") — 있으면 제목 옆에 표시. 표시 전용 */
+  /** 순위 배지 문구(예: "제1순위 · 최선순위" / "대표위탁자") — 있으면 제목 옆에 표시. 표시 전용 */
   rankNote?: string;
+  /** 순서 변경 그룹/버튼 명사 — 우선수익자=순위(선·후순위), 위탁자=순서(대표위탁자). 기본 "순위" */
+  orderNoun?: string;
+  /** ▲(위로) 이동의 의미 — 우선수익자=선순위로, 위탁자=대표위탁자 쪽으로. 기본 "선순위로" */
+  moveUpHint?: string;
+  /** ▼(아래로) 이동의 의미 — 우선수익자=후순위로. 기본 "후순위로" */
+  moveDownHint?: string;
 }
 
-export function PartyCard({ role, idx, party, label, showLoanFields, removable, orderable, count, rankNote }: Props) {
+export function PartyCard({
+  role,
+  idx,
+  party,
+  label,
+  showLoanFields,
+  removable,
+  orderable,
+  count,
+  rankNote,
+  orderNoun = "순위",
+  moveUpHint = "선순위로",
+  moveDownHint = "후순위로",
+}: Props) {
   const { updateParty, removeParty, moveParty } = useContractStore();
   const total = count ?? 1;
   const isFirst = idx === 0;
@@ -94,14 +113,14 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable, 
         </strong>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {orderable && total > 1 && (
-            <div className="party-move" role="group" aria-label={`${label} ${idx + 1} 순위 변경`}>
+            <div className="party-move" role="group" aria-label={`${label} ${idx + 1} ${orderNoun} 변경`}>
               <button
                 type="button"
                 className="party-move-btn"
                 onClick={() => moveParty(role, idx, -1)}
                 disabled={isFirst}
-                aria-label={`${label} ${idx + 1} 위로 이동(선순위로)`}
-                title="위로 이동 — 선순위로"
+                aria-label={`${label} ${idx + 1} 위로 이동(${moveUpHint})`}
+                title={`위로 이동 — ${moveUpHint}`}
               >
                 <span aria-hidden="true">▲</span>
               </button>
@@ -110,8 +129,8 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable, 
                 className="party-move-btn"
                 onClick={() => moveParty(role, idx, 1)}
                 disabled={isLast}
-                aria-label={`${label} ${idx + 1} 아래로 이동(후순위로)`}
-                title="아래로 이동 — 후순위로"
+                aria-label={`${label} ${idx + 1} 아래로 이동(${moveDownHint})`}
+                title={`아래로 이동 — ${moveDownHint}`}
               >
                 <span aria-hidden="true">▼</span>
               </button>

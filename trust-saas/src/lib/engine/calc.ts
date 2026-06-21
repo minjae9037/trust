@@ -148,6 +148,19 @@ export function priorityRankLabel(idx: number): string {
   return `제${idx + 1}순위`;
 }
 
+/**
+ * 위탁자 표시용 대표 라벨 — 배열 첫 위탁자(idx 0)가 곧 "대표위탁자"다.
+ * 산출물에서 별첨4 신탁특약은 첫 위탁자를 "대표위탁자"로 선임해(builders.js
+ * representativeTrustor = trustors[0]·annex.ts 동일) 위탁자 전원을 대리하여
+ * 신탁해지를 포함한 권한을 행사하게 하고(별첨4 조문), 관계사 표·날인·파일명도
+ * 배열 순서를 따른다. 즉 위탁자 배열 순서 = 대표위탁자 결정. 입력 화면(StepParties)이
+ * 이 라벨을 함께 보여줘 "맨 위 위탁자 = 대표위탁자"임을 입력 지점에서 명확히 한다.
+ * 표시 라벨일 뿐 조문·산출물 코드는 무접촉(빌더 trustors[0] 의미와 일치).
+ */
+export function trustorRankLabel(idx: number): string {
+  return idx === 0 ? "대표위탁자" : "";
+}
+
 /** 우선수익자 1인의 한도금액 */
 export function priorityLimitFor(p: Party, ratio: number): number {
   const loan = parseAmount(p.loanAmount);

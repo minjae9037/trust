@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { priorityRankLabel } from "@/lib/engine/calc";
+import { priorityRankLabel, trustorRankLabel } from "@/lib/engine/calc";
 import { PartyCard } from "./PartyCard";
 
 export function StepParties() {
@@ -14,6 +14,12 @@ export function StepParties() {
   return (
     <div>
       <h3 className="group-title">위탁자</h3>
+      {form.trustors.length > 1 && (
+        <p className="field-hint" style={{ marginBottom: 14 }}>
+          맨 위 위탁자가 <strong>대표위탁자</strong>입니다 — 위탁자 전원을 대리하여
+          신탁해지를 포함한 권한을 행사합니다(별첨4 신탁특약). ▲▼ 로 순서를 바꿔 대표위탁자를 지정하세요.
+        </p>
+      )}
       {form.trustors.map((p, i) => (
         <PartyCard
           key={i}
@@ -22,6 +28,12 @@ export function StepParties() {
           party={p}
           label="위탁자"
           removable={form.trustors.length > 1}
+          orderable
+          count={form.trustors.length}
+          rankNote={form.trustors.length > 1 ? trustorRankLabel(i) || undefined : undefined}
+          orderNoun="순서"
+          moveUpHint="대표위탁자 쪽으로"
+          moveDownHint="뒤로"
         />
       ))}
       <button className="btn btn-ghost btn-sm" onClick={() => addParty("trustors")}>
