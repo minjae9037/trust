@@ -2774,3 +2774,11 @@ export function previewDocHTML(form, docId) {
              : (meta ? buildGenericDocFullHTML(docId, meta) : "");
   return stripAutoPrint(html);
 }
+
+/** 공동사업표준협약서 완성 미리보기 HTML(읽기 전용·새 창 "크게 보기"용) — 실제
+ *  PDF/생성물과 동일한 본문(buildJointFullHTML)에서 자동 인쇄 <script> 만 제거.
+ *  담보신탁 previewDocHTML 과 동형(조문·표·CSS 무손상). */
+export function previewJointHTML(jointForm) {
+  state.jointForm = jointForm;
+  return stripAutoPrint(buildJointFullHTML());
+}

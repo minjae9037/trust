@@ -44,3 +44,8 @@ export function previewAnnex4HTML(form: ContractForm): string {
 export function previewDocHTML(form: ContractForm, docId: DocId): string {
   return B.previewDocHTML(form, docId);
 }
+
+/** 공동사업표준협약서 완성 미리보기 HTML(새 창 "크게 보기"용·읽기 전용) */
+export function previewJointHTML(jointForm: JointForm): string {
+  return B.previewJointHTML(jointForm);
+}

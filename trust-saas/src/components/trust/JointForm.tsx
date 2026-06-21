@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { generateJointDoc, generateJointPDFDoc } from "@/lib/engine/docx";
+import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/engine/docx";
+import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 
 export function JointForm() {
   const { jointForm, updateJoint } = useContractStore();
@@ -34,6 +35,19 @@ export function JointForm() {
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     }
+  }
+  // 협약서 전체를 새 창에서 전체 크기로 정독 검수(생성 전 육안 확인). 완성
+  // 미리보기(previewJointHTML)를 변형 없이 띄우는 읽기 전용 보기(자동 인쇄 없음·
+  // 조문 무접촉). 팝업 차단 시 PDF 생성과 동일하게 성공으로 오인하지 않고 안내만.
+  function onExpandPreview() {
+    const r = openDocPreviewWindow(previewJointHTML(jointForm), () =>
+      window.open("", "_blank", "width=980,height=1100"),
+    );
+    setMsg(
+      r === "blocked"
+        ? "새 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요."
+        : "협약서를 새 창에서 열었습니다.",
+    );
   }
 
   return (
@@ -121,6 +135,10 @@ export function JointForm() {
           </button>
           <button className="btn btn-ghost" onClick={onPdf} disabled={busy}>
             🖨 PDF 생성
+          </button>
+          <button className="btn btn-ghost" onClick={onExpandPreview} disabled={busy}
+            title="협약서 전체를 새 창에서 크게 보기">
+            🔍 크게 보기
           </button>
           {msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
         </div>
