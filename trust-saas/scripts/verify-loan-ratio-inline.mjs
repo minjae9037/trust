@@ -21,6 +21,9 @@
      (E) ★게이트 정합 — 인라인이 무효로 보는 비율은 게이트(validateDoc)도 반드시 차단하고
          (인라인 오류인데 생성 허용되는 모순 0), 인라인이 안 켜는 값(기본 120·범위 내·
          0/빈 값→120 처리)은 게이트도 통과(오탐/나그 0).
+     (F) ★한도금액 표시 억제 — ratioInvalid 일 때 개별·합계 우선수익한도금액과 산식 footnote 가
+         무효 비율로 산출한 굵은 큰 금액을 그대로 보여 주지 않고 "—"/보류로 억제(인라인 오류와
+         모순되는 "확신 있어 보이는 잘못된 값" 0 — 개별 대출금액 무효 시 한도 셀 억제와 동형).
 
    실행:
      cd trust-saas
@@ -107,6 +110,24 @@ console.log("\n[E] ★게이트 정합 — 인라인 무효 ⟺ 게이트 차단
     ok(isValidRatio(good) === true, `인라인 OFF: isValidRatio(${JSON.stringify(good)})=true`);
     ok(validateDoc(f, "contract").ok === true && !hasRatioMiss(f), `→ 게이트도 통과·비율 오탐 없음`);
   }
+}
+
+console.log("\n[F] ★한도금액 표시 억제 — ratioInvalid 시 개별·합계 한도금액·산식 footnote 억제");
+{
+  const flat = step.replace(/\s+/g, " ");
+  // 개별 행 한도 셀: 양(+)의 대출금액이어도 ratioInvalid 면 한도 미표시("—")
+  ok(/isPositiveAmount\(p\.loanAmount\)\s*&&\s*!ratioInvalid\s*\?/.test(flat),
+    "개별 한도 셀: isPositiveAmount(p.loanAmount) && !ratioInvalid 일 때만 금액 표시");
+  // 합계 한도 셀: ratioInvalid 면 "—"
+  ok(/\{ratioInvalid\s*\?\s*\(\s*"—"\s*\)\s*:\s*\(/.test(flat),
+    "합계 한도 셀: ratioInvalid ? \"—\" : (금액)");
+  ok(/totalPriorityLimit\(form\)/.test(flat),
+    "합계 한도 셀: 유효 비율일 때만 totalPriorityLimit(form) 표시(분기 안쪽)");
+  // 산식 footnote: ratioInvalid 면 "× 비율"·보류 안내, 아니면 "× {priorityRatio}%"
+  ok(/대출금액 × \{ratioInvalid \? "비율" : `\$\{form\.common\.priorityRatio\}%`\}/.test(flat),
+    "산식 footnote: ratioInvalid 시 % 단정 대신 '비율'로 표기");
+  ok(/한도금액 산정이 보류/.test(flat),
+    "산식 footnote: ratioInvalid 시 '산정 보류' 안내");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);

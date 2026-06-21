@@ -10,6 +10,10 @@ export function StepLoanCalc() {
   // 입력 지점에서 즉시 알리지 않으면 아래 한도표가 `대출금액 × 비율`로 산출한 잘못된 금액을
   // 굵게 표시해 사용자가 신뢰할 위험이 있다. 게이트와 같은 단일 출처(isValidRatio)를 재사용해
   // 판정 불일치 없이 그 입력 옆에서 즉시 짚어 준다(PartyCard·JointForm 인라인 패리티, 표시/접근성만).
+  // ★ ratioInvalid 일 때는 인라인 오류만 띄우는 데 그치지 않고, 한도표의 개별·합계 우선수익한도금액과
+  //   산식 footnote 도 "—"/보류로 억제한다 — 무효 비율로 산출된 굵은(brown) 큰 금액을 그대로 보여 주면
+  //   인라인 오류와 모순되는 "확신 있어 보이는 잘못된 값"이 남기 때문(개별 대출금액 무효 시 한도 셀을
+  //   "—" 로 억제하는 것과 동형의 정확성 패리티). 게이트는 무접촉(표시 전용).
   const ratioInvalid = !isValidRatio(form.common.priorityRatio);
 
   return (
@@ -139,7 +143,7 @@ export function StepLoanCalc() {
                       )}
                     </td>
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--c-brown)" }}>
-                      {isPositiveAmount(p.loanAmount) ? (
+                      {isPositiveAmount(p.loanAmount) && !ratioInvalid ? (
                         <>
                           {limit.toLocaleString() + " 원"}
                           <div className="loan-hangul">{amountToHangul(limit)}</div>
@@ -166,9 +170,15 @@ export function StepLoanCalc() {
                   )}
                 </td>
                 <td style={{ ...td, textAlign: "right", fontWeight: 800, color: "var(--c-brown)" }}>
-                  {totalPriorityLimit(form).toLocaleString()} 원
-                  {totalPriorityLimit(form) > 0 && (
-                    <div className="loan-hangul">{amountToHangul(totalPriorityLimit(form))}</div>
+                  {ratioInvalid ? (
+                    "—"
+                  ) : (
+                    <>
+                      {totalPriorityLimit(form).toLocaleString()} 원
+                      {totalPriorityLimit(form) > 0 && (
+                        <div className="loan-hangul">{amountToHangul(totalPriorityLimit(form))}</div>
+                      )}
+                    </>
                   )}
                 </td>
               </tr>
@@ -178,8 +188,10 @@ export function StepLoanCalc() {
       </div>
 
       <div className="panel-footnote" style={{ marginTop: 18 }}>
-        <strong>📊 산식</strong> 우선수익한도금액 = 대출금액 × {form.common.priorityRatio}% · 산정된
-        합계는 STEP 04 의 우선수익한도금액에 자동 반영됩니다.
+        <strong>📊 산식</strong> 우선수익한도금액 = 대출금액 × {ratioInvalid ? "비율" : `${form.common.priorityRatio}%`} ·{" "}
+        {ratioInvalid
+          ? "비율이 유효 범위(100~150%)를 벗어나 한도금액 산정이 보류됩니다 — 비율을 고치면 다시 산정됩니다."
+          : "산정된 합계는 STEP 04 의 우선수익한도금액에 자동 반영됩니다."}
       </div>
     </div>
   );

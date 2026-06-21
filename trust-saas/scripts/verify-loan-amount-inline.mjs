@@ -71,8 +71,9 @@ ok(/\{loanInvalid\s*&&\s*\(/.test(step),
   "오류 div 는 loanInvalid 일 때만 렌더(나그 방지)");
 
 console.log("\n[D] 한도 셀 가드 — 무효 금액은 isPositiveAmount 로 '—'(음수 한도 굵게 표시 차단)");
-ok(/\{isPositiveAmount\(p\.loanAmount\) \?/.test(step),
-  "우선수익한도금액 셀이 isPositiveAmount(p.loanAmount) 로 가드(음수→'—')");
+// ※ 비율(ratioInvalid) 도 무효면 굵은 한도 표시를 억제하므로(verify-loan-ratio-inline [F]) 결합 가드.
+ok(/\{isPositiveAmount\(p\.loanAmount\) && !ratioInvalid \?/.test(step),
+  "우선수익한도금액 셀이 isPositiveAmount(p.loanAmount) && !ratioInvalid 로 가드(음수/무효비율→'—')");
 ok(!/\{parseAmount\(p\.loanAmount\) \?/.test(step),
   "과거 parseAmount(p.loanAmount) ? 가드(음수=truthy→굵게 표시) 제거됨");
 
