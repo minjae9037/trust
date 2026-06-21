@@ -56,7 +56,8 @@ ok(builders.includes("생년월일"), "builders.js 가 '생년월일' 라벨을 
 console.log("\n[C] PartyCard 입력 UI ↔ partyIdLabel 사용(하드코딩 라벨 회귀 차단)");
 ok(/import\s*\{[^}]*partyIdLabel[^}]*\}\s*from\s*["']@\/lib\/engine\/calc["']/.test(card),
   "PartyCard 가 calc 에서 partyIdLabel 을 import");
-ok(/field-label["']>\{partyIdLabel\(party\.type\)\}</.test(card),
+// a11y 정비로 라벨 div 가 그룹 id(aria-labelledby 연결)를 가질 수 있어 속성 허용.
+ok(/field-label["'][^>]*>\{partyIdLabel\(party\.type\)\}</.test(card),
   "식별번호 칸 라벨 = {partyIdLabel(party.type)} (type 분기)");
 ok(!/field-label["']>법인등록번호</.test(card),
   "하드코딩 라벨 '법인등록번호' 잔존 없음(개인일 때도 고정 노출되던 회귀 차단)");

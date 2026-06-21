@@ -43,10 +43,12 @@ const ok = (cond, label) => {
 
 // director 필드 블록(대표이사~사내이사)의 위치/게이트를 분석하기 위한 인덱스
 const idxIsCorpDef = card.search(/const\s+isCorp\s*=/);
-const idxRepField = card.indexOf('대표이사</div>');
-const idxInsideField = card.indexOf('사내이사</div>');
+// 대표이사·사내이사 라벨은 a11y 정비(div→label)로 </label> 로 닫힌다(접근성 iteration).
+const idxRepField = card.indexOf('대표이사</label>');
+const idxInsideField = card.indexOf('사내이사</label>');
 // 버튼은 accept="application/pdf" 로 유일 식별(주석 속 "법인등기부 PDF" 문자열과 구별)
 const idxCorpPdf = card.indexOf('accept="application/pdf"');
+// 사업자등록번호는 복합(3칸) 그룹 라벨이라 여전히 <div className="field-label" id=…> 로 렌더.
 const idxBizNo = card.indexOf('사업자등록번호</div>');
 
 console.log("\n[A] isCorp 단일 출처 — type !== '개인' 파생");
