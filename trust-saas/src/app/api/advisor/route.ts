@@ -5,6 +5,7 @@ import { loadBackdataChunks } from "@/lib/advisor/backdata";
 import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
 import { parseAdvisorBody } from "@/lib/advisor/request";
+import { advisorErrorMessage } from "@/lib/advisor/error-message";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -117,7 +118,9 @@ export async function POST(req: Request) {
         await stream.finalMessage();
         controller.close();
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        // ★표시 경계: 영문 SDK 메시지(overloaded·rate limit·연결 오류 등)를
+        //   100% 한국어 제품 본문에 그대로 흘리지 않도록 친화적 한국어로 치환.
+        const msg = advisorErrorMessage(e);
         controller.enqueue(encoder.encode("\n\n[오류] " + msg));
         controller.close();
       }

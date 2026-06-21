@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DOC_LABEL, parseAction } from "@/lib/advisor/action-marker";
+import { advisorErrorMessage } from "@/lib/advisor/error-message";
 import { isSubmitEnter } from "@/lib/ui/keys";
 
 interface Source {
@@ -98,7 +99,9 @@ export function AdvisorChat() {
         scrollDown();
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      // ★표시 경계: !res.ok 경로의 원시 JSON 본문(`{"error":"…"}`)·네트워크
+      //   영문 오류를 친화적 한국어로 치환(서버가 보낸 한국어 {error}는 통과).
+      const msg = advisorErrorMessage(e);
       setMsgs((m) => {
         const copy = m.slice();
         copy[copy.length - 1] = { role: "assistant", content: "오류: " + msg };
