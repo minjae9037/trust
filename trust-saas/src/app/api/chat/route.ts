@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { UPDATE_FORM_TOOL } from "@/lib/chat/formSchema";
 import { parseChatBody } from "@/lib/chat/request";
+import { friendlyErrorMessage } from "@/lib/ui/error-message";
 
 export const runtime = "nodejs";
 
@@ -82,7 +83,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ reply: reply.trim(), patch });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: "Claude 호출 실패: " + msg }, { status: 502 });
+    // ★표시/정보누출 경계: Claude SDK 영문 메시지(overloaded·connection 등)를
+    //   공개·무인증 엔드포인트가 그대로 노출하지 않도록 친화적 한국어로 치환
+    //   (단일 출처 friendlyErrorMessage — 상담 route.ts 와 동형). 502 유지=업스트림 장애.
+    return NextResponse.json({ error: friendlyErrorMessage(e) }, { status: 502 });
   }
 }

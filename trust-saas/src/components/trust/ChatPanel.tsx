@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { summarizeForm, toolInputToPatch, normalizePatchIds } from "@/lib/chat/formSchema";
 import { isSubmitEnter } from "@/lib/ui/keys";
+import { friendlyErrorMessage } from "@/lib/ui/error-message";
 import {
   tokenizePII,
   restorePII,
@@ -56,8 +57,14 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages, formSummary: summarizeForm(form) }),
       });
+      // ★!res.ok 는 서버가 보낸 원시 JSON 본문({"error":"…"})을 그대로 throw 한다
+      //   — catch 의 friendlyErrorMessage 가 passthrough 로 친화적 한국어를 추출
+      //   (상담 AdvisorChat 와 동형, 이중 일반화 방지). 정상 경로만 res.json() 파싱.
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(t || "요청 실패");
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "요청 실패");
 
       const replyDisplay = restorePII(data.reply || "", piiMap.current);
       setMsgs((m) => [
@@ -71,7 +78,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         mergeFormPatch(patch);
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      // ★표시/정보누출 경계: 네트워크 영문 오류(Failed to fetch 등)·서버 원시 JSON
+      //   본문을 raw 노출하지 않고 친화적 한국어로 치환(단일 출처 friendlyErrorMessage).
+      setErr(friendlyErrorMessage(e));
     } finally {
       setBusy(false);
       setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 50);
