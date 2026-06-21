@@ -1514,6 +1514,9 @@ body {
 .fb-btn { font-size: 14px; line-height: 1; background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-pill); padding: 5px 10px; cursor: pointer; transition: all 0.15s; }
 .fb-btn:hover { background: var(--c-bg-soft, rgba(0,0,0,0.04)); transform: translateY(-1px); }
 .advisor-feedback-done { font-size: 12px; color: var(--c-blue-deep); }
+/* 피드백 전송 후 포커스를 받는 비-상호작용 안내 텍스트 — 포커스 링 억제(시각 무변경,
+   .form-panel-title:focus 와 동일 패턴). 포커스 이동 목적은 컨텍스트 유지(WCAG 2.4.3). */
+.advisor-feedback-done:focus { outline: none; }
 /* 답변 복사 버튼 — 피드백 행 우측. 복사됨 상태는 잠깐 표기 후 원복. */
 .copy-btn { margin-left: auto; font-size: 12px; line-height: 1; font-family: inherit; color: var(--c-ink-soft); background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-pill); padding: 5px 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 .copy-btn:hover { border-color: var(--c-brown); color: var(--c-ink); transform: translateY(-1px); }

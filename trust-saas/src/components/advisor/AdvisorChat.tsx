@@ -75,6 +75,9 @@ export function AdvisorChat() {
   // 답변별 렌더된 마크다운 DOM 노드(인덱스→노드) — 복사 시 서식(표·리스트·헤딩)을
   // 보존한 text/html 을 함께 클립보드에 넣기 위해 참조를 보관한다(언마운트 시 정리).
   const mdRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  // 방금 피드백(👍/👎)을 보낸 답변 인덱스 — 버튼이 언마운트되며 포커스를 잃지 않게
+  // 교체된 "의견 감사합니다" 텍스트로 포커스를 옮기기 위한 1회성 표식(WCAG 2.4.3).
+  const justFedRef = useRef<number | null>(null);
 
   // 생성 중지: 진행 중인 fetch/스트림을 abort 한다(부분 답변은 보존, error 미표시).
   function stopGenerating() {
@@ -151,6 +154,7 @@ export function AdvisorChat() {
   async function sendFeedback(i: number, rating: "up" | "down") {
     if (feedbackSent[i]) return;
     const q = msgs[i - 1]?.role === "user" ? msgs[i - 1].content : "";
+    justFedRef.current = i; // 교체될 done 텍스트로 포커스를 옮길 1회성 표식(포커스 상실 방지)
     setFeedbackSent((s) => ({ ...s, [i]: rating }));
     // ★피드백 결과 SR 고지(WCAG 4.1.3) — 👍/👎 버튼은 클릭 즉시 언마운트되며 정적
     //   텍스트("의견 감사합니다")로 교체될 뿐 라이브 영역이 아니어서, SR 사용자는
@@ -367,7 +371,18 @@ export function AdvisorChat() {
                 {body && !busy && (
                   <div className="advisor-feedback">
                     {feedbackSent[i] ? (
-                      <span className="advisor-feedback-done">
+                      <span
+                        className="advisor-feedback-done"
+                        tabIndex={-1}
+                        ref={(el) => {
+                          // 방금 이 답변에 피드백을 보냈다면, 언마운트된 버튼 대신
+                          // 이 텍스트로 포커스를 옮긴다(1회만 — 표식을 비워 재렌더 시 재포커스 방지).
+                          if (el && justFedRef.current === i) {
+                            el.focus();
+                            justFedRef.current = null;
+                          }
+                        }}
+                      >
                         {feedbackSent[i] === "up" ? "👍 의견 감사합니다" : "👎 더 개선하겠습니다"}
                       </span>
                     ) : (
