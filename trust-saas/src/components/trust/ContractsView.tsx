@@ -533,7 +533,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                           : "일부 서류는 필수 입력 누락으로 아직 생성할 수 없습니다(열기 → 각 서류에서 확인)"
                       }
                     >
-                      {allReady ? "✓" : "⚠"} 서류 {readiness.ready}/{readiness.total} 생성 가능
+                      <span aria-hidden="true">{allReady ? "✓" : "⚠"}</span> 서류 {readiness.ready}/{readiness.total} 생성 가능
                     </span>
                   )}
                   {jointReady !== null && (
@@ -545,7 +545,8 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                           : "필수 입력 누락으로 아직 협약서를 생성할 수 없습니다(열기 → 누락 항목 확인)"
                       }
                     >
-                      {jointReady ? "✓ 협약서 생성 가능" : "⚠ 필수 입력 누락"}
+                      <span aria-hidden="true">{jointReady ? "✓" : "⚠"}</span>{" "}
+                      {jointReady ? "협약서 생성 가능" : "필수 입력 누락"}
                     </span>
                   )}
                 </div>

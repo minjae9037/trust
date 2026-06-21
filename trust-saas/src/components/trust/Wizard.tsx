@@ -170,7 +170,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
         </div>
         <div className="doc-progress-text">
           <span className={"doc-progress-count" + (readyCount === totalDocs ? " ok" : "")}>
-            {readyCount === totalDocs ? "✓ " : ""}서류 <strong>{readyCount}/{totalDocs}</strong> 생성 가능
+            {readyCount === totalDocs ? <span aria-hidden="true">✓ </span> : null}서류 <strong>{readyCount}/{totalDocs}</strong> 생성 가능
           </span>
           {firstBlocked ? (
             <button
@@ -178,7 +178,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               onClick={() => goStep(firstBlocked.idx)}
               title={`${firstBlocked.label} ${firstBlocked.title}(으)로 이동해 필수 입력 채우기`}
             >
-              ⚠ {totalDocs - readyCount}종 입력 필요 — {firstBlocked.label}로 이동 ›
+              <span aria-hidden="true">⚠ </span>{totalDocs - readyCount}종 입력 필요 — {firstBlocked.label}로 이동 ›
             </button>
           ) : (
             <span className="doc-progress-done">모든 서류 생성 준비 완료</span>
