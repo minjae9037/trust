@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { DOC_LABEL, parseAction } from "@/lib/advisor/action-marker";
 
 interface Source {
   topic: string;
@@ -25,19 +26,6 @@ function decodeSources(header: string | null): Source[] {
   } catch {
     return [];
   }
-}
-
-const DOC_LABEL: Record<string, string> = {
-  collateral: "담보신탁",
-  joint: "공동사업표준협약서",
-  fund: "자금관리대리사무",
-};
-
-/** 답변에서 <<doc:ID>> 액션 마커 추출 (표시용 본문에서는 제거) */
-function parseAction(content: string): { body: string; docId: string | null } {
-  const m = content.match(/<<doc:(collateral|joint|fund)>>/);
-  const body = content.replace(/<<doc:(?:collateral|joint|fund)>>/g, "").trimEnd();
-  return { body, docId: m ? m[1] : null };
 }
 
 const SUGGESTIONS = [

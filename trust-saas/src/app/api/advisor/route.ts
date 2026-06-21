@@ -4,6 +4,7 @@ import { retrieve, formatContext } from "@/lib/advisor/retrieve";
 import { loadBackdataChunks } from "@/lib/advisor/backdata";
 import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
+import { parseAdvisorBody } from "@/lib/advisor/request";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -39,10 +40,6 @@ const ADVISOR_PERSONA = `당신은 한국 대체투자(Alternative Investment) �
 
 말투: 전문적이고 간결한 한국어. 핵심부터. 과한 사족 없이.`;
 
-interface Body {
-  messages: { role: "user" | "assistant"; content: string }[];
-}
-
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -52,18 +49,26 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: Body;
+  let raw: unknown;
   try {
-    body = await req.json();
+    raw = await req.json();
   } catch {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
+
+  // ★입력 경계 검증 — messages 가 어긋난 본문(빈 배열·비배열·잘못된 원소)이
+  //   try/catch 밖에서 TypeError 로 라우트를 죽이지 않도록 단일 지점에서 차단.
+  const parsed = parseAdvisorBody(raw);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const messages = parsed.messages;
 
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();
 
   // RAG-lite: 최근 사용자 발화로 지식코퍼스 검색 → 근거 주입
-  const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
   // 기본 KNOWLEDGE + (있으면) back-data 인덱스 병합 검색
   const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
@@ -106,7 +111,7 @@ export async function POST(req: Request) {
           model: MODEL,
           max_tokens: 2048,
           system: systemBlocks,
-          messages: body.messages.map((m) => ({ role: m.role, content: m.content })),
+          messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
         stream.on("text", (t) => controller.enqueue(encoder.encode(t)));
         await stream.finalMessage();
