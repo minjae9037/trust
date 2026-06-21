@@ -3,7 +3,7 @@
    완료기준: 필수항목(당사자·물건·금액 등) 누락 시 DOCX 차단 + 누락 필드 안내.
    ⚠️ verbatim 조문 자체는 건드리지 않는다. "입력값 완결성"만 검사.
    ================================================================ */
-import type { ContractForm, DocId, Party } from "./model";
+import type { ContractForm, DocId, JointForm, Party } from "./model";
 import { parseAmount, isRealDate, isPositiveAmount, isValidRatio, isValidBizNo, isValidCorpRegNo, isValidRegNo, isValidBirthDate } from "./calc";
 import { STEPS, type StepDef } from "./schema";
 
@@ -224,4 +224,52 @@ export function firstIncompleteDocStep(form: ContractForm): StepDef | null {
     if (s.docId && !validateDoc(form, s.docId).ok) return s;
   }
   return null;
+}
+
+/* ================================================================
+   공동사업표준협약서(joint) 검증 게이트
+   담보신탁 DocStep 의 validateDoc 과 동형 — 필수 입력(갑·사업·협약일)이
+   누락되면 Word/PDF 생성을 차단해 "빈 칸이 박힌 법적 협약서" 생성을 막는다.
+   (inbox C2 "검증 게이트: 필수 항목 누락 시 생성 차단 + 누락 안내" 의 joint 적용.)
+   ⚠️ 빌더(buildJointFullHTML)·조문 무접촉 — "입력값 완결성"만 검사한다.
+   joint 는 단일 페이지 폼이라 step 점프가 없어 누락 라벨만 반환한다.
+   ================================================================ */
+
+/**
+ * 공동사업표준협약서 생성(Word/PDF) 가능 여부 + 누락 항목 라벨.
+ * ok=true 면 생성 버튼 활성화. 구버전 저장본·AI 머지로 하위 객체가 비어 있어도
+ * 옵셔널 체이닝으로 크래시하지 않는다.
+ */
+export function validateJoint(form: JointForm): { ok: boolean; missing: string[] } {
+  const m: string[] = [];
+  const gap = form?.gap ?? ({} as JointForm["gap"]);
+  const project = form?.project ?? ({} as JointForm["project"]);
+
+  // 갑(시행사) — 협약 당사자. 빈 값이면 협약서 상호·대표자·주소 칸이 공백으로 박힌다
+  // (builders.js: 제3조·서명란 varLine(g.name/g.repDir/g.address)).
+  if (!hasText(gap.name)) m.push("갑(시행사) 상호");
+  if (!hasText(gap.repDir)) m.push("갑(시행사) 대표이사");
+  if (!hasText(gap.address)) m.push("갑(시행사) 주소");
+  // 갑 법인등록번호 — 빈 값은 허용(선택 입력 = 무회귀). "입력됐으나 13자리 체크섬이
+  // 무효"인 경우만 차단(담보신탁 checkCorpReg 와 동일 원칙 — 추정 형식 아님).
+  const corp = [gap.corpRegFront, gap.corpRegBack].map((x) => String(x ?? "")).join("").replace(/\D/g, "");
+  if (corp.length > 0 && !isValidCorpRegNo(corp)) m.push("갑(시행사) 법인등록번호 (유효하지 않은 번호)");
+
+  // 사업 정보 — 협약서 제1조에 그대로 박히는 핵심 변수(사업명·사업부지·규모/용도).
+  if (!hasText(project.name)) m.push("사업명");
+  if (!hasText(project.site)) m.push("사업부지");
+  if (!hasText(project.scaleUse)) m.push("사업규모 및 용도");
+
+  // 협약일 — 누락뿐 아니라 실재하지 않는 날짜(예: 2월 31일)도 차단(담보신탁 체결일과 동일).
+  // agreementYear/Month/Day 는 자유 텍스트 입력이라 비숫자·범위 밖 값도 들어올 수 있다.
+  if (!hasText(project.agreementYear) || !hasText(project.agreementMonth) || !hasText(project.agreementDay)) {
+    m.push("협약일 (연·월·일)");
+  } else {
+    const y = Number(String(project.agreementYear).trim());
+    const mo = Number(String(project.agreementMonth).trim());
+    const d = Number(String(project.agreementDay).trim());
+    if (!isRealDate(y, mo, d)) m.push("협약일 (실재하지 않는 날짜)");
+  }
+
+  return { ok: m.length === 0, missing: m };
 }

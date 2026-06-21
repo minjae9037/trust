@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/engine/docx";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
+import { validateJoint } from "@/lib/engine/validate";
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다 완성 협약서
 // HTML 재생성·iframe srcDoc 재파싱을 막는다(담보신탁 DocStep 과 동일 패턴).
@@ -41,11 +42,16 @@ export function JointForm() {
     }
   }, [debouncedForm]);
 
+  // ── 검증 게이트 (담보신탁 DocStep 과 동형) — 필수 입력 충족 시에만 생성 활성화.
+  //    미리보기와 달리 라이브 jointForm 을 직접 읽어 즉시 반영(디바운스 영향 없음).
+  const { ok, missing } = useMemo(() => validateJoint(jointForm), [jointForm]);
+
   const setGap = (patch: Partial<typeof gap>) => updateJoint({ gap: { ...gap, ...patch } });
   const setProject = (patch: Partial<typeof project>) =>
     updateJoint({ project: { ...project, ...patch } });
 
   async function onDocx() {
+    if (!ok) return; // 버튼 disabled 와 더불어 방어적 차단(빈 칸 협약서 생성 방지)
     setBusy(true);
     setMsg("Word 생성 중…");
     try {
@@ -58,6 +64,7 @@ export function JointForm() {
     }
   }
   function onPdf() {
+    if (!ok) return; // 버튼 disabled 와 더불어 방어적 차단
     try {
       generateJointPDFDoc(jointForm);
       setMsg("PDF 인쇄창을 열었습니다.");
@@ -163,11 +170,35 @@ export function JointForm() {
           </div>
         </div>
 
+        {/* ── 검증 게이트 안내 (담보신탁 DocStep 과 동형, joint 적용) ── */}
+        {!ok && (
+          <div className="validate-box" role="alert" style={{ marginTop: 24 }}>
+            <div className="validate-title">⚠ 생성 전 필수 입력이 누락되었습니다</div>
+            <ul className="validate-list">
+              {missing.map((label, i) => (
+                <li key={i}>
+                  <strong>{label}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 24, flexWrap: "wrap" }}>
-          <button className="btn btn-primary" onClick={onDocx} disabled={busy}>
+          <button
+            className="btn btn-primary"
+            onClick={onDocx}
+            disabled={busy || !ok}
+            title={ok ? "" : "필수 입력을 모두 채우면 활성화됩니다"}
+          >
             📄 Word(.docx) 생성
           </button>
-          <button className="btn btn-ghost" onClick={onPdf} disabled={busy}>
+          <button
+            className="btn btn-ghost"
+            onClick={onPdf}
+            disabled={busy || !ok}
+            title={ok ? "" : "필수 입력을 모두 채우면 활성화됩니다"}
+          >
             🖨 PDF 생성
           </button>
           {msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
