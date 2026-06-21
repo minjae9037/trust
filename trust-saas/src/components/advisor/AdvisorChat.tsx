@@ -97,6 +97,16 @@ export function AdvisorChat() {
     setLiveMsg(""); // SR 상태도 비움(빈 문자열은 재낭독되지 않음)
   }
 
+  // ★사용자 동작 결과 스크린리더 고지 공용 헬퍼(WCAG 4.1.3 Status Messages) — 복사·피드백
+  //   같은 동작의 성공/실패를 폴라이트 라이브 영역(.advisor-live)으로 알린다. 이들 UI 는
+  //   모두 !busy 일 때만 노출되므로 스트리밍 상태 고지와 시점이 겹치지 않는다(채널 충돌 없음).
+  //   ★빈 문자열로 비웠다가 50ms 뒤 세팅 = 같은 문구를 연속 고지해도(aria-live polite 는
+  //   동일 내용엔 무반응) 내용 변화로 재낭독 보장(라이브 영역 재고지 표준 기법).
+  const announce = (text: string) => {
+    setLiveMsg("");
+    setTimeout(() => setLiveMsg(text), 50);
+  };
+
   // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
   // ★서식 보존: 렌더된 HTML(표·리스트·헤딩)을 text/html 로 함께 복사해 Word·메일·
   //   Notion 에 붙이면 표가 표 그대로 붙는다(원시 마크다운 `| a | b |` 파이프가 평문으로
@@ -104,18 +114,10 @@ export function AdvisorChat() {
   // ★text/plain 폴백 = 내부 액션 마커(<<doc:…>>)가 제거된 마크다운 본문(body) —
   //   리치 클립보드(ClipboardItem) 미지원/거부 시에도 평문은 항상 복사된다(graceful degradation,
   //   원시 m.content·마커 비노출 계약 유지).
+  // ★복사 결과 SR 고지(공용 announce 사용) — 복사 버튼의 시각 토글("✓ 복사됨")은 정적
+  //   aria-label("답변 복사")에 가려 SR 접근명으로 안 읽히므로 성공/실패를 라이브 영역으로 알린다.
   async function copyAnswer(i: number, body: string) {
     const html = mdRefs.current.get(i)?.innerHTML ?? "";
-    // ★복사 결과 스크린리더 고지(WCAG 4.1.3 Status Messages) — 복사 버튼의 시각 토글
-    //   ("✓ 복사됨")은 정적 aria-label("답변 복사")에 가려 SR 접근명으로 안 읽히므로,
-    //   복사 성공/실패를 스트리밍 상태와 같은 폴라이트 라이브 영역(.advisor-live)으로
-    //   알린다(복사 UI 는 !busy 일 때만 노출 → 스트리밍 상태 고지와 시점이 겹치지 않음).
-    //   ★빈 문자열로 비웠다가 세팅 = 같은 문구를 연속 복사(답변 A→B)해도 내용 변화로
-    //   재낭독 보장(aria-live 는 동일 내용엔 무반응 — 라이브 영역 재고지 표준 기법).
-    const announce = (text: string) => {
-      setLiveMsg("");
-      setTimeout(() => setLiveMsg(text), 50);
-    };
     const flash = () => {
       setCopied(i);
       setTimeout(() => setCopied((c) => (c === i ? null : c)), 1500);
@@ -150,6 +152,11 @@ export function AdvisorChat() {
     if (feedbackSent[i]) return;
     const q = msgs[i - 1]?.role === "user" ? msgs[i - 1].content : "";
     setFeedbackSent((s) => ({ ...s, [i]: rating }));
+    // ★피드백 결과 SR 고지(WCAG 4.1.3) — 👍/👎 버튼은 클릭 즉시 언마운트되며 정적
+    //   텍스트("의견 감사합니다")로 교체될 뿐 라이브 영역이 아니어서, SR 사용자는
+    //   ① 의견이 접수됐는지 알 수 없고 ② 포커스도 잃는다. 시각 swap 과 동일하게
+    //   낙관적으로(전송 성공 여부와 무관, fetch 실패는 무시) 결과를 고지한다.
+    announce(rating === "up" ? "도움이 됐다는 의견을 보냈습니다." : "개선이 필요하다는 의견을 보냈습니다.");
     try {
       await fetch("/api/advisor/feedback", {
         method: "POST",
