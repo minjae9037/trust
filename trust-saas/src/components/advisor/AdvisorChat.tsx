@@ -42,7 +42,20 @@ export function AdvisorChat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState<Record<number, "up" | "down">>({});
+  const [copied, setCopied] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
+  // ★내부 액션 마커(<<doc:…>>)가 제거된 body 만 복사(원시 마커 미노출=action-marker 계약 유지).
+  async function copyAnswer(i: number, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(i);
+      setTimeout(() => setCopied((c) => (c === i ? null : c)), 1500);
+    } catch {
+      /* 클립보드 미지원·권한 거부 — 조용히 무시(전송·답변 경로 무영향) */
+    }
+  }
 
   // [수집] 답변 피드백 — 자가고도화 루프 입력
   async function sendFeedback(i: number, rating: "up" | "down") {
@@ -172,6 +185,14 @@ export function AdvisorChat() {
                         <button className="fb-btn" onClick={() => sendFeedback(i, "down")} title="개선 필요">👎</button>
                       </>
                     )}
+                    <button
+                      className="copy-btn"
+                      onClick={() => copyAnswer(i, body)}
+                      title="답변 복사"
+                      aria-label="답변 복사"
+                    >
+                      {copied === i ? "✓ 복사됨" : "⧉ 복사"}
+                    </button>
                   </div>
                 )}
               </div>

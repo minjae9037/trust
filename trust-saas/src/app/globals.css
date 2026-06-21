@@ -1461,6 +1461,10 @@ body {
 .fb-btn { font-size: 14px; line-height: 1; background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-pill); padding: 5px 10px; cursor: pointer; transition: all 0.15s; }
 .fb-btn:hover { background: var(--c-bg-soft, rgba(0,0,0,0.04)); transform: translateY(-1px); }
 .advisor-feedback-done { font-size: 12px; color: var(--c-blue-deep); }
+/* 답변 복사 버튼 — 피드백 행 우측. 복사됨 상태는 잠깐 표기 후 원복. */
+.copy-btn { margin-left: auto; font-size: 12px; line-height: 1; font-family: inherit; color: var(--c-ink-soft); background: var(--c-paper); border: 1px solid var(--c-line); border-radius: var(--r-pill); padding: 5px 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.copy-btn:hover { border-color: var(--c-brown); color: var(--c-ink); transform: translateY(-1px); }
+.copy-btn:focus-visible { outline: 2px solid var(--c-brown); outline-offset: 2px; }
 
 /* ============================================================
    버튼 시스템 (참조 CSS에 .btn 없어 신규) + 로고/뒤로가기 + 레이아웃 보정
