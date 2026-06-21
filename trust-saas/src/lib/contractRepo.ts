@@ -264,6 +264,36 @@ export async function duplicateContract(id: string): Promise<string | null> {
   return newId;
 }
 
+/* ----------------------------------------------------------------
+   이름 변경(rename) — 저장된 계약의 제목만 바꾼다.
+   배경: 제목은 저장 시 자동 생성되거나 복제 시 "(사본)"이 붙는데, 목록에서 이를
+   의미 있는 딜명("판교 PF 담보신탁" 등)으로 바꿀 수단이 없었다(삭제·복제·백업은
+   있으나 rename 부재). 실무에선 같은 위탁자·여러 사본을 제목으로 구분하므로
+   카드에서 바로 이름을 고칠 수 있어야 한다(검색·정렬·식별의 핵심).
+   ※ 제목만 변경 — form_data·doc_type·status·생성 시각은 무변형(조문·엔진 무접촉).
+   ---------------------------------------------------------------- */
+
+/** 제목 정규화(순수) — 앞뒤 공백 제거, 비면 "제목 없음"(저장 시 기본값과 동일). */
+export function normalizeTitle(raw: string): string {
+  return (raw || "").trim() || "제목 없음";
+}
+
+/**
+ * 제목 변경(순수) — id 가 일치하는 행의 title 만 정규화해 교체하고 updated_at 을 갱신한다.
+ * 입력 배열·행을 변형하지 않으며(불변), id 미존재 시 내용 변화 없이 그대로 반환한다.
+ * title 외 필드(form_data·doc_type·status·created_at)는 보존한다(제목만 변경 보장).
+ * (순수 함수 — 회귀 가드에서 직접 단언)
+ */
+export function renameRow(rows: ContractRow[], id: string, title: string, now: string): ContractRow[] {
+  const clean = normalizeTitle(title);
+  return rows.map((r) => (r.id === id ? { ...r, title: clean, updated_at: now } : r));
+}
+
+/** 이름 변경 — 저장된 계약의 제목만 바꾼다(정규화·시각 갱신, 나머지 무변형). */
+export async function renameContract(id: string, title: string): Promise<void> {
+  writeAll(renameRow(readAll(), id, title, new Date().toISOString()));
+}
+
 /* ================================================================
    백업(내보내기) · 복원(가져오기)
    로컬 우선(localStorage) 구조라 계약 데이터가 한 브라우저에 갇혀 있다 — 캐시 삭제·

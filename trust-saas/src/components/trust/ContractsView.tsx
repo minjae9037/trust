@@ -6,6 +6,7 @@ import {
   deleteContract,
   restoreContract,
   duplicateContract,
+  renameContract,
   exportContracts,
   importContracts,
   contractIdentity,
@@ -142,6 +143,29 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
     if (t) window.clearTimeout(t);
     undoTimers.current.delete(row.id);
     setUndoRows((q) => dequeueUndo(q, row.id));
+    await load();
+  }
+
+  // 이름 변경 — 자동 생성·"(사본)" 제목을 의미 있는 딜명으로 바꾼다(검색·정렬·식별의 핵심).
+  // 카드 제목을 인라인 입력으로 전환해 그 자리에서 편집한다(Enter=저장 / Esc=취소).
+  // ★카드 본문은 클릭 시 열기(onOpen)이므로, 편집 입력/버튼은 stopPropagation 으로 열기와 분리한다.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
+
+  function startRename(row: ContractRow) {
+    if (batch?.busy) return;
+    setEditId(row.id);
+    setEditVal(row.title);
+  }
+  function cancelRename() {
+    setEditId(null);
+    setEditVal("");
+  }
+  async function commitRename() {
+    if (editId === null) return;
+    await renameContract(editId, editVal);
+    setEditId(null);
+    setEditVal("");
     await load();
   }
 
@@ -434,7 +458,35 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
             <div key={r.id} className="contract-card">
               <div style={{ cursor: "pointer", flex: 1 }} onClick={() => onOpen(r)}>
                 <div className="contract-card-head">
-                  <span className="contract-card-title">{r.title}</span>
+                  {editId === r.id ? (
+                    <span className="contract-rename" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        className="input contract-rename-input"
+                        value={editVal}
+                        autoFocus
+                        aria-label="계약 이름"
+                        maxLength={120}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitRename();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelRename();
+                          }
+                        }}
+                      />
+                      <button className="btn btn-primary btn-sm" onClick={commitRename}>
+                        저장
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={cancelRename}>
+                        취소
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="contract-card-title">{r.title}</span>
+                  )}
                   <span className={"badge " + (r.status === "completed" ? "ready" : "soon")}>
                     {r.status === "completed" ? "완료" : "작성중"}
                   </span>
@@ -498,6 +550,14 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                   )}
                   <button className="btn btn-ghost btn-sm" onClick={() => onOpen(r)}>
                     열기
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => startRename(r)}
+                    disabled={batch?.busy || editId === r.id}
+                    title="이 계약의 이름(제목)을 바꿉니다"
+                  >
+                    이름변경
                   </button>
                   <button
                     className="btn btn-ghost btn-sm"

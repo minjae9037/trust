@@ -1635,6 +1635,9 @@ body {
 .contract-card:hover { border-color: var(--c-brown); box-shadow: var(--shadow-sm); }
 .contract-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .contract-card-title { font-weight: 700; font-size: 15px; color: var(--c-ink); }
+/* 인라인 이름 변경 — 카드 제목 자리에서 바로 편집(Enter 저장 / Esc 취소). */
+.contract-rename { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.contract-rename-input { max-width: 280px; padding: 5px 9px; font-size: 14px; font-weight: 700; }
 /* 위탁자·물건 소재지 — 실무 식별 기준이라 회색 메타(.field-hint)보다 한 단계 또렷하게. */
 .contract-card-identity { font-size: 12.5px; font-weight: 600; color: var(--c-brown); }
 .ready-chip {
