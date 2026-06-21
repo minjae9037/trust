@@ -6,11 +6,18 @@ import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
 import { parseAdvisorBody } from "@/lib/advisor/request";
 import { advisorErrorMessage } from "@/lib/advisor/error-message";
+import { findCacheHit } from "@/lib/advisor/cache";
+import { loadCacheCandidates, saveCacheEntry } from "@/lib/advisor/cache-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MODEL = "claude-sonnet-4-6";
+
+// 캐시 비활성 플래그(긴급 차단용) — ADVISOR_CACHE_OFF=1 이면 항상 LLM 호출.
+const CACHE_OFF = process.env.ADVISOR_CACHE_OFF === "1";
+// 적중 임계 — 운영 중 코드 재배포 없이 env 로 보정 가능(미설정 시 0.4).
+const CACHE_THRESHOLD = Number(process.env.ADVISOR_CACHE_THRESHOLD) || 0.4;
 
 const ADVISOR_PERSONA = `당신은 한국 대체투자(Alternative Investment) 업계 전문 어드바이저입니다.
 신탁사·시행사·시공사·증권사·자산운용사·금융기관 실무자를 상대로, 정확하고 실무적인 상담을 제공합니다.
@@ -70,6 +77,42 @@ export async function POST(req: Request) {
 
   // RAG-lite: 최근 사용자 발화로 지식코퍼스 검색 → 근거 주입
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
+
+  // ── 시맨틱 캐시 우선(무 API) ───────────────────────────────────────────
+  //   신규 단일 질문(문맥 의존 없는 첫 턴)에 한해, 의미 유사한 과거 Q&A 가
+  //   임계 이상으로 적중하면 저장된 답을 즉시 스트리밍하고 LLM 호출을 생략한다.
+  //   멀티턴(후속 질문)은 직전 대화 문맥에 답이 달라지므로 캐시를 쓰지 않는다.
+  const isFreshSingleTurn = messages.length === 1 && messages[0].role === "user";
+  if (!CACHE_OFF && lastUser && isFreshSingleTurn) {
+    const candidates = await loadCacheCandidates();
+    const hit = findCacheHit(lastUser.content, candidates, { threshold: CACHE_THRESHOLD });
+    if (hit) {
+      void logQuery(lastUser.content, true, hit.score, [hit.entry.id]);
+      const cachedSources = Array.isArray(hit.entry.sources) ? hit.entry.sources : [];
+      const cHeader = Buffer.from(JSON.stringify(cachedSources), "utf8").toString("base64");
+      const text = hit.entry.answer;
+      const enc = new TextEncoder();
+      const cstream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          // 스트리밍 UX 유지를 위해 저장본을 청크 단위로 흘려보낸다.
+          const CHUNK = 60;
+          for (let i = 0; i < text.length; i += CHUNK) {
+            controller.enqueue(enc.encode(text.slice(i, i + CHUNK)));
+          }
+          controller.close();
+        },
+      });
+      return new Response(cstream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "X-Advisor-Sources": cHeader,
+          "X-Advisor-Cache": "hit",
+          "Access-Control-Expose-Headers": "X-Advisor-Sources, X-Advisor-Cache",
+        },
+      });
+    }
+  }
   // 기본 KNOWLEDGE + (있으면) back-data 인덱스 병합 검색
   const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
@@ -114,9 +157,18 @@ export async function POST(req: Request) {
           system: systemBlocks,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
-        stream.on("text", (t) => controller.enqueue(encoder.encode(t)));
+        // 캐시 적립용으로 전체 답을 누적하면서 동시에 스트리밍한다.
+        let full = "";
+        stream.on("text", (t) => {
+          full += t;
+          controller.enqueue(encoder.encode(t));
+        });
         await stream.finalMessage();
         controller.close();
+        // 신규 단일 질문의 답만 캐시에 적립(다음 동일·유사 질문은 무 API 즉답).
+        if (lastUser && isFreshSingleTurn) {
+          void saveCacheEntry(lastUser.content, full, sources);
+        }
       } catch (e) {
         // ★표시 경계: 영문 SDK 메시지(overloaded·rate limit·연결 오류 등)를
         //   100% 한국어 제품 본문에 그대로 흘리지 않도록 친화적 한국어로 치환.
@@ -132,7 +184,8 @@ export async function POST(req: Request) {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       "X-Advisor-Sources": sourcesHeader,
-      "Access-Control-Expose-Headers": "X-Advisor-Sources",
+      "X-Advisor-Cache": "miss",
+      "Access-Control-Expose-Headers": "X-Advisor-Sources, X-Advisor-Cache",
     },
   });
 }
