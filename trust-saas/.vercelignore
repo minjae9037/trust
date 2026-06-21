@@ -4,7 +4,6 @@ node_modules
 out
 .env.local
 advisor-logs
-src/lib/advisor/_backdata-index.json
 reference
 scripts
 docs

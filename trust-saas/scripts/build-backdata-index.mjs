@@ -22,7 +22,7 @@ const INCLUDE = /업무매뉴얼|지침|매뉴얼|실무|요령|기준|평가론
 // 제외 신호(딜/고객 특정). 하나라도 있으면 제외(대외비 우선).
 const EXCLUDE = /IM_|_IM|사업수지|계약서|심사|제안서|의뢰서|약정서|확약서|투자설명서|설명서|확인서|동의서|합의서|현황|명세|내역|견적|감정평가서|보고서|심의|송부|날인|천공|수지분석|매입약정|대출/;
 // 특정사 내부자료(고유명) 폴더/문서 제외 — 발견 시 추가
-const COMPANY_EXCLUDE = /동부건설/;
+const COMPANY_EXCLUDE = /동부건설|DL건설/;
 // 청크 본문에 남으면 누출로 보고 폐기하는 패턴(경로·원본주석 잔재)
 const LEAK = /Z:\\Drive|W:\\|\\Drive\\|원본\s*:/;
 // 도메인 관련성(신탁·부동산금융·평가·자본시장). 무관 문서(건설교육·패션 등) 배제용.
@@ -160,11 +160,15 @@ async function main() {
 
   // ── 사용자 업로드 Q&A 근거 (trust-qna/references) 인제스트 ──
   // 사용자가 의도적으로 올린 자료 → 도메인게이트/allowlist 면제, 정제·누출필터만 적용.
-  let qnaFiles = [];
+  // ⚠️ 단, 특정사 실명·딜 특정 자료는 제외(대표님 지시 2026-06-21, 공개 상담 반영이므로 누출 차단).
+  //    일반 신탁 실무·사규·교육·매뉴얼·법령·세무·참고자료만 인제스트.
+  const QNA_BLOCK = /동부건설|DL건설|수주심의 Tool|경영실적보고|추정재무제표|현장별 손익|시공사 분석|수주사전검토회의 부의안|개발사업 B\.P|이행여부 검토 보고서|평택 타운 및 골프장|46배판/;
+  let qnaFiles = [], qnaAll = [];
   try {
-    const all = await walkAll(QNA_SRC);
-    qnaFiles = all.filter((f) => /\.(md|txt)$/i.test(f) && !/[\\/]README\.md$/i.test(f));
+    qnaAll = (await walkAll(QNA_SRC)).filter((f) => /\.(md|txt)$/i.test(f) && !/[\\/](README|_manifest)\.md$/i.test(f));
+    qnaFiles = qnaAll.filter((f) => !QNA_BLOCK.test(f));
   } catch { qnaFiles = []; }
+  const nQnaBlocked = qnaAll.length - qnaFiles.length;
   let nQna = 0;
   for (const f of qnaFiles) {
     let raw;
@@ -176,7 +180,7 @@ async function main() {
     nQna++;
     const topicBase = cleanBase(path.basename(f));
     parts.forEach((text, i) => {
-      if (LEAK.test(text)) return;
+      if (LEAK.test(text) || COMPANY_EXCLUDE.test(text)) return; // 누출/특정사명 잔존 청크 폐기
       chunks.push({ id: `qna-${nQna}-${i}`, topic: topicBase, tags: topTags(text), text, _src: "qna:" + path.basename(f) });
     });
   }
@@ -186,7 +190,7 @@ async function main() {
 
   console.log("==== Q&A RAG 인덱스 빌드 ====");
   console.log(`back-data 총 .md: ${files.length}`);
-  console.log(`trust-qna/references 업로드 문서: ${nQna} (도메인게이트 면제)`);
+  console.log(`trust-qna/references 업로드 문서: ${nQna} (도메인게이트 면제) · 특정사/딜 제외 ${nQnaBlocked}`);
   console.log(`포함(도메인 관련): 문서 ${nDoc} → 총 청크 ${chunks.length}`);
   console.log(`제외(딜/고객 특정 규칙): ${excludedByRule.length}`);
   console.log(`제외(매뉴얼/지침 아님): ${notGeneral.length}`);

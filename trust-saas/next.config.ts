@@ -5,6 +5,11 @@ import type { NextConfig } from "next";
 const isPages = process.env.DEPLOY_TARGET === "pages";
 
 const nextConfig: NextConfig = {
+  // 상담 RAG 인덱스(_backdata-index.json)는 코드가 정적 import 하지 않고 런타임 fs 로 읽으므로
+  // Vercel serverless 번들에 자동 포함되지 않는다 → 파일 트레이싱에 명시 포함(공개 repo엔 .gitignore 로 계속 제외).
+  outputFileTracingIncludes: {
+    "/api/advisor": ["./src/lib/advisor/_backdata-index.json"],
+  },
   // docx 는 node/브라우저 양쪽 번들; pdf.js·tesseract 는 public/lib 에서 동적 로드
   ...(isPages
     ? {
