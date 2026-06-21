@@ -125,6 +125,31 @@ export function summarizeForm(form: ContractForm): string {
   return lines.join("\n");
 }
 
+/* ----------------------------------------------------------------
+   화면 메시지 → /api/chat 전송 페이로드(messages) 변환 — 단일 출처.
+
+   ChatPanel 의 최초 전송과 "다시 시도"(전송 실패 후 재전송)가 동일 이력에서
+   동일 페이로드를 만들도록 보장한다(전송 실패 시 입력 보존·무손실 재전송).
+   규약: note(폼 반영 알림·kind:"note")와 첫 인사(api="") 는 전송 제외, user 는
+   토큰화된 api(PII 누출 방지), assistant 는 화면 원문 display 를 보낸다.
+   ---------------------------------------------------------------- */
+export interface ChatApiMsg {
+  role: "user" | "assistant";
+  content: string;
+}
+export interface ChatHistMsg {
+  role: "user" | "assistant";
+  display: string;
+  api: string;
+  kind?: "note";
+}
+export function buildChatApiMessages(msgs: ChatHistMsg[]): ChatApiMsg[] {
+  if (!Array.isArray(msgs)) return [];
+  return msgs
+    .filter((m) => m && m.kind !== "note" && (m.role === "assistant" || m.api))
+    .map((m) => ({ role: m.role, content: m.role === "user" ? m.api : m.display }));
+}
+
 /** update_form tool 입력 → contractStore mergeFormPatch 용 패치로 변환 */
 export function toolInputToPatch(input: Record<string, unknown>): Record<string, unknown> {
   const patch: Record<string, unknown> = { ...input };

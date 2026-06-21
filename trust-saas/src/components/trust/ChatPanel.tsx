@@ -2,7 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { summarizeForm, toolInputToPatch, normalizePatchIds, summarizePatch } from "@/lib/chat/formSchema";
+import {
+  summarizeForm,
+  toolInputToPatch,
+  normalizePatchIds,
+  summarizePatch,
+  buildChatApiMessages,
+} from "@/lib/chat/formSchema";
 import { isSubmitEnter } from "@/lib/ui/keys";
 import { friendlyErrorMessage } from "@/lib/ui/error-message";
 import {
@@ -35,24 +41,17 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const piiMap = useRef<PiiMap>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  async function send() {
-    const raw = input.trim();
-    if (!raw || busy) return;
+  // 주어진 화면 이력으로 /api/chat 을 호출하고 응답을 처리한다(최초 전송·재전송 공용).
+  // ★실패해도 입력란·이력을 건드리지 않으므로, 마지막 사용자 메시지가 버블로 보존되어
+  //   retry() 가 같은 이력을 원문 재타이핑 없이 그대로 재전송할 수 있다(유실 방지).
+  async function deliver(history: Msg[]) {
     setErr("");
-    setInput("");
-
-    const { text: tokenized } = tokenizePII(raw, piiMap.current);
-    const userMsg: Msg = { role: "user", display: raw, api: tokenized };
-    const nextMsgs = [...msgs, userMsg];
-    setMsgs(nextMsgs);
     setBusy(true);
     setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 50);
 
     try {
-      const apiMessages = nextMsgs
-        // note(반영 알림)는 전송 제외 + 첫 인사(api="")도 제외
-        .filter((m) => m.kind !== "note" && (m.role === "assistant" || m.api))
-        .map((m) => ({ role: m.role, content: m.role === "user" ? m.api : m.display }));
+      // note(반영 알림)·첫 인사(api="")는 전송 제외 — 최초/재전송 동일 페이로드 단일 출처.
+      const apiMessages = buildChatApiMessages(history);
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -97,6 +96,28 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // 입력란의 새 메시지를 토큰화해 이력에 추가하고 전송한다.
+  async function send() {
+    const raw = input.trim();
+    if (!raw || busy) return;
+    setInput("");
+
+    const { text: tokenized } = tokenizePII(raw, piiMap.current);
+    const userMsg: Msg = { role: "user", display: raw, api: tokenized };
+    const nextMsgs = [...msgs, userMsg];
+    setMsgs(nextMsgs);
+    await deliver(nextMsgs);
+  }
+
+  // 전송 실패 시 마지막 사용자 메시지를 원문 재타이핑 없이 그대로 재전송한다(유실 방지).
+  // 입력란은 건드리지 않으므로(실패 중 새로 타이핑한 내용 보존), 보존된 이력만 다시 보낸다.
+  function retry() {
+    if (busy) return;
+    void deliver(msgs);
+  }
+  // 재전송 가능 = 직전 전송이 실패해 마지막 메시지가 미응답 사용자 버블로 남은 상태.
+  const canRetry = !!err && msgs[msgs.length - 1]?.role === "user";
+
   return (
     <div className="chat-panel">
       <div className="chat-head">
@@ -117,8 +138,18 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         ))}
         {busy && <div className="chat-msg assistant">…작성 중</div>}
         {err && (
-          <div className="chat-msg assistant" style={{ color: "var(--c-danger)" }}>
-            오류: {err}
+          <div className="chat-msg assistant" role="alert">
+            <span style={{ color: "var(--c-danger)" }}>오류: {err}</span>
+            {canRetry && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={retry}
+                disabled={busy}
+                style={{ marginLeft: 8 }}
+              >
+                다시 시도
+              </button>
+            )}
           </div>
         )}
       </div>
