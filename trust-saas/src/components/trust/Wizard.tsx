@@ -255,12 +255,19 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
             >
               {s.label}
               {ready !== undefined && (
-                <span
-                  className={"sub-step-flag " + (ready ? "ok" : "warn")}
-                  aria-label={ready ? "생성 가능" : "필수 입력 누락"}
-                >
-                  {ready ? "✓" : "⚠"}
-                </span>
+                <>
+                  {/* 글리프는 장식(aria-hidden) — 의미는 .sr-only 텍스트로 고지.
+                      span 의 aria-label 은 generic role 에서 SR 이 신뢰성 있게 읽지
+                      않으므로(✓ 가 모호한 "check mark" 로만 낭독될 위험), 동일 문구를
+                      .sr-only 로 분리해 버튼 접근명에 확실히 포함시킨다. */}
+                  <span
+                    className={"sub-step-flag " + (ready ? "ok" : "warn")}
+                    aria-hidden="true"
+                  >
+                    {ready ? "✓" : "⚠"}
+                  </span>
+                  <span className="sr-only">{ready ? " 생성 가능" : " 필수 입력 누락"}</span>
+                </>
               )}
             </button>
           );
@@ -291,12 +298,17 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
                   <span className="stepper-num">{s.idx}</span>
                   <span>{s.title}</span>
                   {ready !== undefined && (
-                    <span
-                      className={"stepper-flag " + (ready ? "ok" : "warn")}
-                      aria-label={ready ? "생성 가능" : "필수 입력 누락"}
-                    >
-                      {ready ? "✓" : "⚠"}
-                    </span>
+                    <>
+                      {/* 글리프는 장식(aria-hidden) — 의미는 .sr-only 텍스트로 고지
+                          (sub-step pill 마커와 동일 패턴). */}
+                      <span
+                        className={"stepper-flag " + (ready ? "ok" : "warn")}
+                        aria-hidden="true"
+                      >
+                        {ready ? "✓" : "⚠"}
+                      </span>
+                      <span className="sr-only">{ready ? " 생성 가능" : " 필수 입력 누락"}</span>
+                    </>
                   )}
                 </button>
               );
