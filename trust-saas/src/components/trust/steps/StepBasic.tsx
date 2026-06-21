@@ -1,11 +1,19 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
   const c = form.common;
+  // 인라인 검증 — 신탁보수는 "채웠지만 0·음수·비숫자"면 게이트(validateDoc)가 생성을 차단하나
+  // (별첨3 보수액이 ₩-5,000.- 같은 잘못된 금액으로 박히는 것을 막음, verify-trustfee-validity),
+  // 그 사실을 입력 지점에서 즉시 알리지 않으면 같은 화면의 요약·보수율이 잘못된 값으로 보이고
+  // 무엇이 왜 막혔는지는 Doc 단계까지 가야 알 수 있다. 게이트와 같은 단일 출처(isPositiveAmount)와
+  // 같은 "채움" 조건(hasText)을 재사용해 판정 불일치 없이 그 입력 옆에서 즉시 짚어 준다
+  // (StepLoanCalc 비율·PartyCard·JointForm 인라인 패리티, 표시/접근성만 — 빌더·조문·게이트 무접촉).
+  const feeFilled = typeof c.trustFee === "string" && c.trustFee.trim().length > 0;
+  const feeInvalid = feeFilled && !isPositiveAmount(c.trustFee);
   const years: number[] = [];
   for (let y = 2020; y <= 2030; y++) years.push(y);
 
@@ -69,7 +77,14 @@ export function StepBasic() {
         <label className="field-label" htmlFor="basic-trustFee">신탁보수 (원) <span className="req">*</span></label>
         <div className="field-hint">협의된 신탁보수 금액(숫자만).</div>
         <input id="basic-trustFee" className="input" type="number" value={c.trustFee} placeholder="예) 50000000"
-          onChange={(e) => updateCommon({ trustFee: e.target.value })} />
+          onChange={(e) => updateCommon({ trustFee: e.target.value })}
+          aria-invalid={feeInvalid || undefined}
+          aria-describedby={feeInvalid ? "basic-trustFee-err" : undefined} />
+        {feeInvalid && (
+          <div id="basic-trustFee-err" className="field-hint" role="alert" style={{ color: "var(--c-danger)" }}>
+            유효하지 않은 신탁보수입니다 — 0보다 큰 숫자만 입력할 수 있습니다 (이 값으로는 서류를 생성할 수 없습니다).
+          </div>
+        )}
       </div>
 
       <div className="field full">

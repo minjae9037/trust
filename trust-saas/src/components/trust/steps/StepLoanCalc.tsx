@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { amountToHangul, isValidRatio, parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
+import { amountToHangul, isPositiveAmount, isValidRatio, parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
 
 export function StepLoanCalc() {
   const { form, updateParty, updateCommon } = useContractStore();
@@ -99,6 +99,15 @@ export function StepLoanCalc() {
             ) : (
               form.priorities.map((p, i) => {
                 const limit = priorityLimitFor(p, ratio);
+                // 인라인 검증 — 게이트(validateDoc)는 "채웠지만 0·음수·비숫자"인 개별 대출금액을
+                // 이미 차단하나(우선수익자 N 대출금액 유효하지 않은 금액), 그 사실을 이 입력 옆에서
+                // 즉시 알리지 않으면 같은 행의 우선수익한도금액(= 대출금액 × 비율)이 음수/잘못된
+                // 금액으로 굵게 표시돼 사용자가 신뢰할 위험이 있다. 게이트와 같은 단일 출처
+                // (hasText && !isPositiveAmount)를 재사용해 판정 불일치 없이 즉시 짚어 준다
+                // (priorityRatio·PartyCard·JointForm 인라인 패리티, 표시/접근성만). 빈 값은 합계
+                // 검사가 커버하므로 미표시(나그 방지) — 게이트와 동일.
+                const loanFilled = String(p.loanAmount ?? "").trim().length > 0;
+                const loanInvalid = loanFilled && !isPositiveAmount(p.loanAmount);
                 return (
                   <tr key={i}>
                     <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{i + 1}</td>
@@ -110,15 +119,27 @@ export function StepLoanCalc() {
                         value={p.loanAmount}
                         placeholder="0"
                         aria-label={`${p.name || `우선수익자 ${i + 1}`} 대출금액`}
+                        aria-invalid={loanInvalid || undefined}
+                        aria-describedby={loanInvalid ? `loan-amount-err-${i}` : undefined}
                         onChange={(e) => updateParty("priorities", i, { loanAmount: e.target.value })}
                         style={{ textAlign: "right" }}
                       />
                       {parseAmount(p.loanAmount) > 0 && (
                         <div className="loan-hangul" role="status" aria-live="polite">{amountToHangul(p.loanAmount)}</div>
                       )}
+                      {loanInvalid && (
+                        <div
+                          id={`loan-amount-err-${i}`}
+                          className="field-hint"
+                          role="alert"
+                          style={{ color: "var(--c-danger)", textAlign: "right" }}
+                        >
+                          유효하지 않은 금액입니다 — 이 값으로는 서류를 생성할 수 없습니다.
+                        </div>
+                      )}
                     </td>
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--c-brown)" }}>
-                      {parseAmount(p.loanAmount) ? (
+                      {isPositiveAmount(p.loanAmount) ? (
                         <>
                           {limit.toLocaleString() + " 원"}
                           <div className="loan-hangul">{amountToHangul(limit)}</div>
