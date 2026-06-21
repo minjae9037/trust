@@ -6,6 +6,7 @@ import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc, type Missing } from "@/lib/engine/validate";
 import { generateCollateralDoc } from "@/lib/engine/docx";
 import { genFreshness } from "@/lib/engine/genStatus";
+import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import type { Category, DocId } from "@/lib/engine/model";
 import { StepParties, StepPriority } from "./steps/StepParties";
 import { StepLoanCalc } from "./steps/StepLoanCalc";
@@ -226,12 +227,22 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
             aria-live="polite"
             style={{ color: "var(--c-danger)" }}
           >
-            ● 입력이 변경되었습니다 — 다시 일괄 생성하세요
+            <span aria-hidden="true">● </span>입력이 변경되었습니다 — 다시 일괄 생성하세요
           </div>
         ) : (
           batchMsg && (
             <div className="doc-progress-msg" role="status" aria-live="polite">
-              {batchMsg}
+              {(() => {
+                // 동적 상태 문자열 맨 앞 장식 글리프(✓)만 aria-hidden — SR 이 매 성공
+                // 고지마다 "check mark" 를 먼저 낭독하지 않게(의미는 본문이 전달).
+                const { glyph, text } = splitStatusGlyph(batchMsg);
+                return (
+                  <>
+                    {glyph && <span aria-hidden="true">{glyph} </span>}
+                    {text}
+                  </>
+                );
+              })()}
             </div>
           )
         )}

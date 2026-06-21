@@ -275,12 +275,12 @@ function SaveBar() {
       {/* 저장 상태 표시: 변경됨(미저장) ↔ 저장됨 */}
       {dirty ? (
         <span className="field-hint" style={{ color: "var(--c-danger)" }}>
-          ● 저장되지 않은 변경
+          <span aria-hidden="true">● </span>저장되지 않은 변경
         </span>
       ) : (
         currentContractId && (
           <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}>
-            ✓ 저장됨
+            <span aria-hidden="true">✓ </span>저장됨
           </span>
         )
       )}

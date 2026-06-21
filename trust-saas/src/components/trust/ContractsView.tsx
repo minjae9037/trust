@@ -18,6 +18,7 @@ import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/en
 import { validateDoc, validateJoint } from "@/lib/engine/validate";
 import { generateCollateralDoc, generateJointDoc } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
+import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 
 /**
  * 계약별 서류 생성 준비도 — 담보신탁(collateral)만 7종 산출 서류가 정의돼 있어
@@ -26,6 +27,20 @@ import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/mode
  * 구버전/손상 저장본(form_data 일부 누락)은 try/catch로 격리(목록 렌더 크래시 방지).
  * ※ 조문·엔진 무접촉 — 기존 검증 결과를 목록 수준에서 보여줄 뿐이다.
  */
+/**
+ * 동적 상태 메시지(role=status·aria-live) — 맨 앞 장식 글리프(✓ 등)를 aria-hidden
+ * 으로 분리해 렌더한다. 라이브 영역 갱신 시 SR 이 글리프("check mark")를 먼저
+ * 낭독하지 않게 하고 의미 본문만 낭독되게 한다(시각 표시는 글리프+공백 동일).
+ */
+function StatusGlyphText({ msg }: { msg: string }) {
+  const { glyph, text } = splitStatusGlyph(msg);
+  return (
+    <>
+      {glyph && <span aria-hidden="true">{glyph} </span>}
+      {text}
+    </>
+  );
+}
 /**
  * 생성 가능한(검증 통과) 서류 id 목록 — 준비도 칩과 목록-일괄생성의 **단일 출처**.
  * 칩의 "N종 생성 가능"과 일괄 생성 대상이 정의상 100% 일치하도록 한 곳에서 산출한다.
@@ -367,7 +382,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
           />
           {backupMsg && (
             <span className="field-hint" role="status" aria-live="polite">
-              {backupMsg}
+              <StatusGlyphText msg={backupMsg} />
             </span>
           )}
         </div>
@@ -378,7 +393,8 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
       {undoRows.map((u) => (
         <div key={u.id} className="contracts-undo" role="status" aria-live="polite">
           <span>
-            🗑 <strong>{u.title}</strong> 삭제됨
+            <span aria-hidden="true">🗑 </span>
+            <strong>{u.title}</strong> 삭제됨
           </span>
           <button className="btn btn-ghost btn-sm" onClick={() => onUndoDelete(u)}>
             실행취소
@@ -617,7 +633,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                     aria-live="polite"
                     style={{ textAlign: "right", maxWidth: 320 }}
                   >
-                    {batch.msg}
+                    <StatusGlyphText msg={batch.msg} />
                   </span>
                 )}
               </div>
