@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { summarizeForm, toolInputToPatch, normalizePatchIds } from "@/lib/chat/formSchema";
+import { isSubmitEnter } from "@/lib/ui/keys";
 import {
   tokenizePII,
   restorePII,
@@ -111,7 +112,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (isSubmitEnter(e)) {
               e.preventDefault();
               send();
             }

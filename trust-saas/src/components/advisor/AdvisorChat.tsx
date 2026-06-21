@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DOC_LABEL, parseAction } from "@/lib/advisor/action-marker";
+import { isSubmitEnter } from "@/lib/ui/keys";
 
 interface Source {
   topic: string;
@@ -184,7 +185,7 @@ export function AdvisorChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (isSubmitEnter(e)) {
               e.preventDefault();
               ask(input);
             }
