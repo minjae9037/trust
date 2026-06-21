@@ -10,7 +10,7 @@ import {
   previewDocHTML,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
-import { parseAmount, fmtKRW, amountToHangul } from "@/lib/engine/calc";
+import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 
@@ -228,6 +228,15 @@ export function DocStep({ docId }: { docId: DocId }) {
             // 에코로 보여 0 개수 오입력을 눈으로 검증하게 한다(산출물에 한글 금액으로 박히므로
             // 입력↔출력 정합 미리보기 역할). parseAmount>0 일 때만 표시(빈 값·0·음수는 검증 박스가 안내).
             const amt = f.money ? parseAmount(val as string) : 0;
+            // 인라인 검증 — money 필드(신탁부동산 가격·신탁재산 원본가액)는 "채웠지만 0·음수·
+            // 비숫자"이면 게이트(docMissing)가 이미 생성을 차단하나(별첨/신청서 가격칸이 빈칸·
+            // 잘못된 금액으로 박히는 것을 막음), 그 사실을 입력 옆에서 즉시 알리지 않으면
+            // amt>0 아님 → 한글 에코만 조용히 사라질 뿐, 무엇이 왜 막혔는지는 하단 검증 박스까지
+            // 봐야 안다. 게이트와 같은 단일 출처(isPositiveAmount) + 같은 "채움" 조건(trim>0)을
+            // 재사용해 판정 불일치 없이 그 입력 옆에서 즉시 짚어 준다(StepBasic 신탁보수·StepLoanCalc
+            // 개별 대출금액 인라인 패리티, 표시/접근성만 — 빌더·조문·게이트 판정 무접촉).
+            const moneyFilled = f.money && typeof val === "string" && val.trim().length > 0;
+            const moneyInvalid = moneyFilled && !isPositiveAmount(val as string);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -239,11 +248,18 @@ export function DocStep({ docId }: { docId: DocId }) {
                   placeholder={f.placeholder}
                   value={(val as string) ?? ""}
                   onChange={(e) => setField(f.key, e.target.value)}
+                  aria-invalid={moneyInvalid || undefined}
+                  aria-describedby={moneyInvalid ? `${fid}-err` : undefined}
                 />
                 {f.money && amt > 0 && (
                   <div className="amount-echo" role="status" aria-live="polite">
                     <span className="amount-echo-num">{fmtKRW(val as string)}</span>
                     <span className="amount-echo-hangul">{amountToHangul(val as string)}</span>
+                  </div>
+                )}
+                {moneyInvalid && (
+                  <div id={`${fid}-err`} className="field-hint" role="alert" style={{ color: "var(--c-danger)" }}>
+                    유효하지 않은 금액입니다 — 0보다 큰 숫자만 입력할 수 있습니다 (이 값으로는 서류를 생성할 수 없습니다).
                   </div>
                 )}
               </div>
