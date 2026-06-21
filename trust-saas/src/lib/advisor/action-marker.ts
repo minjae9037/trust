@@ -68,3 +68,36 @@ export function parseAction(content: string): { body: string; docId: DocId | nul
   body = stripTrailingPartialMarker(body);
   return { body, docId: m ? (m[1] as DocId) : null };
 }
+
+/** 대화 이력 메시지(요청 경계 정제 대상). */
+export interface HistoryMsg {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * 대화 이력을 /api/advisor 요청으로 보내기 전 정제(요청 경계).
+ *
+ * assistant 메시지의 content 에는 내부 액션 마커(<<doc:…>>)가 *원시 상태*로
+ * 남는다 — 클라이언트는 표시·복사 시 parseAction 으로 제거하지만 상태/이력엔
+ * raw 그대로 보관한다. 멀티턴에서 이 이력을 그대로 다시 전송하면, 사용자에게
+ * 절대 노출하지 않기로 한 내부 프로토콜 마커가 *모델 컨텍스트로 되돌아간다*
+ * (마커 비노출 계약의 송신측 누락 = 표시 경계 제거와 대칭되는 갭). 본 함수는
+ * 사용자가 실제로 본 본문(parseAction.body)만 이력으로 전송하고, 마커뿐이라
+ * 본문이 빈 assistant 턴은 제외한다(빈 content 전송으로 인한 API 거부 방지).
+ * user 메시지는 무변형이며 role·content 외 부가 필드(sources 등)는 떨군다
+ * (서버가 어차피 role·content 만 소비). 순수 함수라 회귀 가드로 고정한다.
+ */
+export function sanitizeHistory(msgs: HistoryMsg[]): HistoryMsg[] {
+  const out: HistoryMsg[] = [];
+  for (const m of msgs) {
+    if (m.role !== "assistant") {
+      out.push({ role: m.role, content: m.content });
+      continue;
+    }
+    const body = parseAction(m.content).body;
+    if (body.length === 0) continue; // 마커만 있던 턴 → 이력에서 제외
+    out.push({ role: "assistant", content: body });
+  }
+  return out;
+}

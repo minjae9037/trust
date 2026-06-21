@@ -2286,22 +2286,27 @@ function buildGenericDocFullHTML(docId, meta) {
 </body></html>`;
 }
 
-/* PDF 저장 — 새 창에 인쇄용 HTML 띄우고 print() 호출 */
+/* PDF 저장 — 새 창에 인쇄용 HTML 띄우고 print() 호출.
+   반환값(boolean): 인쇄창이 실제로 열렸으면 true, 팝업 차단·문서정의 부재로
+   열지 못했으면 false. 호출부(DocStep)가 이 신호로 "생성 완료" 표시·생성
+   신선도 스냅샷 기록 여부를 결정한다 — 차단됐는데 성공으로 오인(거짓 신선도)
+   하지 않도록 한다(법적 서류=정확성, 생성 신선도 신호와 동일 원칙). */
 function generateDocPDF(docId) {
   const meta = COLLATERAL_OUTPUT_DOCS.find(d => d.id === docId);
-  if (!meta) { alert("문서 정의를 찾을 수 없습니다."); return; }
+  if (!meta) { alert("문서 정의를 찾을 수 없습니다."); return false; }
   const html = docId === "contract" ? buildContractFullHTML()
                : docId === "appform"  ? buildAppformFullHTML()
                : buildGenericDocFullHTML(docId, meta);
   const w = window.open("", "_blank", "width=900,height=1000");
   if (!w) {
     alert("새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요.");
-    return;
+    return false;
   }
   w.document.open();
   w.document.write(html);
   w.document.close();
   // 인쇄 대화상자에서 '대상 → PDF로 저장' (또는 'Microsoft Print to PDF')을 선택하여 PDF 로 저장
+  return true;
 }
 
 /* ================================================================
@@ -2716,10 +2721,11 @@ ${articles}
 function generateJointPDF() {
   const html = buildJointFullHTML();
   const w = window.open("", "_blank", "width=900,height=1000");
-  if (!w) { alert("새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요."); return; }
+  if (!w) { alert("새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요."); return false; }
   w.document.open();
   w.document.write(html);
   w.document.close();
+  return true;
 }
 
 /* ================================================================

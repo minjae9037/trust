@@ -15,8 +15,9 @@
 
       core(기본 KNOWLEDGE) 청크의 topic 은 일반 개념어(담보신탁·PF 단계
       구조 등)라 사용자에게 유용하고 식별 위험이 없으므로 그대로 노출한다.
-      LLM 컨텍스트 주입(formatContext)·검색(retrieve) 경로는 무변경
-      (그쪽은 페르소나가 비노출을 강제하는 가드된 경계).
+      검색(retrieve) 채점 경로는 무변경. LLM 컨텍스트 주입(formatContext)도
+      이 단일 출처(isBackdata/BACKDATA_LABEL)를 재사용해 bd- 라벨을 일반화한다
+      (페르소나 비노출 지시에만 의존하던 프롬프트 경계 잔여 누출 벡터 심층방어).
    ================================================================ */
 import type { KnowledgeChunk } from "./knowledge";
 import type { Retrieved } from "./retrieve";

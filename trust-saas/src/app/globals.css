@@ -1476,6 +1476,10 @@ body {
 .btn-ghost { background: var(--c-paper); color: var(--c-ink-soft); border-color: var(--c-line); }
 .btn-ghost:hover:not(:disabled) { border-color: var(--c-brown); color: var(--c-ink); }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
+/* 답변 생성 중지(Stop) — 전송 버튼 자리에 진행 중에만 노출(차분한 danger 톤). */
+.btn-stop { background: var(--c-paper); color: var(--c-danger); border-color: var(--c-danger-soft); }
+.btn-stop:hover:not(:disabled) { background: var(--c-danger-soft); border-color: var(--c-danger); }
+.btn-stop:focus-visible { outline: 2px solid var(--c-danger); outline-offset: 2px; }
 
 /* 로고 글리프 — 信託 (두 글자) 맞춤 */
 .brand-glyph { font-size: 14px; letter-spacing: -1px; }

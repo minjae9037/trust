@@ -11,6 +11,7 @@ import {
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul } from "@/lib/engine/calc";
+import { genFreshness } from "@/lib/engine/genStatus";
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다
 // 무거운 완성 문서 HTML(계약서 본문 37KB+) 재생성·iframe srcDoc 재파싱을 막는다.
@@ -37,6 +38,9 @@ export function DocStep({ docId }: { docId: DocId }) {
   }
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
+  // 확인이 오해를 부르므로(법적 서류=정확성) "다시 생성하세요"로 전환한다.
+  const [genSnap, setGenSnap] = useState<string | null>(null);
   const meta = COLLATERAL_OUTPUT_DOCS.find((d) => d.id === docId);
   const fields = DOC_FIELDS[docId] || [];
   const content = (form.docContents[docId] || {}) as Record<string, unknown>;
@@ -62,6 +66,22 @@ export function DocStep({ docId }: { docId: DocId }) {
     }
   }, [debouncedForm, docId]);
 
+  // 값 기반 입력 스냅샷(참조 동일성 대신 직렬화 비교 — store dirty 추적과 동일 패턴).
+  const formSnap = useMemo(() => JSON.stringify(form), [form]);
+  // 생성 후 입력이 바뀌었는지: none(미생성)·fresh(무변경)·stale(변경됨).
+  const freshness = genFreshness(formSnap, genSnap);
+
+  // 서류 전환 시 직전 서류의 생성 확인·메시지 초기화.
+  useEffect(() => {
+    setMsg("");
+    setGenSnap(null);
+  }, [docId]);
+  // 입력이 바뀌면 직전 생성 완료/오류 메시지는 더 이상 유효하지 않다 → 비운다
+  // (생성 자체는 form을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고, 첫 편집에 사라진다).
+  useEffect(() => {
+    setMsg("");
+  }, [formSnap]);
+
   const setField = (key: string, value: unknown) =>
     updateDocContent(docId, { [key]: value } as never);
 
@@ -72,6 +92,7 @@ export function DocStep({ docId }: { docId: DocId }) {
     try {
       await generateCollateralDoc(form, docId);
       setMsg("✓ Word(.docx) 생성 완료 — 다운로드를 확인하세요.");
+      setGenSnap(formSnap);
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -81,8 +102,17 @@ export function DocStep({ docId }: { docId: DocId }) {
   function onPdf() {
     if (!ok) return;
     try {
-      generateCollateralPDF(form, docId);
-      setMsg("PDF 인쇄창을 열었습니다(팝업 허용 필요).");
+      // 인쇄창이 실제로 열렸을 때만 "생성 완료" 표시 + 생성 신선도 스냅샷 기록.
+      // 팝업이 차단돼 창이 열리지 않았는데 성공으로 표시하면, 만든 적 없는 PDF를
+      // "생성됨(fresh)"으로 오인해(거짓 신선도) 잘못된/없는 버전을 제출할 위험이 있다.
+      const opened = generateCollateralPDF(form, docId);
+      if (opened) {
+        setMsg("PDF 인쇄창을 열었습니다 — 인쇄 대화상자에서 'PDF로 저장'을 선택하세요.");
+        setGenSnap(formSnap);
+      } else {
+        // 차단 시 genSnap 미기록 → freshness 가 거짓 fresh 로 남지 않는다.
+        setMsg("PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.");
+      }
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     }
@@ -246,7 +276,27 @@ export function DocStep({ docId }: { docId: DocId }) {
           >
             🖨 PDF 생성
           </button>
-          {msg && <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
+          {freshness === "stale" ? (
+            <span
+              className="field-hint"
+              role="status"
+              aria-live="polite"
+              style={{ color: "var(--c-danger)" }}
+            >
+              ● 입력이 변경되었습니다 — 다시 생성하세요
+            </span>
+          ) : (
+            msg && (
+              <span
+                className="field-hint"
+                role="status"
+                aria-live="polite"
+                style={{ color: "var(--c-blue-deep)" }}
+              >
+                {msg}
+              </span>
+            )
+          )}
         </div>
       </div>
 

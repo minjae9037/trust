@@ -11,9 +11,11 @@ export function generateCollateralDoc(form: ContractForm, docId: DocId): Promise
   return B.generateCollateralDoc(form, docId);
 }
 
-/** 담보신탁 서류 1건을 PDF(인쇄창)로 생성 */
-export function generateCollateralPDF(form: ContractForm, docId: DocId): void {
-  B.generateCollateralPDF(form, docId);
+/** 담보신탁 서류 1건을 PDF(인쇄창)로 생성.
+ *  @returns 인쇄창이 실제로 열렸으면 true, 팝업 차단 등으로 열지 못했으면 false
+ *  (호출부가 "생성 완료" 표시·생성 신선도 스냅샷 기록 여부를 결정). */
+export function generateCollateralPDF(form: ContractForm, docId: DocId): boolean {
+  return B.generateCollateralPDF(form, docId);
 }
 
 /** 공동사업표준협약서 .docx 생성·다운로드 */
@@ -21,9 +23,10 @@ export function generateJointDoc(jointForm: JointForm): Promise<void> {
   return B.generateJointDoc(jointForm);
 }
 
-/** 공동사업표준협약서 PDF(인쇄창) 생성 */
-export function generateJointPDFDoc(jointForm: JointForm): void {
-  B.generateJointPDFDoc(jointForm);
+/** 공동사업표준협약서 PDF(인쇄창) 생성.
+ *  @returns 인쇄창이 실제로 열렸으면 true, 팝업 차단 등으로 열지 못했으면 false */
+export function generateJointPDFDoc(jointForm: JointForm): boolean {
+  return B.generateJointPDFDoc(jointForm);
 }
 
 /* ---- 미리보기 HTML (React dangerouslySetInnerHTML 용) ---- */

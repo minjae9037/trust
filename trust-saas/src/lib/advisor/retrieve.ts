@@ -3,6 +3,7 @@
    추후 임베딩 벡터검색으로 이 함수만 교체.
    ================================================================ */
 import { KNOWLEDGE, type KnowledgeChunk } from "./knowledge";
+import { isBackdata, BACKDATA_LABEL } from "./sources";
 
 /** 한글/영문/숫자 토큰 추출 (2자 이상) */
 function tokenize(s: string): string[] {
@@ -51,10 +52,23 @@ export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []):
     .slice(0, topK);
 }
 
-/** 검색 결과를 컨텍스트 주입용 텍스트로 포맷 */
+/**
+ * 검색 결과를 컨텍스트 주입용 텍스트로 포맷.
+ *
+ * ★컨텍스트 주입 경계(가드레일·심층방어): back-data(내부 수집 자료) 청크의
+ *   topic 은 원본 문서 제목/파일명(특정사 내부규정·개별 딜 문서명 자리)이라,
+ *   LLM 프롬프트에 그대로 주입하면 페르소나의 "출처명 비노출" 지시에만 의존하는
+ *   잔여 누출 벡터가 된다(헤더/칩의 buildSources 일반화와 동일 위험을 프롬프트
+ *   경계가 남겨두던 갭). → 헤더 경계와 동일 단일 출처(isBackdata/BACKDATA_LABEL)로
+ *   bd- 청크 라벨을 일반화한다. 청크 본문(실제 지식)은 그대로 주입해 RAG 품질
+ *   무손상이며, core 개념 topic 은 식별 위험이 없어 보존한다.
+ */
 export function formatContext(items: Retrieved[]): string {
   if (items.length === 0) return "";
   return items
-    .map((it, i) => `[참고자료 ${i + 1}] (${it.chunk.topic})\n${it.chunk.text}`)
+    .map((it, i) => {
+      const label = isBackdata(it.chunk) ? BACKDATA_LABEL : it.chunk.topic;
+      return `[참고자료 ${i + 1}] (${label})\n${it.chunk.text}`;
+    })
     .join("\n\n");
 }

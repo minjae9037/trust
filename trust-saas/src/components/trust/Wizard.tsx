@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc, type Missing } from "@/lib/engine/validate";
 import { generateCollateralDoc } from "@/lib/engine/docx";
+import { genFreshness } from "@/lib/engine/genStatus";
 import type { Category, DocId } from "@/lib/engine/model";
 import { StepParties, StepPriority } from "./steps/StepParties";
 import { StepLoanCalc } from "./steps/StepLoanCalc";
@@ -93,6 +94,19 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   //    조문·엔진·생성 로직(generateCollateralDoc) 무손상 — 기존 단건 생성기를 ready 집합에 순차 호출할 뿐.
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchMsg, setBatchMsg] = useState("");
+  // 마지막 일괄 생성 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료" 확인이
+  // 내려받은 구버전을 최신으로 오인시키므로(법적 서류=정확성) stale 로 전환한다.
+  // DocStep 단건 생성의 신선도 신호를 헤더 일괄 생성에 동일하게 확장.
+  const [batchSnap, setBatchSnap] = useState<string | null>(null);
+  // 값 기반 입력 스냅샷(참조 동일성 대신 직렬화 비교 — store dirty 추적·DocStep 과 동일 패턴).
+  const formSnap = useMemo(() => JSON.stringify(form), [form]);
+  // 생성 후 입력이 바뀌었는지: none(미생성)·fresh(무변경)·stale(변경됨).
+  const batchFreshness = genFreshness(formSnap, batchSnap);
+  // 입력이 바뀌면 직전 일괄 생성 완료/오류 메시지는 더 이상 유효하지 않다 → 비운다
+  // (생성 자체는 form을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고, 첫 편집에 사라진다).
+  useEffect(() => {
+    setBatchMsg("");
+  }, [formSnap]);
 
   async function generateAllReady() {
     if (batchBusy) return;
@@ -108,6 +122,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
         if (i < ready.length - 1) await new Promise((r) => setTimeout(r, 350));
       }
       setBatchMsg(`✓ 준비된 ${ready.length}종 Word(.docx) 생성 완료 — 다운로드를 확인하세요.`);
+      setBatchSnap(formSnap);
     } catch (e) {
       setBatchMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -186,10 +201,21 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
             </ul>
           </details>
         )}
-        {batchMsg && (
-          <div className="doc-progress-msg" role="status" aria-live="polite">
-            {batchMsg}
+        {batchFreshness === "stale" ? (
+          <div
+            className="doc-progress-msg"
+            role="status"
+            aria-live="polite"
+            style={{ color: "var(--c-danger)" }}
+          >
+            ● 입력이 변경되었습니다 — 다시 일괄 생성하세요
           </div>
+        ) : (
+          batchMsg && (
+            <div className="doc-progress-msg" role="status" aria-live="polite">
+              {batchMsg}
+            </div>
+          )
         )}
       </div>
 

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DOC_LABEL, parseAction } from "@/lib/advisor/action-marker";
+import { DOC_LABEL, parseAction, sanitizeHistory } from "@/lib/advisor/action-marker";
 import { advisorErrorMessage } from "@/lib/advisor/error-message";
 import { isSubmitEnter } from "@/lib/ui/keys";
 
@@ -44,6 +44,13 @@ export function AdvisorChat() {
   const [feedbackSent, setFeedbackSent] = useState<Record<number, "up" | "down">>({});
   const [copied, setCopied] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 답변 생성 중지(Stop) — 진행 중 스트리밍을 사용자가 끊을 수 있게 한다.
+  const abortRef = useRef<AbortController | null>(null);
+
+  // 생성 중지: 진행 중인 fetch/스트림을 abort 한다(부분 답변은 보존, error 미표시).
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
 
   // 답변 복사 — 구조화 답변(표·체크리스트·비교)을 실무 문서/메일로 옮기는 표준 동선.
   // ★내부 액션 마커(<<doc:…>>)가 제거된 body 만 복사(원시 마커 미노출=action-marker 계약 유지).
@@ -86,11 +93,17 @@ export function AdvisorChat() {
     setBusy(true);
     scrollDown();
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
+      // ★요청 경계: 대화 이력의 assistant content 에 남은 내부 액션 마커
+      //   (<<doc:…>>)를 제거해 전송한다(사용자가 본 본문만 모델 컨텍스트로 —
+      //   표시·복사의 마커 비노출 계약을 송신측에서도 보장). 마커뿐인 빈 턴은 제외.
       const res = await fetch("/api/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: base }),
+        body: JSON.stringify({ messages: sanitizeHistory(base) }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const t = await res.text().catch(() => "");
@@ -112,15 +125,28 @@ export function AdvisorChat() {
         scrollDown();
       }
     } catch (e) {
-      // ★표시 경계: !res.ok 경로의 원시 JSON 본문(`{"error":"…"}`)·네트워크
-      //   영문 오류를 친화적 한국어로 치환(서버가 보낸 한국어 {error}는 통과).
-      const msg = advisorErrorMessage(e);
-      setMsgs((m) => {
-        const copy = m.slice();
-        copy[copy.length - 1] = { role: "assistant", content: "오류: " + msg };
-        return copy;
-      });
+      // ★중지 경계: 사용자가 stopGenerating()로 abort 한 경우는 오류가 아니다.
+      //   지금까지 받은 부분 답변은 그대로 보존하고, 받은 내용이 없으면 빈
+      //   assistant 자리표시자를 제거(멈춘 커서 ▍ 잔류 방지). 오류 메시지 미표시.
+      if (controller.signal.aborted) {
+        setMsgs((m) => {
+          const copy = m.slice();
+          const last = copy[copy.length - 1];
+          if (last && last.role === "assistant" && !last.content) copy.pop();
+          return copy;
+        });
+      } else {
+        // ★표시 경계: !res.ok 경로의 원시 JSON 본문(`{"error":"…"}`)·네트워크
+        //   영문 오류를 친화적 한국어로 치환(서버가 보낸 한국어 {error}는 통과).
+        const msg = advisorErrorMessage(e);
+        setMsgs((m) => {
+          const copy = m.slice();
+          copy[copy.length - 1] = { role: "assistant", content: "오류: " + msg };
+          return copy;
+        });
+      }
     } finally {
+      abortRef.current = null;
       setBusy(false);
       scrollDown();
     }
@@ -215,9 +241,20 @@ export function AdvisorChat() {
             }
           }}
         />
-        <button className="btn btn-primary" onClick={() => ask(input)} disabled={busy}>
-          전송
-        </button>
+        {busy ? (
+          <button
+            className="btn btn-stop"
+            onClick={stopGenerating}
+            title="답변 생성 중지"
+            aria-label="답변 생성 중지"
+          >
+            ■ 중지
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={() => ask(input)}>
+            전송
+          </button>
+        )}
       </div>
       <div className="advisor-disclaimer">
         일반 정보 제공이며 최종 법률·세무·투자 자문이 아닙니다. 실제 의사결정 전 전문가 검토를
