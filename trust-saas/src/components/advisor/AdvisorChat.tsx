@@ -16,6 +16,7 @@ interface Msg {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  error?: boolean; // 생성 실패 자리표시자(재시도 버튼 노출·피드백/복사 비노출)
 }
 
 /** 응답 헤더 X-Advisor-Sources(base64 JSON) → 근거 목록 디코드 */
@@ -84,11 +85,12 @@ export function AdvisorChat() {
     setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 30);
   }
 
-  async function ask(text: string) {
-    const q = text.trim();
-    if (!q || busy) return;
-    setInput("");
-    const base = [...msgs, { role: "user" as const, content: q }];
+  // 주어진 이력(마지막 = 사용자 질문)으로 /api/advisor 를 호출하고 답변을 스트리밍한다
+  // (최초 질문·재시도 공용 딜리버리 코어). ★실패해도 입력란·이전 이력을 건드리지 않고
+  //   진행 중 자리표시자만 오류 자리표시자로 바꾸므로, 마지막 사용자 질문이 버블로 보존돼
+  //   retry() 가 같은 이력을 원문 재타이핑 없이 그대로 재전송할 수 있다(ChatPanel 무손실
+  //   재전송 패리티, 표시/전송 경계만 — 페르소나·검색·로깅 무접촉).
+  async function deliver(base: Msg[]) {
     setMsgs([...base, { role: "assistant", content: "" }]);
     setBusy(true);
     scrollDown();
@@ -139,9 +141,12 @@ export function AdvisorChat() {
         // ★표시 경계: !res.ok 경로의 원시 JSON 본문(`{"error":"…"}`)·네트워크
         //   영문 오류를 친화적 한국어로 치환(서버가 보낸 한국어 {error}는 통과).
         const msg = advisorErrorMessage(e);
+        // ★error:true 로 표시 — 이 자리표시자는 답변이 아니라 실패 신호이므로
+        //   피드백/복사 대신 "다시 시도" 버튼을 보여 주고, 이력 말미가 사용자
+        //   질문으로 보존돼(이 오류 자리표시자만 떼면 됨) retry 가 재전송한다.
         setMsgs((m) => {
           const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: "오류: " + msg };
+          copy[copy.length - 1] = { role: "assistant", content: "오류: " + msg, error: true };
           return copy;
         });
       }
@@ -151,6 +156,26 @@ export function AdvisorChat() {
       scrollDown();
     }
   }
+
+  // 입력란의 새 질문을 이력에 추가하고 전송한다(딜리버리 코어 위임).
+  function ask(text: string) {
+    const q = text.trim();
+    if (!q || busy) return;
+    setInput("");
+    void deliver([...msgs, { role: "user" as const, content: q }]);
+  }
+
+  // 생성 실패 시 마지막 사용자 질문을 원문 재타이핑 없이 그대로 재전송한다(유실 방지).
+  // 실패하면 이력 말미가 [사용자 질문, 오류 자리표시자]이므로, 오류 자리표시자 한 개만
+  // 떼어낸 이력(= 사용자 질문으로 끝남)을 그대로 다시 보낸다. 입력란은 건드리지 않아
+  // 실패 중 새로 타이핑한 내용이 보존된다(ChatPanel retry 패리티).
+  function retry() {
+    if (busy) return;
+    void deliver(msgs.slice(0, -1));
+  }
+  // 재시도 가능 = 비-busy 이고 마지막 메시지가 오류 자리표시자(error:true)인 상태.
+  const lastMsg = msgs[msgs.length - 1];
+  const canRetry = !busy && lastMsg?.role === "assistant" && !!lastMsg.error;
 
   return (
     <div className="advisor-wrap">
@@ -174,6 +199,24 @@ export function AdvisorChat() {
               return (
                 <div key={i} className="advisor-msg user">
                   {m.content}
+                </div>
+              );
+            }
+            if (m.error) {
+              // 생성 실패 — 답변이 아니므로 피드백/복사/출처 대신 "다시 시도"만 노출.
+              return (
+                <div key={i} className="advisor-msg assistant" role="alert">
+                  <span style={{ color: "var(--c-danger)" }}>{m.content}</span>
+                  {canRetry && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={retry}
+                      disabled={busy}
+                      style={{ marginLeft: 8 }}
+                    >
+                      다시 시도
+                    </button>
+                  )}
                 </div>
               );
             }
