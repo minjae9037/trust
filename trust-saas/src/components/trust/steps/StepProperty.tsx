@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
+import { isValidRegNo } from "@/lib/engine/calc";
 
 export function StepProperty() {
   const { form, addProperty, removeProperty, updateProperty } = useContractStore();
@@ -77,6 +78,11 @@ export function StepProperty() {
               <div className="field-label">등기 고유번호</div>
               <input className="input" value={p.regNo}
                 onChange={(e) => updateProperty(i, { regNo: e.target.value })} />
+              {p.regNo.trim().length > 0 && !isValidRegNo(p.regNo) && (
+                <div className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                  등기 고유번호는 숫자 14자리입니다 (현재 {p.regNo.replace(/\D/g, "").length}자리)
+                </div>
+              )}
             </div>
           </div>
         </div>

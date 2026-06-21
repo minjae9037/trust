@@ -1,13 +1,22 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
   const c = form.common;
   const years: number[] = [];
   for (let y = 2020; y <= 2030; y++) years.push(y);
+
+  // 일(日) 드롭다운은 선택한 연·월의 유효일만 노출(2월 28/29·소월 30) → 2월 31일 등
+  // 실재하지 않는 체결일을 애초에 만들 수 없게 한다(법적 효력 문서의 정확성 보장).
+  const maxDay = daysInMonth(c.year, c.month);
+  // 연·월을 바꿔 현재 일이 그 달에 없으면(예: 1/31 → 2월) 일을 말일로 보정한다.
+  const clampDay = (y: number, mo: number) =>
+    typeof c.day === "number" && c.day > daysInMonth(y, mo) ? { day: daysInMonth(y, mo) } : {};
+  const setYear = (y: number) => updateCommon({ year: y, ...clampDay(y, c.month) });
+  const setMonth = (mo: number) => updateCommon({ month: mo, ...clampDay(c.year, mo) });
 
   return (
     <div className="field-grid">
@@ -17,13 +26,13 @@ export function StepBasic() {
         </div>
         <div className="field-hint">5종 서류 전체에 자동 반영. 일(日)이 미정이면 비워둘 수 있습니다.</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-          <select className="select" value={c.year} onChange={(e) => updateCommon({ year: Number(e.target.value) })}>
+          <select className="select" value={c.year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
           <span>년</span>
-          <select className="select" value={c.month} onChange={(e) => updateCommon({ month: Number(e.target.value) })}>
+          <select className="select" value={c.month} onChange={(e) => setMonth(Number(e.target.value))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
@@ -35,7 +44,7 @@ export function StepBasic() {
             onChange={(e) => updateCommon({ day: e.target.value === "" ? "" : Number(e.target.value) })}
           >
             <option value="">미정</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+            {Array.from({ length: maxDay }, (_, i) => i + 1).map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc } from "@/lib/engine/validate";
-import type { Category } from "@/lib/engine/model";
+import { generateCollateralDoc } from "@/lib/engine/docx";
+import type { Category, DocId } from "@/lib/engine/model";
 import { StepParties, StepPriority } from "./steps/StepParties";
 import { StepLoanCalc } from "./steps/StepLoanCalc";
 import { StepProperty } from "./steps/StepProperty";
@@ -57,11 +58,47 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
     return map;
   }, [form]);
 
+  // ── 서류 생성 준비 현황 요약(✓ N/7) — 7종 서류 중 몇 종이 생성 가능한지 한눈에.
+  //    데스크톱 stepper(<980px 숨김)와 무관하게 항상 노출 → 모바일에서도 진행도 파악.
+  //    (docReady 재집계일 뿐 조문·엔진·검증 판정 무손상)
+  const docSteps = useMemo(() => STEPS.filter((s) => s.docId), []);
+  const readyCount = docSteps.reduce((n, s) => n + (docReady[s.idx] ? 1 : 0), 0);
+  const totalDocs = docSteps.length;
+  const firstBlocked = docSteps.find((s) => !docReady[s.idx]);
+
   function goStep(idx: number) {
     const s = STEPS.find((x) => x.idx === idx);
     if (!s) return;
     setStep(idx);
     setTab(s.tab);
+  }
+
+  // ── 준비된 서류 일괄 생성(.docx) — 필수 입력을 충족한 서류만 한 번에 내려받기.
+  //    각 서류 step을 일일이 열어 7번 생성 클릭하던 수고를 제거(랜딩 카피 "입력 한 번으로 일괄 생성"과 일치).
+  //    검증 게이트(docReady=validateDoc.ok)를 통과한 서류만 대상 → 누락 서류는 절대 생성하지 않음(정확성 보존).
+  //    조문·엔진·생성 로직(generateCollateralDoc) 무손상 — 기존 단건 생성기를 ready 집합에 순차 호출할 뿐.
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchMsg, setBatchMsg] = useState("");
+
+  async function generateAllReady() {
+    if (batchBusy) return;
+    const ready = docSteps.filter((s) => docReady[s.idx]);
+    if (!ready.length) return;
+    setBatchBusy(true);
+    try {
+      for (let i = 0; i < ready.length; i++) {
+        const id = ready[i].docId as DocId;
+        setBatchMsg(`서류 생성 중… (${i + 1}/${ready.length}) ${ready[i].title}`);
+        await generateCollateralDoc(form, id);
+        // 브라우저가 연속 다운로드를 차단하지 않도록 사이에 짧은 간격을 둔다.
+        if (i < ready.length - 1) await new Promise((r) => setTimeout(r, 350));
+      }
+      setBatchMsg(`✓ 준비된 ${ready.length}종 Word(.docx) 생성 완료 — 다운로드를 확인하세요.`);
+    } catch (e) {
+      setBatchMsg("오류: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setBatchBusy(false);
+    }
   }
 
   return (
@@ -74,6 +111,47 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
           담보물 유형·우선수익자 구조·정족수·대리금융기관·인허가 등 계약서마다 달라지는 항목은
           <strong> STEP 05</strong>에서 한 번에 선택합니다. (단계: {category === "new" ? "신규" : category})
         </p>
+      </div>
+
+      {/* 서류 생성 준비 현황 요약 — 7종 중 몇 종이 생성 가능한지 한눈에 (모바일 stepper 부재 보완) */}
+      <div className="doc-progress" role="group" aria-label={`서류 생성 준비 현황: ${totalDocs}종 중 ${readyCount}종 생성 가능`}>
+        <div className="doc-progress-meter" aria-hidden="true">
+          <span
+            className={"doc-progress-fill" + (readyCount === totalDocs ? " full" : "")}
+            style={{ width: `${totalDocs ? (readyCount / totalDocs) * 100 : 0}%` }}
+          />
+        </div>
+        <div className="doc-progress-text">
+          <span className={"doc-progress-count" + (readyCount === totalDocs ? " ok" : "")}>
+            {readyCount === totalDocs ? "✓ " : ""}서류 <strong>{readyCount}/{totalDocs}</strong> 생성 가능
+          </span>
+          {firstBlocked ? (
+            <button
+              className="doc-progress-jump"
+              onClick={() => goStep(firstBlocked.idx)}
+              title={`${firstBlocked.label} ${firstBlocked.title}(으)로 이동해 필수 입력 채우기`}
+            >
+              ⚠ {totalDocs - readyCount}종 입력 필요 — {firstBlocked.label}로 이동 ›
+            </button>
+          ) : (
+            <span className="doc-progress-done">모든 서류 생성 준비 완료</span>
+          )}
+          {readyCount > 0 && (
+            <button
+              className="doc-progress-batch"
+              onClick={generateAllReady}
+              disabled={batchBusy}
+              title={`필수 입력을 충족한 ${readyCount}종 서류를 한 번에 Word(.docx)로 내려받습니다`}
+            >
+              {batchBusy ? "⏳ 생성 중…" : `⬇ 준비된 ${readyCount}종 일괄 생성(.docx)`}
+            </button>
+          )}
+        </div>
+        {batchMsg && (
+          <div className="doc-progress-msg" role="status" aria-live="polite">
+            {batchMsg}
+          </div>
+        )}
       </div>
 
       {/* 탭 */}

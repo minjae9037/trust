@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { DOC_FIELDS, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
+import { DOC_FIELDS, COLLATERAL_OUTPUT_DOCS, STEPS } from "@/lib/engine/schema";
 import type { DocId } from "@/lib/engine/model";
 import {
   generateCollateralDoc,
@@ -10,6 +10,7 @@ import {
   previewDocHTML,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
+import { parseAmount, fmtKRW, amountToHangul } from "@/lib/engine/calc";
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다
 // 무거운 완성 문서 HTML(계약서 본문 37KB+) 재생성·iframe srcDoc 재파싱을 막는다.
@@ -24,7 +25,16 @@ function useDebounced<T>(value: T, delayMs: number): T {
 }
 
 export function DocStep({ docId }: { docId: DocId }) {
-  const { form, updateDocContent } = useContractStore();
+  const { form, updateDocContent, setStep, setTab } = useContractStore();
+
+  // 누락 항목 → 해당 입력 단계로 바로 이동(점프). 검증 게이트가 "어디로 가라"고
+  // 안내만 하던 것을 한 번의 클릭으로 그 단계까지 데려가 누락을 즉시 채우게 한다.
+  function goToStep(idx: number) {
+    const s = STEPS.find((x) => x.idx === idx);
+    if (!s) return;
+    setStep(s.idx);
+    setTab(s.tab);
+  }
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const meta = COLLATERAL_OUTPUT_DOCS.find((d) => d.id === docId);
@@ -39,6 +49,11 @@ export function DocStep({ docId }: { docId: DocId }) {
   //    form은 250ms 디바운스: 빠른 연속 입력 시 재생성 횟수를 줄여 타이핑 끊김 방지.
   //    docId 전환은 즉시(서류 바꾸면 debouncedForm은 이미 최신이라 지연 없음).
   const debouncedForm = useDebounced(form, 250);
+  // 디바운스 대기 중(입력 직후 ~250ms)에는 미리보기가 아직 직전 상태다.
+  // store 는 매 수정마다 새 form 참조를 만들므로(스프레드) 참조 불일치가
+  // "갱신 대기" 신호 — 그 동안만 "갱신 중…" 인디케이터를 표시해
+  // 미리보기가 멈춘 게 아니라 반영 중임을 알린다.
+  const previewPending = form !== debouncedForm;
   const previewHtml = useMemo(() => {
     try {
       return previewDocHTML(debouncedForm, docId);
@@ -152,6 +167,10 @@ export function DocStep({ docId }: { docId: DocId }) {
               );
             }
             // text / amount
+            // money 필드(가격·원본가액 등 대형 법적 금액)는 입력 즉시 천단위 콤마 + 한글 금액을
+            // 에코로 보여 0 개수 오입력을 눈으로 검증하게 한다(산출물에 한글 금액으로 박히므로
+            // 입력↔출력 정합 미리보기 역할). parseAmount>0 일 때만 표시(빈 값·0·음수는 검증 박스가 안내).
+            const amt = f.money ? parseAmount(val as string) : 0;
             return (
               <div className="field full" key={f.key}>
                 <div className="field-label">{f.label}</div>
@@ -163,6 +182,12 @@ export function DocStep({ docId }: { docId: DocId }) {
                   value={(val as string) ?? ""}
                   onChange={(e) => setField(f.key, e.target.value)}
                 />
+                {f.money && amt > 0 && (
+                  <div className="amount-echo" aria-live="polite">
+                    <span className="amount-echo-num">{fmtKRW(val as string)}</span>
+                    <span className="amount-echo-hangul">{amountToHangul(val as string)}</span>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -180,8 +205,15 @@ export function DocStep({ docId }: { docId: DocId }) {
             <ul className="validate-list">
               {missing.map((m, i) => (
                 <li key={i}>
-                  <strong>{m.label}</strong>
-                  <span className="validate-where"> — {m.where}</span>
+                  <button
+                    type="button"
+                    className="validate-jump"
+                    onClick={() => goToStep(m.stepIdx)}
+                    title={`${m.where}(으)로 이동`}
+                  >
+                    <strong>{m.label}</strong>
+                    <span className="validate-where"> — {m.where} ›</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -214,6 +246,12 @@ export function DocStep({ docId }: { docId: DocId }) {
         <div className="preview-head">
           <span className="preview-badge">실시간 미리보기</span>
           <span className="field-hint">입력값이 즉시 반영됩니다 ({meta?.name})</span>
+          {previewPending && (
+            <span className="preview-updating" role="status" aria-live="polite">
+              <span className="preview-updating-dot" aria-hidden="true" />
+              갱신 중…
+            </span>
+          )}
         </div>
         {previewHtml ? (
           <iframe

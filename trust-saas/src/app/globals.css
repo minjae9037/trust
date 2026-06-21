@@ -384,6 +384,69 @@ body {
   .sub-step.active .sub-step-flag.ok,
   .sub-step.active .sub-step-flag.warn { color: var(--c-paper); }
 
+  /* 서류 생성 준비 현황 요약 (✓ N/7) — 모바일 포함 항상 노출 */
+  .doc-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 4px 0 18px;
+  }
+  .doc-progress-meter {
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--c-line-soft);
+    overflow: hidden;
+  }
+  .doc-progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--r-pill);
+    background: var(--c-brown-soft);
+    transition: width 0.3s ease, background 0.3s ease;
+  }
+  .doc-progress-fill.full { background: var(--c-success); }
+  .doc-progress-text {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .doc-progress-count { color: var(--c-ink-soft); }
+  .doc-progress-count strong { color: var(--c-ink); }
+  .doc-progress-count.ok { color: var(--c-success); }
+  .doc-progress-count.ok strong { color: var(--c-success); }
+  .doc-progress-jump {
+    border: 1px solid var(--c-danger-soft);
+    background: var(--c-danger-soft);
+    color: var(--c-danger);
+    border-radius: var(--r-pill);
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .doc-progress-jump:hover { filter: brightness(0.97); }
+  .doc-progress-jump:focus-visible { outline: 2px solid var(--c-danger); outline-offset: 2px; }
+  .doc-progress-done { color: var(--c-success); font-weight: 600; }
+  /* 준비된 서류 일괄 생성(.docx) — 검증 통과 서류만 한 번에 내려받기 */
+  .doc-progress-batch {
+    border: 1px solid var(--c-brown);
+    background: var(--c-brown);
+    color: #fff;
+    border-radius: var(--r-pill);
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .doc-progress-batch:hover { filter: brightness(1.06); }
+  .doc-progress-batch:disabled { opacity: 0.6; cursor: default; }
+  .doc-progress-batch:focus-visible { outline: 2px solid var(--c-brown); outline-offset: 2px; }
+  .doc-progress-msg { font-size: 12px; color: var(--c-blue-deep); }
+
   /* TOP BAR brand hover effect */
   .brand { transition: opacity 0.2s; }
   .brand:hover { opacity: 0.7; }
@@ -729,6 +792,23 @@ body {
   }
   .field-label .req { color: var(--c-danger); margin-left: 3px; }
   .field-hint { font-size: 11px; color: var(--c-ink-mute); margin-top: -2px; line-height: 1.45; }
+  /* 대형 금액 입력 라이브 에코(천단위 콤마 + 한글 금액) — 0 개수 오입력 방지 */
+  .amount-echo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin-top: 6px;
+    padding: 6px 11px;
+    background: var(--c-paper-soft);
+    border: 1px solid var(--c-line-soft);
+    border-left: 3px solid var(--c-brown-soft);
+    border-radius: 8px;
+  }
+  .amount-echo-num { font-size: 13px; font-weight: 700; color: var(--c-ink); font-variant-numeric: tabular-nums; }
+  .amount-echo-hangul { font-size: 12px; font-weight: 600; color: var(--c-brown); }
+  /* 대출금액·우선수익한도금액 표의 한글 금액 에코(0 개수 오입력 방지) — 산출물 amountToHangul 동일 출처 */
+  .loan-hangul { font-size: 11.5px; font-weight: 600; color: var(--c-brown); margin-top: 3px; line-height: 1.3; }
   .input, .select, textarea.input {
     width: 100%;
     padding: 10px 13px;
@@ -1384,6 +1464,22 @@ body {
   flex: 1; width: 100%; min-height: 420px; border: none;
   background: #fff; display: block;
 }
+/* 입력 디바운스(250ms) 대기 중 — 미리보기가 멈춘 게 아니라 반영 중임을 표시 */
+.preview-updating {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto;
+  font-size: 11.5px; font-weight: 700; color: var(--c-blue-deep);
+}
+.preview-updating-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c-blue-deep); animation: preview-pulse 0.9s ease-in-out infinite;
+}
+@keyframes preview-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-updating-dot { animation: none; opacity: 0.8; }
+}
 
 /* ================================================================
    M2-2 · 검증 게이트 안내 박스
@@ -1395,6 +1491,14 @@ body {
 .validate-title { font-weight: 700; font-size: 13.5px; color: var(--c-danger); margin-bottom: 8px; }
 .validate-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; color: var(--c-ink-soft); }
 .validate-where { color: var(--c-ink-mute); font-size: 12px; }
+/* 누락 항목 = 해당 입력 단계로 점프하는 버튼 (인라인 링크형) */
+.validate-jump {
+  display: inline; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.validate-jump:hover strong { text-decoration: underline; color: var(--c-danger); }
+.validate-jump:hover .validate-where { color: var(--c-ink-soft); }
+.validate-jump:focus-visible { outline: 2px solid var(--c-danger); outline-offset: 2px; border-radius: 3px; }
 
 /* ================================================================
    내 계약 목록 — 검색 툴바 · 카드 · 서류 준비도 칩
@@ -1402,6 +1506,18 @@ body {
 .contracts-toolbar {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
 }
+/* 백업(내보내기)·복원(가져오기) 액션 바 — 로컬 데이터 유실 방지 */
+.contracts-backup {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+}
+/* 삭제 실행취소 바 — 방금 삭제한 계약을 일정 시간 안에 되돌리는 안전망(유실 방지 계열). */
+.contracts-undo {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px; padding: 9px 14px;
+  background: var(--c-danger-soft); border: 1px solid var(--c-danger);
+  border-radius: var(--r-md); font-size: 13px; color: var(--c-ink);
+}
+.contracts-undo strong { font-weight: 700; }
 /* 상태 필터 세그먼트 토글(전체/작성중/완료) — 툴바용 경량 pill 그룹 */
 .seg {
   display: inline-flex; gap: 3px; padding: 4px;
@@ -1429,6 +1545,8 @@ body {
 .contract-card:hover { border-color: var(--c-brown); box-shadow: var(--shadow-sm); }
 .contract-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .contract-card-title { font-weight: 700; font-size: 15px; color: var(--c-ink); }
+/* 위탁자·물건 소재지 — 실무 식별 기준이라 회색 메타(.field-hint)보다 한 단계 또렷하게. */
+.contract-card-identity { font-size: 12.5px; font-weight: 600; color: var(--c-brown); }
 .ready-chip {
   font-size: 11.5px; font-weight: 700; line-height: 1; white-space: nowrap;
   padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid transparent;

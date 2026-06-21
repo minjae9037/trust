@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
+import { amountToHangul, parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
 
 export function StepLoanCalc() {
   const { form, updateParty, updateCommon } = useContractStore();
@@ -92,9 +92,19 @@ export function StepLoanCalc() {
                         onChange={(e) => updateParty("priorities", i, { loanAmount: e.target.value })}
                         style={{ textAlign: "right" }}
                       />
+                      {parseAmount(p.loanAmount) > 0 && (
+                        <div className="loan-hangul" aria-live="polite">{amountToHangul(p.loanAmount)}</div>
+                      )}
                     </td>
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--c-brown)" }}>
-                      {parseAmount(p.loanAmount) ? limit.toLocaleString() + " 원" : "—"}
+                      {parseAmount(p.loanAmount) ? (
+                        <>
+                          {limit.toLocaleString() + " 원"}
+                          <div className="loan-hangul">{amountToHangul(limit)}</div>
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 );
@@ -109,9 +119,15 @@ export function StepLoanCalc() {
                 </td>
                 <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>
                   {totalLoan(form).toLocaleString()} 원
+                  {totalLoan(form) > 0 && (
+                    <div className="loan-hangul">{amountToHangul(totalLoan(form))}</div>
+                  )}
                 </td>
                 <td style={{ ...td, textAlign: "right", fontWeight: 800, color: "var(--c-brown)" }}>
                   {totalPriorityLimit(form).toLocaleString()} 원
+                  {totalPriorityLimit(form) > 0 && (
+                    <div className="loan-hangul">{amountToHangul(totalPriorityLimit(form))}</div>
+                  )}
                 </td>
               </tr>
             </tfoot>
