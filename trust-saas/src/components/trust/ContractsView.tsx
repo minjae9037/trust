@@ -454,9 +454,43 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
           const identityLine = [identity.trustor && `위탁자 ${identity.trustor}`, identity.property]
             .filter(Boolean)
             .join(" · ");
+          // 카드 본문 클릭 = 계약 열기인데, 종전엔 <div onClick> 뿐이라 마우스로만
+          // 활성화됐다(키보드/스크린리더는 우측 "열기" 버튼만 가능 — 큰 클릭 영역의
+          // 마우스↔키보드 불일치). role=button + tabIndex + Enter/Space 로 키보드
+          // 동등성을 부여한다(WCAG 2.1.1 Keyboard / 4.1.2 Name·Role·Value).
+          // ★이름변경(인라인 입력) 중에는 role/포커스를 빼 입력의 Space 가 버블돼
+          //   카드를 열지 않게 하고, 입력 자체가 포커스 대상이 되게 한다.
+          const isEditing = editId === r.id;
+          const statusLabel = r.status === "completed" ? "완료" : "작성중";
+          const readyLabel = readiness
+            ? `, 서류 ${readiness.ready}/${readiness.total} 생성 가능`
+            : jointReady !== null
+              ? `, ${jointReady ? "협약서 생성 가능" : "필수 입력 누락"}`
+              : "";
+          const openLabel = `${r.title}, ${statusLabel}${readyLabel} — 열기`;
           return (
             <div key={r.id} className="contract-card">
-              <div style={{ cursor: "pointer", flex: 1 }} onClick={() => onOpen(r)}>
+              <div
+                className="contract-card-open"
+                style={{ cursor: "pointer", flex: 1 }}
+                onClick={() => onOpen(r)}
+                {...(isEditing
+                  ? {}
+                  : {
+                      role: "button",
+                      tabIndex: 0,
+                      "aria-label": openLabel,
+                      onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                        // 카드 자체에서 난 Enter/Space 만 처리 — 내부 요소에서 버블된
+                        // 키는 무시(e.currentTarget 기준)해 오작동을 막는다.
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpen(r);
+                        }
+                      },
+                    })}
+              >
                 <div className="contract-card-head">
                   {editId === r.id ? (
                     <span className="contract-rename" onClick={(e) => e.stopPropagation()}>

@@ -1674,6 +1674,8 @@ body {
   border-radius: var(--r-lg); padding: 16px 18px; transition: border-color 0.15s, box-shadow 0.15s;
 }
 .contract-card:hover { border-color: var(--c-brown); box-shadow: var(--shadow-sm); }
+/* 카드 본문 = 계약 열기(role=button) — 키보드 포커스 링(마우스↔키보드 동등성). */
+.contract-card-open:focus-visible { outline: 2px solid var(--c-brown); outline-offset: 3px; border-radius: 8px; }
 .contract-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .contract-card-title { font-weight: 700; font-size: 15px; color: var(--c-ink); }
 /* 인라인 이름 변경 — 카드 제목 자리에서 바로 편집(Enter 저장 / Esc 취소). */
