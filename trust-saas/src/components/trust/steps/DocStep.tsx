@@ -12,6 +12,7 @@ import {
 import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
+import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다
 // 무거운 완성 문서 HTML(계약서 본문 37KB+) 재생성·iframe srcDoc 재파싱을 막는다.
@@ -38,6 +39,8 @@ export function DocStep({ docId }: { docId: DocId }) {
   }
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  // "크게 보기"(새 창) 팝업 차단 안내. 차단 외에는 비워 둔다.
+  const [previewNote, setPreviewNote] = useState("");
   // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
   // 확인이 오해를 부르므로(법적 서류=정확성) "다시 생성하세요"로 전환한다.
   const [genSnap, setGenSnap] = useState<string | null>(null);
@@ -75,6 +78,7 @@ export function DocStep({ docId }: { docId: DocId }) {
   useEffect(() => {
     setMsg("");
     setGenSnap(null);
+    setPreviewNote("");
   }, [docId]);
   // 입력이 바뀌면 직전 생성 완료/오류 메시지는 더 이상 유효하지 않다 → 비운다
   // (생성 자체는 form을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고, 첫 편집에 사라진다).
@@ -116,6 +120,21 @@ export function DocStep({ docId }: { docId: DocId }) {
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     }
+  }
+
+  // 현재 미리보기(previewHtml)를 새 창에서 전체 크기로 — 좁은 2분할 패널로는
+  // 어려운 다중 페이지 법적 서류 정독 검수용. previewDocHTML 출력을 변형 없이
+  // 그대로 띄우는 읽기 전용 보기(자동 인쇄 없음·조문 무접촉). 팝업 차단 시
+  // PDF 생성과 동일하게 성공으로 오인하지 않고 친화적 안내만 남긴다.
+  function onExpandPreview() {
+    const r = openDocPreviewWindow(previewHtml, () =>
+      window.open("", "_blank", "width=980,height=1100"),
+    );
+    setPreviewNote(
+      r === "blocked"
+        ? "새 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요."
+        : "",
+    );
   }
 
   return (
@@ -311,7 +330,22 @@ export function DocStep({ docId }: { docId: DocId }) {
               갱신 중…
             </span>
           )}
+          {previewHtml && (
+            <button
+              type="button"
+              className="preview-expand"
+              onClick={onExpandPreview}
+              title="현재 미리보기를 새 창에서 전체 크기로 봅니다(읽기 전용 — 인쇄 대화상자 없음)"
+            >
+              🔍 크게 보기
+            </button>
+          )}
         </div>
+        {previewNote && (
+          <div className="preview-note" role="status" aria-live="polite">
+            {previewNote}
+          </div>
+        )}
         {previewHtml ? (
           <iframe
             className="preview-frame"
