@@ -68,17 +68,17 @@ export function StepConditions() {
   return (
     <div className="cond-wrap" style={{ maxWidth: 760 }}>
       {/* ── 1. 담보물/사업 유형 ── */}
-      <Section title="담보물 / 사업 유형" badge="profile"
+      <Section id="cond-collateralType" title="담보물 / 사업 유형" badge="profile"
         hint="별첨1 표시 양식과 인허가 특약 분기의 1차 축입니다. (예: 토지담보·공동주택·주상복합·물류·태양광)">
         <div className="field full">
-          <select className="select" value={c.collateralType || "land"} onChange={(e) => set({ collateralType: e.target.value as CC["collateralType"] })}>
+          <select className="select" aria-labelledby="cond-collateralType" value={c.collateralType || "land"} onChange={(e) => set({ collateralType: e.target.value as CC["collateralType"] })}>
             {COLLATERAL_TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
           </select>
         </div>
       </Section>
 
       {/* ── 2. 우선수익자 구조 (자동 판정) ── */}
-      <Section title="우선수익자 구조" badge="auto"
+      <Section id="cond-priorityStruct" title="우선수익자 구조" badge="auto"
         hint="STEP 02에서 입력한 우선수익자 수로 자동 판정됩니다.">
         <div className="cond-readout" style={{ padding: "10px 12px", background: "var(--c-paper)", border: "1px solid var(--c-line)", borderRadius: "var(--r-md)", fontSize: 13.5 }}>
           {priorityCount === 0 ? (
@@ -95,10 +95,10 @@ export function StepConditions() {
       </Section>
 
       {/* ── 3. 처분 의사결정 정족수 (복수일 때) ── */}
-      <Section title="처분 의사결정 정족수 (제3조 제3항)" badge="engine"
+      <Section id="cond-majorityCriteria" title="처분 의사결정 정족수 (제3조 제3항)" badge="engine"
         hint="개별 우선수익자의 공매 요청에 따른 공매실행(처분) 결정 기준. 대출약정에서 정한 값을 선택하세요.">
         <div className="field full">
-          <select className="select" value={c.majorityCriteria || "twothird"}
+          <select className="select" aria-labelledby="cond-majorityCriteria" value={c.majorityCriteria || "twothird"}
             disabled={!isMulti}
             onChange={(e) => set({ majorityCriteria: e.target.value as CC["majorityCriteria"] })}>
             {MAJORITY.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}
@@ -108,7 +108,7 @@ export function StepConditions() {
       </Section>
 
       {/* ── 4. 대리금융기관 ── */}
-      <Section title="대리금융기관 (제20조)" badge="engine"
+      <Section id="cond-agentBank" title="대리금융기관 (제20조)" badge="engine"
         hint="다수 우선수익자(대주단)가 권한을 위임하는 대리금융기관. 단독이면 보통 미지정입니다.">
         <label className="inline-check" style={{ marginBottom: 8 }}>
           <input type="checkbox" checked={!!c.agentBankEnabled}
@@ -118,6 +118,7 @@ export function StepConditions() {
         {c.agentBankEnabled && (
           <div className="field full">
             <input className="input" placeholder="예) ○○신용협동조합 / 한국투자증권 주식회사"
+              aria-label="대리금융기관 회사명"
               value={c.agentBank || ""} onChange={(e) => set({ agentBank: e.target.value })} />
             <div className="field-hint">입력한 회사명이 별첨4 제20조에 자동 기재됩니다(빈 값이면 빈칸 출력).</div>
           </div>
@@ -125,7 +126,7 @@ export function StepConditions() {
       </Section>
 
       {/* ── 5. 인허가 / 건축주 권한 ── */}
-      <Section title="인허가 업무 및 건축주의 권한 (제21조)" badge="engine"
+      <Section id="cond-art21" title="인허가 업무 및 건축주의 권한 (제21조)" badge="engine"
         hint="인허가 진행 사업이면 포함, 순수 단순담보이면 제외합니다.">
         <label className="inline-check" style={{ marginBottom: 8 }}>
           <input type="checkbox" checked={c.includeArt21 !== false}
@@ -135,15 +136,15 @@ export function StepConditions() {
         {c.includeArt21 !== false && (
           <div className="field-grid">
             <div className="field full">
-              <div className="field-label">건축주(인허가) 명의 <EngineBadge /></div>
-              <select className="select" value={c.builderName || "truster"} onChange={(e) => set({ builderName: e.target.value as CC["builderName"] })}>
+              <label className="field-label" htmlFor="cond-builderName">건축주(인허가) 명의 <EngineBadge /></label>
+              <select id="cond-builderName" className="select" value={c.builderName || "truster"} onChange={(e) => set({ builderName: e.target.value as CC["builderName"] })}>
                 <option value="truster">위탁자(시행사) 명의 (표준)</option>
                 <option value="trustee">수탁자(신탁사) 명의</option>
               </select>
             </div>
             <div className="field full">
-              <div className="field-label">인허가 유형 <ProfileBadge /></div>
-              <select className="select" value={c.licenseType || "building"} onChange={(e) => set({ licenseType: e.target.value as CC["licenseType"] })}>
+              <label className="field-label" htmlFor="cond-licenseType">인허가 유형 <ProfileBadge /></label>
+              <select id="cond-licenseType" className="select" value={c.licenseType || "building"} onChange={(e) => set({ licenseType: e.target.value as CC["licenseType"] })}>
                 {LICENSE_TYPES.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
               </select>
               <div className="field-hint">계약서별로 「건축허가」/「주택건설사업계획승인」/「도시개발사업」 등 명칭이 다릅니다.</div>
@@ -153,7 +154,7 @@ export function StepConditions() {
       </Section>
 
       {/* ── 6. 처분(공매) 방식 ── */}
-      <Section title="처분(공매) 방식" badge="profile"
+      <Section id="cond-disposal" title="처분(공매) 방식" badge="profile"
         hint="공매 진행 방식과 수의계약 조건의 케이스별 차이입니다.">
         <label className="inline-check" style={{ marginBottom: 6 }}>
           <input type="checkbox" checked={c.onbid !== false} onChange={(e) => set({ onbid: e.target.checked })} />
@@ -166,11 +167,11 @@ export function StepConditions() {
       </Section>
 
       {/* ── 7. 보수 / 자금관리 ── */}
-      <Section title="보수 · 자금관리" badge="profile"
+      <Section id="cond-fee" title="보수 · 자금관리" badge="profile"
         hint="담보보수 납부 주체와 자금관리계좌 특약 병행 여부.">
         <div className="field full">
-          <div className="field-label">담보보수 납부 주체</div>
-          <div style={{ display: "flex", gap: 14, marginTop: 6 }}>
+          <div className="field-label" id="cond-feePayer">담보보수 납부 주체</div>
+          <div role="radiogroup" aria-labelledby="cond-feePayer" style={{ display: "flex", gap: 14, marginTop: 6 }}>
             {(["truster", "priority"] as const).map((v) => (
               <label key={v} className="inline-check">
                 <input type="radio" name="feePayer" checked={(c.feePayer || "truster") === v} onChange={() => set({ feePayer: v })} />
@@ -186,9 +187,9 @@ export function StepConditions() {
       </Section>
 
       {/* ── 8. 담보 차수 ── */}
-      <Section title="담보 차수" badge="profile"
+      <Section id="cond-collateralOrder" title="담보 차수" badge="profile"
         hint="추가담보(2·3차)는 선순위 잔존 전제·조사분석서 생략 등 차이가 있습니다.">
-        <div style={{ display: "flex", gap: 14, marginTop: 2 }}>
+        <div role="radiogroup" aria-labelledby="cond-collateralOrder" style={{ display: "flex", gap: 14, marginTop: 2 }}>
           {(["new", "additional"] as const).map((v) => (
             <label key={v} className="inline-check">
               <input type="radio" name="collateralOrder" checked={(c.collateralOrder || "new") === v} onChange={() => set({ collateralOrder: v })} />
@@ -215,12 +216,12 @@ export function StepConditions() {
   );
 }
 
-function Section({ title, hint, badge, children }: {
-  title: string; hint?: string; badge?: "engine" | "profile" | "auto"; children: React.ReactNode;
+function Section({ id, title, hint, badge, children }: {
+  id: string; title: string; hint?: string; badge?: "engine" | "profile" | "auto"; children: React.ReactNode;
 }) {
   return (
     <div className="cond-section" style={{ padding: "16px 0", borderBottom: "1px solid var(--c-line)" }}>
-      <div className="field-label" style={{ fontSize: 15, fontWeight: 700 }}>
+      <div className="field-label" id={id} style={{ fontSize: 15, fontWeight: 700 }}>
         {title}
         {badge === "engine" && <EngineBadge />}
         {badge === "profile" && <ProfileBadge />}

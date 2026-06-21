@@ -51,30 +51,32 @@ export function JointForm() {
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>갑 (시행사) 정보</h2>
         <div className="field-grid">
           <div className="field">
-            <div className="field-label">상호</div>
-            <input className="input" value={gap.name} onChange={(e) => setGap({ name: e.target.value })} />
+            <label className="field-label" htmlFor="joint-gapName">상호</label>
+            <input id="joint-gapName" className="input" value={gap.name} onChange={(e) => setGap({ name: e.target.value })} />
           </div>
           <div className="field">
-            <div className="field-label">대표이사</div>
-            <input className="input" value={gap.repDir} onChange={(e) => setGap({ repDir: e.target.value })} />
+            <label className="field-label" htmlFor="joint-gapRepDir">대표이사</label>
+            <input id="joint-gapRepDir" className="input" value={gap.repDir} onChange={(e) => setGap({ repDir: e.target.value })} />
           </div>
           <div className="field full">
-            <div className="field-label">주소</div>
-            <input className="input" value={gap.address} onChange={(e) => setGap({ address: e.target.value })} />
+            <label className="field-label" htmlFor="joint-gapAddress">주소</label>
+            <input id="joint-gapAddress" className="input" value={gap.address} onChange={(e) => setGap({ address: e.target.value })} />
           </div>
           <div className="field">
-            <div className="field-label">법인등록번호</div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input className="input" maxLength={6} value={gap.corpRegFront}
+            {/* 법인등록번호는 앞/뒤 2칸 묶음이라 단일 htmlFor 부적합 → 그룹 라벨 id +
+                role="group" aria-labelledby, 각 input 에 개별 aria-label(앞/뒷자리). */}
+            <div className="field-label" id="joint-gapCorpReg">법인등록번호</div>
+            <div role="group" aria-labelledby="joint-gapCorpReg" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input className="input" maxLength={6} value={gap.corpRegFront} aria-label="법인등록번호 앞자리"
                 onChange={(e) => setGap({ corpRegFront: e.target.value.replace(/\D/g, "") })} />
               <span>-</span>
-              <input className="input" maxLength={7} value={gap.corpRegBack}
+              <input className="input" maxLength={7} value={gap.corpRegBack} aria-label="법인등록번호 뒷자리"
                 onChange={(e) => setGap({ corpRegBack: e.target.value.replace(/\D/g, "") })} />
             </div>
           </div>
           <div className="field">
-            <div className="field-label">대표사 지정</div>
-            <select className="select" value={jointForm.representative}
+            <label className="field-label" htmlFor="joint-representative">대표사 지정</label>
+            <select id="joint-representative" className="select" value={jointForm.representative}
               onChange={(e) => updateJoint({ representative: e.target.value as "developer" | "trust" })}>
               <option value="developer">대표 = 시행사(갑)</option>
               <option value="trust">대표 = 신탁사(을)</option>
@@ -85,30 +87,30 @@ export function JointForm() {
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: "26px 0 14px" }}>사업 정보</h2>
         <div className="field-grid">
           <div className="field full">
-            <div className="field-label">사업명</div>
-            <input className="input" value={project.name} onChange={(e) => setProject({ name: e.target.value })} />
+            <label className="field-label" htmlFor="joint-projectName">사업명</label>
+            <input id="joint-projectName" className="input" value={project.name} onChange={(e) => setProject({ name: e.target.value })} />
           </div>
           <div className="field full">
-            <div className="field-label">사업부지</div>
-            <input className="input" value={project.site} onChange={(e) => setProject({ site: e.target.value })} />
+            <label className="field-label" htmlFor="joint-projectSite">사업부지</label>
+            <input id="joint-projectSite" className="input" value={project.site} onChange={(e) => setProject({ site: e.target.value })} />
           </div>
           <div className="field full">
-            <div className="field-label">규모/용도</div>
-            <input className="input" value={project.scaleUse} onChange={(e) => setProject({ scaleUse: e.target.value })} />
+            <label className="field-label" htmlFor="joint-projectScaleUse">규모/용도</label>
+            <input id="joint-projectScaleUse" className="input" value={project.scaleUse} onChange={(e) => setProject({ scaleUse: e.target.value })} />
           </div>
           <div className="field">
-            <div className="field-label">협약 연도</div>
-            <input className="input" value={project.agreementYear}
+            <label className="field-label" htmlFor="joint-agreementYear">협약 연도</label>
+            <input id="joint-agreementYear" className="input" value={project.agreementYear}
               onChange={(e) => setProject({ agreementYear: e.target.value })} />
           </div>
           <div className="field">
-            <div className="field-label">월</div>
-            <input className="input" value={project.agreementMonth}
+            <label className="field-label" htmlFor="joint-agreementMonth">월</label>
+            <input id="joint-agreementMonth" className="input" value={project.agreementMonth}
               onChange={(e) => setProject({ agreementMonth: e.target.value })} />
           </div>
           <div className="field">
-            <div className="field-label">일</div>
-            <input className="input" value={project.agreementDay}
+            <label className="field-label" htmlFor="joint-agreementDay">일</label>
+            <input id="joint-agreementDay" className="input" value={project.agreementDay}
               onChange={(e) => setProject({ agreementDay: e.target.value })} />
           </div>
         </div>
@@ -120,7 +122,7 @@ export function JointForm() {
           <button className="btn btn-ghost" onClick={onPdf} disabled={busy}>
             🖨 PDF 생성
           </button>
-          {msg && <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
+          {msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>}
         </div>
       </section>
     </main>

@@ -21,18 +21,21 @@ export function StepBasic() {
   return (
     <div className="field-grid">
       <div className="field full">
-        <div className="field-label">
+        {/* 체결일자는 년·월·일 3개 select 의 묶음이라 단일 htmlFor 가 부적합 →
+            라벨 div 에 id 를 주고 select 묶음을 role="group" aria-labelledby 로 연결,
+            각 select 에는 년/월/일 aria-label 부여(스크린리더 개별 접근명). */}
+        <div className="field-label" id="basic-contractDate">
           계약 체결일자 <span className="req">*</span>
         </div>
         <div className="field-hint">5종 서류 전체에 자동 반영. 일(日)이 미정이면 비워둘 수 있습니다.</div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-          <select className="select" value={c.year} onChange={(e) => setYear(Number(e.target.value))}>
+        <div role="group" aria-labelledby="basic-contractDate" style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+          <select className="select" aria-label="년" value={c.year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
           <span>년</span>
-          <select className="select" value={c.month} onChange={(e) => setMonth(Number(e.target.value))}>
+          <select className="select" aria-label="월" value={c.month} onChange={(e) => setMonth(Number(e.target.value))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
@@ -40,6 +43,7 @@ export function StepBasic() {
           <span>월</span>
           <select
             className="select"
+            aria-label="일"
             value={c.day === "" ? "" : c.day}
             onChange={(e) => updateCommon({ day: e.target.value === "" ? "" : Number(e.target.value) })}
           >
@@ -53,33 +57,33 @@ export function StepBasic() {
       </div>
 
       <div className="field">
-        <div className="field-label">
+        <label className="field-label" htmlFor="basic-priorityLimit">
           우선수익한도금액 (원) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
-        </div>
+        </label>
         <div className="field-hint">STEP 02-1 에서 자동 산정.</div>
-        <input className="input" readOnly value={c.priorityLimit ? Number(c.priorityLimit).toLocaleString() + " 원" : ""}
+        <input id="basic-priorityLimit" className="input" readOnly value={c.priorityLimit ? Number(c.priorityLimit).toLocaleString() + " 원" : ""}
           placeholder="STEP 02-1 에서 자동 산정됨" style={{ background: "var(--c-paper-soft)" }} />
       </div>
 
       <div className="field">
-        <div className="field-label">신탁보수 (원) <span className="req">*</span></div>
+        <label className="field-label" htmlFor="basic-trustFee">신탁보수 (원) <span className="req">*</span></label>
         <div className="field-hint">협의된 신탁보수 금액(숫자만).</div>
-        <input className="input" type="number" value={c.trustFee} placeholder="예) 50000000"
+        <input id="basic-trustFee" className="input" type="number" value={c.trustFee} placeholder="예) 50000000"
           onChange={(e) => updateCommon({ trustFee: e.target.value })} />
       </div>
 
       <div className="field full">
-        <div className="field-label">
+        <label className="field-label" htmlFor="basic-trustFeeRate">
           신탁보수율 (우선수익한도금액 대비 %) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
-        </div>
+        </label>
         <div className="field-hint">신탁보수 ÷ 우선수익한도금액 × 100 자동 산정.</div>
-        <input className="input" readOnly value={c.trustFeeRate ? c.trustFeeRate + " %" : ""}
+        <input id="basic-trustFeeRate" className="input" readOnly value={c.trustFeeRate ? c.trustFeeRate + " %" : ""}
           placeholder="신탁보수·한도금액 입력 시 자동 계산" style={{ background: "var(--c-paper-soft)" }} />
       </div>
 
       <div className="field full">
-        <div className="field-label">신탁기간 <span className="req">*</span></div>
-        <input className="input" value={c.trustPeriod} onChange={(e) => updateCommon({ trustPeriod: e.target.value })} />
+        <label className="field-label" htmlFor="basic-trustPeriod">신탁기간 <span className="req">*</span></label>
+        <input id="basic-trustPeriod" className="input" value={c.trustPeriod} onChange={(e) => updateCommon({ trustPeriod: e.target.value })} />
       </div>
 
       <div className="field full">

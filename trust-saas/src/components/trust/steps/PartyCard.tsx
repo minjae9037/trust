@@ -21,6 +21,11 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
   const [ocrMsg, setOcrMsg] = useState<string>("");
   const set = (patch: Partial<Party>) => updateParty(role, idx, patch);
 
+  // 라벨↔컨트롤 접근성: 같은 PartyCard 가 역할(role)·순번(idx)별로 여러 개 렌더되므로
+  // id 는 role·idx·필드키로 고유화한다(중복 id 충돌 방지·단일 출처). DocStep 의
+  // `doc-${docId}-${key}` 패턴과 동형.
+  const fid = (key: string) => `party-${role}-${idx}-${key}`;
+
   // 사업자등록번호: 10자리를 모두 입력했는데 국세청 표준 체크섬이 깨졌을 때만 입력 즉시 안내한다
   // (입력 중 부분 숫자에는 표시 안 함 — 나그 방지). 게이트(validateDoc)와 동일한 isValidBizNo
   // 단일 출처를 사용하며, 게이트는 부분 입력까지 생성 차단으로 별도 방어한다.
@@ -109,8 +114,9 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
 
       <div className="field-grid">
         <div className="field">
-          <div className="field-label">구분</div>
+          <label className="field-label" htmlFor={fid("type")}>구분</label>
           <select
+            id={fid("type")}
             className="select"
             value={party.type}
             onChange={(e) => set({ type: e.target.value as PartyType })}
@@ -120,17 +126,25 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
           </select>
         </div>
         <div className="field">
-          <div className="field-label">법인명/성명</div>
-          <input className="input" value={party.name} onChange={(e) => set({ name: e.target.value })} />
+          <label className="field-label" htmlFor={fid("name")}>법인명/성명</label>
+          <input id={fid("name")} className="input" value={party.name} onChange={(e) => set({ name: e.target.value })} />
         </div>
 
         <div className="field">
           {/* 라벨은 산출물(builders.js)과 동일하게 type 에 따라 분기 — 개인이면 "생년월일",
-              법인이면 "법인등록번호". partyIdLabel 단일 출처로 입력↔출력 라벨 불일치 제거. */}
-          <div className="field-label">{partyIdLabel(party.type)}</div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              법인이면 "법인등록번호". partyIdLabel 단일 출처로 입력↔출력 라벨 불일치 제거.
+              앞/뒤 2개 input 묶음이라 단일 htmlFor 부적합 → 그룹 라벨 id + role="group"
+              aria-labelledby, 각 input 에 앞/뒤 aria-label 부여. */}
+          <div className="field-label" id={fid("regid")}>{partyIdLabel(party.type)}</div>
+          {/* 오류 상태를 입력 컨트롤에 프로그래밍적으로 연결(aria-invalid + aria-describedby)
+              → 스크린리더 사용자가 필드 포커스 시 오류 상태·내용 인지. corpInvalid·birthInvalid 는
+              type(법인/개인)에 따라 상호배타라 활성 오류 1개의 id 만 참조. */}
+          <div role="group" aria-labelledby={fid("regid")} style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input
               className="input"
+              aria-label={`${partyIdLabel(party.type)} 앞자리`}
+              aria-invalid={corpInvalid || birthInvalid || undefined}
+              aria-describedby={corpInvalid ? fid("corpErr") : birthInvalid ? fid("birthErr") : undefined}
               value={party.corpRegFront}
               maxLength={6}
               placeholder={party.type === "개인" ? "생년월일" : "######"}
@@ -139,6 +153,9 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
             <span>-</span>
             <input
               className="input"
+              aria-label={`${partyIdLabel(party.type)} 뒷자리`}
+              aria-invalid={corpInvalid || birthInvalid || undefined}
+              aria-describedby={corpInvalid ? fid("corpErr") : birthInvalid ? fid("birthErr") : undefined}
               value={party.corpRegBack}
               maxLength={7}
               placeholder="#######"
@@ -146,30 +163,36 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
             />
           </div>
           {corpInvalid && (
-            <div className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+            <div id={fid("corpErr")} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
               유효하지 않은 법인등록번호입니다 (체크섬 확인 필요)
             </div>
           )}
           {birthInvalid && (
-            <div className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+            <div id={fid("birthErr")} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
               실재하지 않는 생년월일입니다 (YYMMDD 형식 확인)
             </div>
           )}
         </div>
         <div className="field">
-          <div className="field-label">사업자등록번호</div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input className="input" value={party.bizP1} maxLength={3} placeholder="###"
+          <div className="field-label" id={fid("biz")}>사업자등록번호</div>
+          <div role="group" aria-labelledby={fid("biz")} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input className="input" aria-label="사업자등록번호 앞 3자리"
+              aria-invalid={bizInvalid || undefined} aria-describedby={bizInvalid ? fid("bizErr") : undefined}
+              value={party.bizP1} maxLength={3} placeholder="###"
               onChange={(e) => set({ bizP1: e.target.value.replace(/\D/g, "") })} />
             <span>-</span>
-            <input className="input" value={party.bizP2} maxLength={2} placeholder="##"
+            <input className="input" aria-label="사업자등록번호 가운데 2자리"
+              aria-invalid={bizInvalid || undefined} aria-describedby={bizInvalid ? fid("bizErr") : undefined}
+              value={party.bizP2} maxLength={2} placeholder="##"
               onChange={(e) => set({ bizP2: e.target.value.replace(/\D/g, "") })} />
             <span>-</span>
-            <input className="input" value={party.bizP3} maxLength={5} placeholder="#####"
+            <input className="input" aria-label="사업자등록번호 뒤 5자리"
+              aria-invalid={bizInvalid || undefined} aria-describedby={bizInvalid ? fid("bizErr") : undefined}
+              value={party.bizP3} maxLength={5} placeholder="#####"
               onChange={(e) => set({ bizP3: e.target.value.replace(/\D/g, "") })} />
           </div>
           {bizInvalid && (
-            <div className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+            <div id={fid("bizErr")} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
               유효하지 않은 사업자등록번호입니다 (체크섬 확인 필요)
             </div>
           )}
@@ -179,43 +202,43 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
         {isCorp && (
           <>
             <div className="field">
-              <div className="field-label">대표이사</div>
-              <input className="input" value={party.representativeDirector}
+              <label className="field-label" htmlFor={fid("repDir")}>대표이사</label>
+              <input id={fid("repDir")} className="input" value={party.representativeDirector}
                 onChange={(e) => set({ representativeDirector: e.target.value })} />
             </div>
             <div className="field">
-              <div className="field-label">사내이사</div>
-              <input className="input" value={party.insideDirector}
+              <label className="field-label" htmlFor={fid("insDir")}>사내이사</label>
+              <input id={fid("insDir")} className="input" value={party.insideDirector}
                 onChange={(e) => set({ insideDirector: e.target.value })} />
             </div>
           </>
         )}
 
         <div className="field full">
-          <div className="field-label">주소</div>
-          <input className="input" value={party.address} onChange={(e) => set({ address: e.target.value })} />
+          <label className="field-label" htmlFor={fid("address")}>주소</label>
+          <input id={fid("address")} className="input" value={party.address} onChange={(e) => set({ address: e.target.value })} />
         </div>
         <div className="field">
-          <div className="field-label">연락처</div>
-          <input className="input" value={party.contact} onChange={(e) => set({ contact: e.target.value })} />
+          <label className="field-label" htmlFor={fid("contact")}>연락처</label>
+          <input id={fid("contact")} className="input" value={party.contact} onChange={(e) => set({ contact: e.target.value })} />
         </div>
 
         {showLoanFields && (
           <>
             <div className="field">
-              <div className="field-label">대출금액 (원)</div>
-              <input className="input" type="number" inputMode="numeric" value={party.loanAmount}
+              <label className="field-label" htmlFor={fid("loanAmount")}>대출금액 (원)</label>
+              <input id={fid("loanAmount")} className="input" type="number" inputMode="numeric" value={party.loanAmount}
                 placeholder="예) 5000000000"
                 onChange={(e) => set({ loanAmount: e.target.value })} />
             </div>
             <div className="field">
-              <div className="field-label">피담보채권 채무자</div>
-              <input className="input" value={party.claimDebtor}
+              <label className="field-label" htmlFor={fid("claimDebtor")}>피담보채권 채무자</label>
+              <input id={fid("claimDebtor")} className="input" value={party.claimDebtor}
                 onChange={(e) => set({ claimDebtor: e.target.value })} />
             </div>
             <div className="field full">
-              <div className="field-label">피담보채권 문구 (별첨2)</div>
-              <input className="input" value={party.securedClaim}
+              <label className="field-label" htmlFor={fid("securedClaim")}>피담보채권 문구 (별첨2)</label>
+              <input id={fid("securedClaim")} className="input" value={party.securedClaim}
                 onChange={(e) => set({ securedClaim: e.target.value })} />
             </div>
           </>

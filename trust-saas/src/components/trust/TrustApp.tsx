@@ -110,42 +110,51 @@ export function TrustApp() {
           </div>
         </div>
         <nav className="breadcrumb">
-          <span className={"crumb" + (view === "company" ? " active" : "")} onClick={goHome}>
+          <button
+            type="button"
+            className={"crumb" + (view === "company" ? " active" : "")}
+            onClick={goHome}
+            aria-current={view === "company" ? "page" : undefined}
+          >
             신탁사 선택
-          </span>
+          </button>
           {company && view !== "contracts" && (
             <>
-              <span className="sep">›</span>
-              <span
+              <span className="sep" aria-hidden="true">›</span>
+              <button
+                type="button"
                 className={"crumb" + (view === "home" ? " active" : "")}
                 onClick={() => setView("home")}
+                aria-current={view === "home" ? "page" : undefined}
               >
                 {company}
-              </span>
+              </button>
             </>
           )}
           {docType && (view === "category" || view === "wizard") && (
             <>
-              <span className="sep">›</span>
-              <span
+              <span className="sep" aria-hidden="true">›</span>
+              <button
+                type="button"
                 className={"crumb" + (view === "category" ? " active" : "")}
                 onClick={() => setView("category")}
+                aria-current={view === "category" ? "page" : undefined}
               >
                 {docType.name}
-              </span>
+              </button>
             </>
           )}
           {category && view === "wizard" && (
             <>
-              <span className="sep">›</span>
-              <span className="crumb active">{CATEGORY_LABEL[category]}</span>
+              <span className="sep" aria-hidden="true">›</span>
+              <span className="crumb active" aria-current="page">{CATEGORY_LABEL[category]}</span>
             </>
           )}
-          <span className="sep">·</span>
-          <span className="crumb" onClick={() => setView("contracts")}>
+          <span className="sep" aria-hidden="true">·</span>
+          <button type="button" className="crumb" onClick={() => setView("contracts")}>
             내 계약
-          </span>
-          <span className="sep">·</span>
+          </button>
+          <span className="sep" aria-hidden="true">·</span>
           <Link href="/advisor" className="crumb" style={{ textDecoration: "none" }}>
             💬 상담 →
           </Link>

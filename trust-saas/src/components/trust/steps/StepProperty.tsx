@@ -60,26 +60,28 @@ export function StepProperty() {
           </div>
           <div className="field-grid">
             <div className="field full">
-              <div className="field-label">소재지</div>
-              <input className="input" value={p.address}
+              <label className="field-label" htmlFor={`prop-${i}-address`}>소재지</label>
+              <input id={`prop-${i}-address`} className="input" value={p.address}
                 onChange={(e) => updateProperty(i, { address: e.target.value })} />
             </div>
             <div className="field">
-              <div className="field-label">지목</div>
-              <input className="input" value={p.category}
+              <label className="field-label" htmlFor={`prop-${i}-category`}>지목</label>
+              <input id={`prop-${i}-category`} className="input" value={p.category}
                 onChange={(e) => updateProperty(i, { category: e.target.value })} />
             </div>
             <div className="field">
-              <div className="field-label">면적 (㎡)</div>
-              <input className="input" value={p.area}
+              <label className="field-label" htmlFor={`prop-${i}-area`}>면적 (㎡)</label>
+              <input id={`prop-${i}-area`} className="input" value={p.area}
                 onChange={(e) => updateProperty(i, { area: e.target.value })} />
             </div>
             <div className="field">
-              <div className="field-label">등기 고유번호</div>
-              <input className="input" value={p.regNo}
+              <label className="field-label" htmlFor={`prop-${i}-regNo`}>등기 고유번호</label>
+              <input id={`prop-${i}-regNo`} className="input" value={p.regNo}
+                aria-invalid={(p.regNo.trim().length > 0 && !isValidRegNo(p.regNo)) || undefined}
+                aria-describedby={p.regNo.trim().length > 0 && !isValidRegNo(p.regNo) ? `prop-${i}-regNo-err` : undefined}
                 onChange={(e) => updateProperty(i, { regNo: e.target.value })} />
               {p.regNo.trim().length > 0 && !isValidRegNo(p.regNo) && (
-                <div className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                <div id={`prop-${i}-regNo-err`} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
                   등기 고유번호는 숫자 14자리입니다 (현재 {p.regNo.replace(/\D/g, "").length}자리)
                 </div>
               )}

@@ -99,12 +99,16 @@ export function DocStep({ docId }: { docId: DocId }) {
         <div className="field-grid">
           {fields.map((f) => {
             const val = content[f.key];
+            // 라벨↔컨트롤 접근성: field-label 을 <label htmlFor> 로 컨트롤 id 에
+            // 연결(라벨 클릭 시 포커스 + 스크린리더 접근명). 서류·필드별 고유 id.
+            const fid = `doc-${docId}-${f.key}`;
             if (f.type === "textarea") {
               return (
                 <div className="field full" key={f.key}>
-                  <div className="field-label">{f.label}</div>
+                  <label className="field-label" htmlFor={fid}>{f.label}</label>
                   {f.hint && <div className="field-hint">{f.hint}</div>}
                   <textarea
+                    id={fid}
                     className="input"
                     rows={3}
                     placeholder={f.placeholder}
@@ -117,9 +121,10 @@ export function DocStep({ docId }: { docId: DocId }) {
             if (f.type === "select") {
               return (
                 <div className="field full" key={f.key}>
-                  <div className="field-label">{f.label}</div>
+                  <label className="field-label" htmlFor={fid}>{f.label}</label>
                   {f.hint && <div className="field-hint">{f.hint}</div>}
                   <select
+                    id={fid}
                     className="select"
                     value={(val as string) ?? (f.default as string) ?? ""}
                     onChange={(e) => setField(f.key, e.target.value)}
@@ -132,11 +137,14 @@ export function DocStep({ docId }: { docId: DocId }) {
               );
             }
             if (f.type === "radio") {
+              // 라디오 그룹: 개별 옵션은 감싼 <label> 로 이름이 붙으나, 그룹 전체
+              // 라벨은 role=radiogroup + aria-labelledby 로 연결(htmlFor 는 단일
+              // 컨트롤 전용이라 그룹엔 부적합).
               return (
                 <div className="field full" key={f.key}>
-                  <div className="field-label">{f.label}</div>
+                  <div className="field-label" id={fid}>{f.label}</div>
                   {f.hint && <div className="field-hint">{f.hint}</div>}
-                  <div style={{ display: "flex", gap: 14, marginTop: 6 }}>
+                  <div role="radiogroup" aria-labelledby={fid} style={{ display: "flex", gap: 14, marginTop: 6 }}>
                     {f.options?.map((o) => (
                       <label key={o.v} className="inline-check">
                         <input
@@ -173,9 +181,10 @@ export function DocStep({ docId }: { docId: DocId }) {
             const amt = f.money ? parseAmount(val as string) : 0;
             return (
               <div className="field full" key={f.key}>
-                <div className="field-label">{f.label}</div>
+                <label className="field-label" htmlFor={fid}>{f.label}</label>
                 {f.hint && <div className="field-hint">{f.hint}</div>}
                 <input
+                  id={fid}
                   className="input"
                   type={f.type === "amount" ? "number" : "text"}
                   placeholder={f.placeholder}
@@ -183,7 +192,7 @@ export function DocStep({ docId }: { docId: DocId }) {
                   onChange={(e) => setField(f.key, e.target.value)}
                 />
                 {f.money && amt > 0 && (
-                  <div className="amount-echo" aria-live="polite">
+                  <div className="amount-echo" role="status" aria-live="polite">
                     <span className="amount-echo-num">{fmtKRW(val as string)}</span>
                     <span className="amount-echo-hangul">{amountToHangul(val as string)}</span>
                   </div>

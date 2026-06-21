@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
-import { validateDoc } from "@/lib/engine/validate";
+import { validateDoc, type Missing } from "@/lib/engine/validate";
 import { generateCollateralDoc } from "@/lib/engine/docx";
 import type { Category, DocId } from "@/lib/engine/model";
 import { StepParties, StepPriority } from "./steps/StepParties";
@@ -48,14 +48,28 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   const tabSteps = STEPS.filter((s) => s.tab === tab);
   const totalSteps = STEPS.length;
 
-  // ── 서류별 생성 가능 여부(검증 게이트 재사용) — 각 서류 step에 들어가지 않고도
-  //    어떤 서류가 필수 입력 누락으로 막혔는지 위저드 네비에서 한눈에 표시. (조문·엔진 무손상)
-  const docReady = useMemo(() => {
+  // ── 서류별 생성 가능 여부 + 계약 전체 "남은 필수 입력"(중복 제거) — 한 번의 검증 패스로 산출.
+  //    docReady: 각 서류 step의 생성 가능 여부(네비 ✓/⚠ 마커). 각 서류 step에 들어가지 않고도
+  //      어떤 서류가 필수 입력 누락으로 막혔는지 위저드 네비에서 한눈에 표시.
+  //    missingList: 7종 서류에 걸쳐 누락된 필수 입력을 label 기준 중복 제거해 한 곳에 모은 목록.
+  //      공통 누락(위탁자·우선수익자·대출금액·물건·체결일 등)은 7종 모두의 missing에 반복 등장하므로
+  //      1회만 담는다. 헤더의 firstBlocked(단일 서류 이동)·각 DocStep 검증박스(그 서류 한정)와 달리
+  //      "계약 전체에 남은 입력 전부"를 한 곳에서 보여주고 항목별로 바로 점프한다. (조문·엔진 무손상)
+  const { docReady, missingList } = useMemo(() => {
     const map: Record<number, boolean> = {};
+    const seen = new Set<string>();
+    const list: Missing[] = [];
     for (const s of STEPS) {
-      if (s.docId) map[s.idx] = validateDoc(form, s.docId).ok;
+      if (!s.docId) continue;
+      const { ok, missing } = validateDoc(form, s.docId);
+      map[s.idx] = ok;
+      for (const mi of missing) {
+        if (seen.has(mi.label)) continue;
+        seen.add(mi.label);
+        list.push(mi);
+      }
     }
-    return map;
+    return { docReady: map, missingList: list };
   }, [form]);
 
   // ── 서류 생성 준비 현황 요약(✓ N/7) — 7종 서류 중 몇 종이 생성 가능한지 한눈에.
@@ -147,6 +161,31 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
             </button>
           )}
         </div>
+        {/* 남은 필수 입력 통합 체크리스트 — 계약 전체에서 아직 채워야 할 입력을 중복 없이 한 곳에.
+            firstBlocked(첫 막힌 서류로 이동)는 한 서류만, 각 DocStep 검증박스는 그 서류 한정인 데 비해,
+            여기서는 7종에 걸친 누락 입력 전부를 보고 항목별로 바로 점프한다(접어두어 헤더는 간결 유지). */}
+        {missingList.length > 0 && (
+          <details className="doc-progress-missing">
+            <summary>
+              남은 필수 입력 <strong>{missingList.length}</strong>건 — 펼쳐서 항목별로 바로 이동
+            </summary>
+            <ul className="doc-progress-missing-list">
+              {missingList.map((mi) => (
+                <li key={mi.label}>
+                  <button
+                    type="button"
+                    className="validate-jump"
+                    onClick={() => goStep(mi.stepIdx)}
+                    title={`${mi.where}(으)로 이동해 입력`}
+                  >
+                    <strong>{mi.label}</strong>
+                    <span className="validate-where"> — {mi.where} ›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {batchMsg && (
           <div className="doc-progress-msg" role="status" aria-live="polite">
             {batchMsg}
@@ -209,11 +248,12 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
             {STEPS.map((s) => {
               const ready = s.docId ? docReady[s.idx] : undefined;
               return (
-                <div
+                <button
                   key={s.idx}
+                  type="button"
                   className={"stepper-item" + (s.idx === step ? " active" : "")}
                   onClick={() => goStep(s.idx)}
-                  style={{ cursor: "pointer" }}
+                  aria-current={s.idx === step ? "step" : undefined}
                   title={
                     ready === undefined
                       ? undefined
@@ -232,7 +272,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
                       {ready ? "✓" : "⚠"}
                     </span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -251,8 +291,10 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               className="nav-circle"
               disabled={step <= 1}
               onClick={() => goStep(step - 1)}
+              aria-label="이전 단계"
+              title="이전 단계"
             >
-              ‹
+              <span aria-hidden="true">‹</span>
             </button>
             <div className="nav-label">
               <span>
@@ -264,8 +306,10 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               className="nav-circle"
               disabled={step >= totalSteps}
               onClick={() => goStep(step + 1)}
+              aria-label="다음 단계"
+              title="다음 단계"
             >
-              ›
+              <span aria-hidden="true">›</span>
             </button>
           </div>
         </section>

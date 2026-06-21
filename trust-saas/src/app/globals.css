@@ -134,8 +134,28 @@ body {
     align-items: center;
   }
   .breadcrumb .crumb { cursor: pointer; transition: color 0.2s; }
+  /* <button> 리셋 — crumb(신탁사 선택·회사·서류종·내 계약)을 키보드/스크린리더
+     접근 가능한 네이티브 버튼으로 렌더하되 기존 <span> 외관을 픽셀 유지
+     (무배경·무테두리·무패딩·폰트/색 상속). 인라인 flex 아이템이라 stepper와 달리
+     width/text-align은 두지 않음. span.active 라벨·<Link>는 무접촉. */
+  .breadcrumb button.crumb {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+  }
   .breadcrumb .crumb:hover { color: var(--c-brown); }
   .breadcrumb .crumb.active { color: var(--c-ink); font-weight: 700; }
+  .breadcrumb button.crumb:focus-visible {
+    outline: 2px solid var(--c-brown);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
   .breadcrumb .sep { color: var(--c-line); }
 
   /* ============================================================
@@ -446,6 +466,29 @@ body {
   .doc-progress-batch:disabled { opacity: 0.6; cursor: default; }
   .doc-progress-batch:focus-visible { outline: 2px solid var(--c-brown); outline-offset: 2px; }
   .doc-progress-msg { font-size: 12px; color: var(--c-blue-deep); }
+  /* 남은 필수 입력 통합 체크리스트 — 접이식(<details>), 7종에 걸친 누락 입력을 중복 없이 모아 점프 */
+  .doc-progress-missing {
+    border: 1px solid var(--c-danger-soft);
+    background: var(--c-danger-soft);
+    border-radius: var(--r-lg);
+    padding: 2px 12px;
+    font-size: 12.5px;
+  }
+  .doc-progress-missing > summary {
+    cursor: pointer;
+    color: var(--c-danger);
+    font-weight: 600;
+    padding: 6px 0;
+    list-style-position: inside;
+  }
+  .doc-progress-missing > summary strong { color: var(--c-danger); }
+  .doc-progress-missing > summary:focus-visible { outline: 2px solid var(--c-danger); outline-offset: 2px; border-radius: 3px; }
+  .doc-progress-missing-list {
+    margin: 2px 0 8px;
+    padding-left: 18px;
+    line-height: 1.9;
+    color: var(--c-ink-soft);
+  }
 
   /* TOP BAR brand hover effect */
   .brand { transition: opacity 0.2s; }
@@ -546,8 +589,21 @@ body {
     font-size: 13px;
     line-height: 1.5;     /* 줄바꿈되는 항목의 줄 간격 */
     transition: all 0.18s;
+    /* <button> 리셋 — 탭·서브스텝 pill과 동일하게 키보드/스크린리더 접근 가능한
+       네이티브 버튼으로 렌더하되 기존 div 외관을 유지(전폭·좌측정렬·무배경·폰트 상속). */
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    appearance: none;
+    -webkit-appearance: none;
   }
   .stepper-item:hover { color: var(--c-ink); background: var(--c-bg-soft, rgba(0,0,0,0.025)); }
+  .stepper-item:focus-visible {
+    outline: 2px solid var(--c-brown);
+    outline-offset: 2px;
+  }
   .stepper-item.active { color: var(--c-ink); font-weight: 700; background: var(--c-bg-soft, rgba(0,0,0,0.04)); }
   .stepper-item.done { color: var(--c-ink-soft); }
   .stepper-num {

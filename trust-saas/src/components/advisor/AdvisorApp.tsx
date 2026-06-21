@@ -16,7 +16,7 @@ export function AdvisorApp() {
         </Link>
         <nav className="breadcrumb">
           <span className="crumb active">상담</span>
-          <span className="sep">›</span>
+          <span className="sep" aria-hidden="true">›</span>
           <Link href="/app" className="crumb" style={{ textDecoration: "none" }}>
             서류 자동화 →
           </Link>

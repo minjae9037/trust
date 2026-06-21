@@ -34,10 +34,11 @@ export function StepLoanCalc() {
             padding: "8px 14px",
           }}
         >
-          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--c-ink-soft)" }}>
+          <label htmlFor="loan-priorityRatio" style={{ fontSize: 12, fontWeight: 600, color: "var(--c-ink-soft)" }}>
             우선수익한도 비율
           </label>
           <input
+            id="loan-priorityRatio"
             className="input"
             type="number"
             min={100}
@@ -89,11 +90,12 @@ export function StepLoanCalc() {
                         type="number"
                         value={p.loanAmount}
                         placeholder="0"
+                        aria-label={`${p.name || `우선수익자 ${i + 1}`} 대출금액`}
                         onChange={(e) => updateParty("priorities", i, { loanAmount: e.target.value })}
                         style={{ textAlign: "right" }}
                       />
                       {parseAmount(p.loanAmount) > 0 && (
-                        <div className="loan-hangul" aria-live="polite">{amountToHangul(p.loanAmount)}</div>
+                        <div className="loan-hangul" role="status" aria-live="polite">{amountToHangul(p.loanAmount)}</div>
                       )}
                     </td>
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--c-brown)" }}>
