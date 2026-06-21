@@ -200,6 +200,21 @@ export async function restoreContract(row: ContractRow): Promise<void> {
 }
 
 /**
+ * 삭제 실행취소 큐(순수) — 연속 삭제(실행취소 창 7초 안에 여러 건)에도 각 삭제가
+ * **독립된** 실행취소 항목을 갖게 한다. 단일 슬롯이면 다음 삭제가 직전 항목을 덮어써
+ * 먼저 지운 계약을 되돌릴 수 없게 되고(영구 유실 — "실수 삭제 방지" 위배), 그 사실이
+ * 사용자에게 보이지도 않는다. 최근 삭제가 맨 앞(LIFO 표시)이며 id 중복은 차단한다.
+ * dequeueUndo 는 실행취소·만료 시 해당 항목만 제거한다(다른 대기 항목 보존).
+ * (순수 함수 — 입력 배열 무변형. 회귀 가드에서 직접 단언)
+ */
+export function enqueueUndo(queue: ContractRow[], row: ContractRow): ContractRow[] {
+  return [row, ...queue.filter((r) => r.id !== row.id)];
+}
+export function dequeueUndo(queue: ContractRow[], id: string): ContractRow[] {
+  return queue.filter((r) => r.id !== id);
+}
+
+/**
  * "(사본)" 제목 생성 — 기존 사본 접미사를 한 번 벗겨(중첩 방지) 충돌 시 번호를 붙인다.
  * 예) "계약 A" → "계약 A (사본)", 다시 복제 → "계약 A (사본 2)".
  * (순수 함수 — 회귀 가드에서 직접 단언)

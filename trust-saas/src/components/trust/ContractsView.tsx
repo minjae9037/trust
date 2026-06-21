@@ -9,6 +9,8 @@ import {
   exportContracts,
   importContracts,
   contractIdentity,
+  enqueueUndo,
+  dequeueUndo,
   type ContractRow,
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
@@ -86,29 +88,42 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
   // 삭제 — 즉시 삭제하되 일정 시간 "실행취소"를 제공한다(실수 삭제의 영구 유실 방지).
   // dirty 가드(세션 내)·백업(세션 간)에 이어 유실 방지 계열의 마지막 안전망. 삭제된 행을
   // 그대로 보관했다가 실행취소 시 restoreContract 로 되돌린다(id·시각·form_data 무변형).
+  // ★연속 삭제(7초 창 안에 여러 건)에도 각 삭제가 독립된 실행취소 항목을 갖도록 큐로 관리한다
+  //   — 단일 슬롯이면 다음 삭제가 직전 항목을 덮어써 먼저 지운 계약이 말없이 영구 유실됐다.
+  //   각 항목은 자기 만료 타이머를 가지며(undoTimers: id→timer), 실행취소/만료 시 그 항목만 제거.
   const UNDO_MS = 7000;
-  const undoTimer = useRef<number | null>(null);
-  const [undoRow, setUndoRow] = useState<ContractRow | null>(null);
+  const undoTimers = useRef<Map<string, number>>(new Map());
+  const [undoRows, setUndoRows] = useState<ContractRow[]>([]);
 
-  // 타이머 누수 방지(언마운트 시 정리).
-  useEffect(() => () => {
-    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+  // 타이머 누수 방지(언마운트 시 전부 정리).
+  useEffect(() => {
+    const timers = undoTimers.current;
+    return () => {
+      for (const t of timers.values()) window.clearTimeout(t);
+      timers.clear();
+    };
   }, []);
 
   async function onDelete(row: ContractRow) {
     await deleteContract(row.id);
     await load();
-    if (undoTimer.current) window.clearTimeout(undoTimer.current);
-    setUndoRow(row);
-    undoTimer.current = window.setTimeout(() => setUndoRow(null), UNDO_MS);
+    // 같은 id 의 기존 만료 타이머가 있으면 교체(큐 중복은 enqueueUndo 가 차단).
+    const prev = undoTimers.current.get(row.id);
+    if (prev) window.clearTimeout(prev);
+    setUndoRows((q) => enqueueUndo(q, row));
+    const t = window.setTimeout(() => {
+      setUndoRows((q) => dequeueUndo(q, row.id));
+      undoTimers.current.delete(row.id);
+    }, UNDO_MS);
+    undoTimers.current.set(row.id, t);
   }
 
-  async function onUndoDelete() {
-    if (!undoRow) return;
-    await restoreContract(undoRow);
-    if (undoTimer.current) window.clearTimeout(undoTimer.current);
-    undoTimer.current = null;
-    setUndoRow(null);
+  async function onUndoDelete(row: ContractRow) {
+    await restoreContract(row);
+    const t = undoTimers.current.get(row.id);
+    if (t) window.clearTimeout(t);
+    undoTimers.current.delete(row.id);
+    setUndoRows((q) => dequeueUndo(q, row.id));
     await load();
   }
 
@@ -294,17 +309,18 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
         </div>
       )}
 
-      {/* 삭제 실행취소 — 방금 삭제한 계약을 일정 시간 안에 되돌릴 수 있다(영구 유실 방지). */}
-      {undoRow && (
-        <div className="contracts-undo" role="status" aria-live="polite">
+      {/* 삭제 실행취소 — 방금 삭제한 계약을 일정 시간 안에 되돌릴 수 있다(영구 유실 방지).
+          연속 삭제 시 각 건이 자기 실행취소 바를 가져, 먼저 지운 계약도 덮어쓰기 없이 되돌릴 수 있다. */}
+      {undoRows.map((u) => (
+        <div key={u.id} className="contracts-undo" role="status" aria-live="polite">
           <span>
-            🗑 <strong>{undoRow.title}</strong> 삭제됨
+            🗑 <strong>{u.title}</strong> 삭제됨
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={onUndoDelete}>
+          <button className="btn btn-ghost btn-sm" onClick={() => onUndoDelete(u)}>
             실행취소
           </button>
         </div>
-      )}
+      ))}
 
       {/* 검색 + 상태 필터 + 정렬 + 건수 — 계약이 많아질 때 탐색성·정리 */}
       {!loading && !err && rows.length > 0 && (

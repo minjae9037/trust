@@ -25,7 +25,7 @@
      cd trust-saas
      node --experimental-strip-types --loader ./scripts/ts-ext-loader.mjs scripts/verify-contract-undo-delete.mjs
    ============================================================ */
-import { restoreRow } from "../src/lib/contractRepo.ts";
+import { restoreRow, enqueueUndo, dequeueUndo } from "../src/lib/contractRepo.ts";
 import { blankContractForm } from "../src/lib/engine/model.ts";
 
 let pass = 0;
@@ -108,6 +108,42 @@ console.log("\n[E] 순수성 — existing 배열·row 입력 무변형");
   ok(existing.length === existingLen && JSON.stringify(existing) === existingBefore, "existing 배열 무변형(새 배열 반환)");
   ok(JSON.stringify(deleted) === deletedBefore, "row 입력 무변형");
   ok(out !== existing, "복원 시 새 배열 반환(원본 불공유)");
+}
+
+// ── 삭제 실행취소 큐 — 연속 삭제 시 각 삭제가 독립된 실행취소 항목을 갖는지(영구 유실 방지).
+//    단일 슬롯 회귀(다음 삭제가 직전 실행취소를 덮어써 먼저 지운 계약이 영구 유실)를 막는다.
+console.log("\n[F] enqueueUndo — 연속 삭제가 각각 독립된 실행취소 항목을 보존(덮어쓰기 유실 0)");
+{
+  // ★핵심 시나리오: A 삭제 후 7초 안에 B 삭제 → 단일 슬롯이면 A 가 사라지던 버그.
+  let q = [];
+  q = enqueueUndo(q, rowOf("a", "판교 담보신탁"));
+  q = enqueueUndo(q, rowOf("b", "역삼 담보신탁"));
+  ok(q.length === 2, "연속 삭제 2건이 모두 큐에 남음(먼저 지운 계약 유실 없음)");
+  ok(q.some((r) => r.id === "a") && q.some((r) => r.id === "b"), "A·B 둘 다 실행취소 가능");
+  ok(q[0].id === "b", "최근 삭제가 맨 앞(LIFO 표시)");
+
+  // 멱등 — 같은 id 재삽입은 중복을 만들지 않고 맨 앞으로 갱신.
+  const dup = enqueueUndo(q, rowOf("a", "판교 담보신탁 (갱신)"));
+  ok(dup.filter((r) => r.id === "a").length === 1, "같은 id 중복 미생성");
+  ok(dup[0].id === "a" && dup.length === 2, "재삽입 시 맨 앞 갱신·건수 불변");
+
+  // 순수성 — 입력 큐 무변형.
+  const before = JSON.stringify(q);
+  enqueueUndo(q, rowOf("c", "분당 담보신탁"));
+  ok(JSON.stringify(q) === before, "enqueueUndo 는 입력 큐를 변형하지 않음(새 배열)");
+}
+
+console.log("\n[G] dequeueUndo — 실행취소·만료 시 해당 항목만 제거(다른 대기 항목 보존)");
+{
+  const q = [rowOf("b", "역삼"), rowOf("a", "판교"), rowOf("c", "분당")];
+  const after = dequeueUndo(q, "a");
+  ok(after.length === 2 && !after.some((r) => r.id === "a"), "대상 id 만 제거");
+  ok(after.some((r) => r.id === "b") && after.some((r) => r.id === "c"), "나머지 대기 항목 보존");
+  // 없는 id → no-op(건수 유지), 입력 무변형.
+  const before = JSON.stringify(q);
+  const noop = dequeueUndo(q, "zzz");
+  ok(noop.length === 3, "없는 id 제거는 no-op");
+  ok(JSON.stringify(q) === before && noop !== q, "dequeueUndo 는 입력 큐 무변형(새 배열 반환)");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
