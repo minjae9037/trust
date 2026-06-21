@@ -292,18 +292,17 @@ export function AdvisorChat() {
           {msgs.map((m, i) => {
             if (m.role !== "assistant") {
               return (
-                <div key={i} className="advisor-msg user">
-                  {/* 발화자 식별 — 사용자/AI 턴은 정렬·색으로만 구분돼(시각) 스크린리더는
-                      누가 한 말인지 알 수 없다(WCAG 1.3.1). 화면에 안 보이는 라벨로 고지. */}
+                <article key={i} aria-label="내 질문" className="advisor-msg user">
+                  {/* 턴 <article>=답변 단위 SR 탐색. 상세: verify-advisor-turn-landmarks. */}
                   <span className="sr-only">내 질문. </span>
                   {m.content}
-                </div>
+                </article>
               );
             }
             if (m.error) {
               // 생성 실패 — 답변이 아니므로 피드백/복사/출처 대신 "다시 시도"만 노출.
               return (
-                <div key={i} className="advisor-msg assistant" role="alert">
+                <article key={i} aria-label="상담 답변" className="advisor-msg assistant" role="alert">
                   <span className="sr-only">상담 답변. </span>
                   <span style={{ color: "var(--c-danger)" }}>{m.content}</span>
                   {canRetry && (
@@ -316,12 +315,12 @@ export function AdvisorChat() {
                       다시 시도
                     </button>
                   )}
-                </div>
+                </article>
               );
             }
             const { body, docId } = parseAction(m.content);
             return (
-              <div key={i} className="advisor-msg assistant">
+              <article key={i} aria-label="상담 답변" className="advisor-msg assistant">
                 <span className="sr-only">상담 답변. </span>
                 <div
                   className="md"
@@ -370,7 +369,7 @@ export function AdvisorChat() {
                     </button>
                   </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
