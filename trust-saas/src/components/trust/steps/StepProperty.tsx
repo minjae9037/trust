@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
-import { isValidRegNo } from "@/lib/engine/calc";
+import { isValidRegNo, isPositiveAmount } from "@/lib/engine/calc";
 
 export function StepProperty() {
   const { form, addProperty, removeProperty, updateProperty } = useContractStore();
@@ -71,8 +71,19 @@ export function StepProperty() {
             </div>
             <div className="field">
               <label className="field-label" htmlFor={`prop-${i}-area`}>면적 (㎡)</label>
+              {/* 면적은 별첨1·신청서 부동산표 면적칸에 `area + "㎡"`로 박히는 정량 출력값.
+                  게이트(validateDoc)와 같은 단일 출처(isPositiveAmount)·같은 채움 조건(trim>0)을
+                  재사용해 "채웠지만 0·음수·비숫자"면 그 입력 옆에서 즉시 안내한다(판정 불일치 0,
+                  등기번호·가격·원본가액 인라인 패리티). 빈 값·유효 면적은 미표시(나그 방지). */}
               <input id={`prop-${i}-area`} className="input" value={p.area}
+                aria-invalid={(p.area.trim().length > 0 && !isPositiveAmount(p.area)) || undefined}
+                aria-describedby={p.area.trim().length > 0 && !isPositiveAmount(p.area) ? `prop-${i}-area-err` : undefined}
                 onChange={(e) => updateProperty(i, { area: e.target.value })} />
+              {p.area.trim().length > 0 && !isPositiveAmount(p.area) && (
+                <div id={`prop-${i}-area-err`} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                  면적은 0보다 큰 숫자만 입력하세요 (㎡ 단위는 자동 표기 — 이 값으로는 서류를 생성할 수 없습니다).
+                </div>
+              )}
             </div>
             <div className="field">
               <label className="field-label" htmlFor={`prop-${i}-regNo`}>등기 고유번호</label>
