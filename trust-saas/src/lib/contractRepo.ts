@@ -137,7 +137,13 @@ function uuid(): string {
   return "c-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-/** 저장 (id 있으면 갱신, 없으면 신규). 저장된 id 반환 */
+/**
+ * 저장 (id 있으면 갱신, 없으면 신규). 저장된 id 반환.
+ * 제목은 normalizeTitle 로 정규화한다(앞뒤 공백 제거·빈/공백 → "제목 없음") — rename 과 동일
+ * 단일 출처. 종전 `input.title || "제목 없음"` 은 공백만 입력("   ")을 truthy 로 통과시켜
+ * 카드 제목이 공백으로 저장되던(목록에서 빈 제목 카드) 반면, rename 은 "제목 없음" 으로 정규화해
+ * 두 경로의 결과가 갈렸다 → normalizeTitle 재사용으로 저장·이름변경 트림 일관성 확보.
+ */
 export async function saveContract(input: SaveInput): Promise<string> {
   const rows = readAll();
   const now = new Date().toISOString();
@@ -148,7 +154,7 @@ export async function saveContract(input: SaveInput): Promise<string> {
         ...rows[i],
         doc_type: input.docType,
         category: input.category,
-        title: input.title || "제목 없음",
+        title: normalizeTitle(input.title),
         form_data: input.formData,
         status: input.status ?? rows[i].status,
         updated_at: now,
@@ -163,7 +169,7 @@ export async function saveContract(input: SaveInput): Promise<string> {
     doc_type: input.docType,
     category: input.category,
     status: input.status ?? "draft",
-    title: input.title || "제목 없음",
+    title: normalizeTitle(input.title),
     form_data: input.formData,
     created_at: now,
     updated_at: now,
@@ -273,7 +279,7 @@ export async function duplicateContract(id: string): Promise<string | null> {
    ※ 제목만 변경 — form_data·doc_type·status·생성 시각은 무변형(조문·엔진 무접촉).
    ---------------------------------------------------------------- */
 
-/** 제목 정규화(순수) — 앞뒤 공백 제거, 비면 "제목 없음"(저장 시 기본값과 동일). */
+/** 제목 정규화(순수) — 앞뒤 공백 제거, 비면 "제목 없음". 저장(saveContract)·이름변경(renameRow) 공용 단일 출처. */
 export function normalizeTitle(raw: string): string {
   return (raw || "").trim() || "제목 없음";
 }
