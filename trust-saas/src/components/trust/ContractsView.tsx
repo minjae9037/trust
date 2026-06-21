@@ -14,9 +14,9 @@ import {
   type ContractRow,
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
-import { validateDoc } from "@/lib/engine/validate";
-import { generateCollateralDoc } from "@/lib/engine/docx";
-import type { Category, ContractForm, DocId } from "@/lib/engine/model";
+import { validateDoc, validateJoint } from "@/lib/engine/validate";
+import { generateCollateralDoc, generateJointDoc } from "@/lib/engine/docx";
+import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 
 /**
  * 계약별 서류 생성 준비도 — 담보신탁(collateral)만 7종 산출 서류가 정의돼 있어
@@ -47,6 +47,24 @@ function docReadiness(row: ContractRow): { ready: number; total: number } | null
   const ids = readyDocIds(row);
   if (ids === null) return null;
   return { ready: ids.length, total: COLLATERAL_OUTPUT_DOCS.length };
+}
+
+/**
+ * 공동사업표준협약서(joint) 계약의 생성 준비도 — 협약서는 단일 산출물이라 collateral
+ * 의 "N/7" 대신 boolean(생성 가능 여부)이다. 검증 게이트와 동일한 `validateJoint(form).ok`
+ * 를 재사용해 목록에서 열지 않고도 "협약서 생성 가능 / 필수 입력 누락"을 보여 준다
+ * (collateral 준비도 칩의 joint 패리티 — 그간 joint 계약은 목록에서 준비 신호가 전무했다).
+ * joint 외 서류종은 null(칩 미표시). 구버전/손상 저장본은 try/catch 로 격리(렌더 크래시 방지).
+ * ※ 조문·엔진·검증 판정 무접촉 — 기존 validateJoint 결과를 목록 수준에서 표시할 뿐이다.
+ */
+function jointReadiness(row: ContractRow): boolean | null {
+  if (row.doc_type !== "joint") return null;
+  // doc_type==="joint" 가드로 form_data 는 JointForm 임이 보장된다.
+  try {
+    return validateJoint(row.form_data as JointForm).ok;
+  } catch {
+    return null;
+  }
 }
 
 type StatusFilter = "all" | "draft" | "completed";
@@ -208,6 +226,28 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
       setBatch({
         id: row.id,
         msg: `✓ 준비된 ${ids.length}종 Word(.docx) 생성 완료 — 다운로드를 확인하세요.`,
+        busy: false,
+      });
+    } catch (e) {
+      setBatch({ id: row.id, msg: "오류: " + (e instanceof Error ? e.message : String(e)), busy: false });
+    }
+  }
+
+  // ── 목록에서 바로 공동사업표준협약서(joint) 생성(.docx) — 계약을 열지 않고도 협약서 내려받기.
+  //    collateral 의 generateRowDocs(N종 일괄) 과 동형이나 joint 는 단일 산출물이라 1건만 생성한다.
+  //    검증 게이트(validateJoint.ok)를 통과한 행만 도달 → 빈 칸 협약서는 생성하지 않음(정확성 보존).
+  //    JointForm 컴포넌트의 onDocx 와 동일한 generateJointDoc 를 호출할 뿐 — 조문·엔진·산출물 무손상.
+  async function generateRowJoint(row: ContractRow) {
+    if (batch?.busy) return;
+    if (jointReadiness(row) !== true) return;
+    // jointReadiness===true = joint 행 + 검증 통과 → form_data 는 JointForm.
+    const form = row.form_data as JointForm;
+    setBatch({ id: row.id, msg: "협약서 생성 중…", busy: true });
+    try {
+      await generateJointDoc(form);
+      setBatch({
+        id: row.id,
+        msg: "✓ 공동사업표준협약서 Word(.docx) 생성 완료 — 다운로드를 확인하세요.",
         busy: false,
       });
     } catch (e) {
@@ -383,6 +423,8 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
           const docName = DOCUMENT_TYPES.find((d) => d.id === r.doc_type)?.name || r.doc_type;
           const readiness = docReadiness(r);
           const allReady = readiness !== null && readiness.ready === readiness.total;
+          // joint(공동사업표준협약서) 준비도 — collateral 의 "N/7" 대신 단일 협약서 생성 가능 여부.
+          const jointReady = jointReadiness(r);
           // 위탁자·물건 소재지 — 실무 식별 기준(제목만으론 "(사본)"·동명 구분이 어려움).
           const identity = contractIdentity(r);
           const identityLine = [identity.trustor && `위탁자 ${identity.trustor}`, identity.property]
@@ -408,6 +450,18 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                       {allReady ? "✓" : "⚠"} 서류 {readiness.ready}/{readiness.total} 생성 가능
                     </span>
                   )}
+                  {jointReady !== null && (
+                    <span
+                      className={"ready-chip " + (jointReady ? "ok" : "warn")}
+                      title={
+                        jointReady
+                          ? "필수 입력이 모두 채워져 공동사업표준협약서를 생성할 수 있습니다"
+                          : "필수 입력 누락으로 아직 협약서를 생성할 수 없습니다(열기 → 누락 항목 확인)"
+                      }
+                    >
+                      {jointReady ? "✓ 협약서 생성 가능" : "⚠ 필수 입력 누락"}
+                    </span>
+                  )}
                 </div>
                 {identityLine && (
                   <div className="contract-card-identity" style={{ marginTop: 4 }}>{identityLine}</div>
@@ -430,6 +484,16 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                       {batch?.busy && batch.id === r.id
                         ? "⏳ 생성 중…"
                         : `⬇ 서류 ${readiness.ready}종 생성`}
+                    </button>
+                  )}
+                  {jointReady === true && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => generateRowJoint(r)}
+                      disabled={batch?.busy}
+                      title="공동사업표준협약서를 Word(.docx)로 생성합니다"
+                    >
+                      {batch?.busy && batch.id === r.id ? "⏳ 생성 중…" : "⬇ 협약서 생성"}
                     </button>
                   )}
                   <button className="btn btn-ghost btn-sm" onClick={() => onOpen(r)}>
