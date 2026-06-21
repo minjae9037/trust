@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Source {
   topic: string;
@@ -149,7 +150,7 @@ export function AdvisorChat() {
             return (
               <div key={i} className="advisor-msg assistant">
                 <div className="md">
-                  {body ? <ReactMarkdown>{body}</ReactMarkdown> : <span className="blink">▍</span>}
+                  {body ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown> : <span className="blink">▍</span>}
                 </div>
                 {body && !busy && m.sources && m.sources.length > 0 && (
                   <div className="advisor-sources">
