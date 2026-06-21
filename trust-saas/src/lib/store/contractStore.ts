@@ -16,6 +16,7 @@ import {
   blankProperty,
 } from "@/lib/engine/model";
 import { recalcDerived } from "@/lib/engine/calc";
+import { firstIncompleteDocStep } from "@/lib/engine/validate";
 
 export type PartyRole = "trustors" | "debtors" | "beneficiaries" | "priorities";
 
@@ -173,6 +174,9 @@ export const useContractStore = create<ContractState>((set) => ({
     const merged: ContractForm = { ...base, ...row.form_data };
     merged.docContents = { ...base.docContents, ...(merged.docContents ?? {}) };
     const loaded = withRecalc(merged);
+    // 이어서 작성: 저장본을 다시 열 때 항상 STEP 01이 아니라, 아직 필수 입력이
+    // 누락된 첫 서류 단계로 진입해 곧장 미완 지점으로 데려간다(없으면 처음부터 검토).
+    const resume = firstIncompleteDocStep(loaded);
     set({
       docTypeId: row.doc_type,
       category: (row.category as Category) || "new",
@@ -181,8 +185,8 @@ export const useContractStore = create<ContractState>((set) => ({
       form: loaded,
       // 불러온 직후 = 저장본과 동일 상태 → 기준선으로 기록(미저장 변경 false)
       savedHash: JSON.stringify(loaded),
-      tab: 1,
-      step: 1,
+      tab: resume ? resume.tab : 1,
+      step: resume ? resume.idx : 1,
     });
   },
 

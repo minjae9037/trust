@@ -26,6 +26,40 @@ export interface SaveInput {
   status?: string;
 }
 
+/**
+ * 카드 표시·검색용 보조 식별자 — 실무에선 계약을 **위탁자(truster)·물건 소재지**로 식별한다.
+ * 제목은 사용자 자유 입력(미입력·중복·"(사본)" 다수 가능)이라 그것만으론 구분이 어렵다.
+ * 저장된 form_data에서 대표 위탁자명과 첫 물건 소재지를 뽑아 카드 부제·검색 대상으로 보강한다.
+ * doc_type별 구조 차이(collateral=trustors[]/properties[], joint=gap/project)와
+ * 구버전·손상 저장본(키 누락·null)을 옵셔널 체이닝+try/catch로 안전 격리(목록 크래시 방지).
+ * ※ 조문·엔진 무접촉 — 저장된 입력값을 읽어 표시·검색에 쓸 뿐이다(순수 함수, 회귀 가드 단언).
+ */
+export function contractIdentity(row: {
+  doc_type: string;
+  form_data: unknown;
+}): { trustor: string; property: string } {
+  const fd = row.form_data as
+    | {
+        trustors?: { name?: string }[];
+        properties?: { address?: string }[];
+        gap?: { name?: string };
+        project?: { site?: string };
+      }
+    | null
+    | undefined;
+  try {
+    if (row.doc_type === "joint") {
+      return { trustor: (fd?.gap?.name ?? "").trim(), property: (fd?.project?.site ?? "").trim() };
+    }
+    return {
+      trustor: (fd?.trustors?.[0]?.name ?? "").trim(),
+      property: (fd?.properties?.[0]?.address ?? "").trim(),
+    };
+  } catch {
+    return { trustor: "", property: "" };
+  }
+}
+
 function readAll(): ContractRow[] {
   if (typeof window === "undefined") return [];
   try {
@@ -87,4 +121,151 @@ export async function getContract(id: string): Promise<ContractRow | null> {
 
 export async function deleteContract(id: string): Promise<void> {
   writeAll(readAll().filter((r) => r.id !== id));
+}
+
+/**
+ * 삭제 실행취소(순수) — 삭제됐던 행을 그대로 되돌린다(맨 앞에 복원).
+ * 이미 같은 id가 있으면 변경하지 않는다(멱등 — 중복 복원 방지). id·시각·form_data 무변형.
+ * (dirty 가드·백업과 동일한 "유실 방지" 계열 — 실수 삭제의 마지막 안전망. 회귀 가드에서 직접 단언)
+ */
+export function restoreRow(existing: ContractRow[], row: ContractRow): ContractRow[] {
+  if (existing.some((r) => r.id === row.id)) return existing;
+  return [row, ...existing];
+}
+
+/** 삭제 실행취소 — 방금 삭제한 행을 그대로 저장소에 되돌린다(멱등). */
+export async function restoreContract(row: ContractRow): Promise<void> {
+  writeAll(restoreRow(readAll(), row));
+}
+
+/**
+ * "(사본)" 제목 생성 — 기존 사본 접미사를 한 번 벗겨(중첩 방지) 충돌 시 번호를 붙인다.
+ * 예) "계약 A" → "계약 A (사본)", 다시 복제 → "계약 A (사본 2)".
+ * (순수 함수 — 회귀 가드에서 직접 단언)
+ */
+export function nextCopyTitle(base: string, existingTitles: string[]): string {
+  const root = (base || "").replace(/\s*\(사본(?: \d+)?\)\s*$/, "").trim() || "제목 없음";
+  const taken = new Set(existingTitles);
+  let cand = `${root} (사본)`;
+  for (let n = 2; taken.has(cand); n++) cand = `${root} (사본 ${n})`;
+  return cand;
+}
+
+/**
+ * 원본 행 → 사본 행(순수). form_data 를 깊은 복사해 원본과 참조를 분리하고,
+ * 상태는 "작성중"으로 초기화한다(사본은 항상 새 작성건). id·시각은 호출자가 주입.
+ * (순수 함수 — 회귀 가드에서 직접 단언)
+ */
+export function makeDuplicateRow(
+  src: ContractRow,
+  existingTitles: string[],
+  newId: string,
+  now: string,
+): ContractRow {
+  return {
+    ...src,
+    id: newId,
+    title: nextCopyTitle(src.title, existingTitles),
+    form_data: JSON.parse(JSON.stringify(src.form_data)) as ContractForm,
+    status: "draft",
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+/**
+ * 복제 — 기존 계약을 입력값 그대로 새 계약(사본)으로 저장. 새 id 반환(원본 없으면 null).
+ * 동일 위탁자·유사 구조 계약을 반복 작성하는 흐름을 가속한다(조문·엔진 무접촉, 저장 데이터만).
+ */
+export async function duplicateContract(id: string): Promise<string | null> {
+  const rows = readAll();
+  const src = rows.find((r) => r.id === id);
+  if (!src) return null;
+  const newId = uuid();
+  const dup = makeDuplicateRow(src, rows.map((r) => r.title), newId, new Date().toISOString());
+  rows.unshift(dup);
+  writeAll(rows);
+  return newId;
+}
+
+/* ================================================================
+   백업(내보내기) · 복원(가져오기)
+   로컬 우선(localStorage) 구조라 계약 데이터가 한 브라우저에 갇혀 있다 — 캐시 삭제·
+   기기 변경 시 전부 유실되고, 동료와 계약을 주고받을 수단도 없다. JSON 백업 파일로
+   내보내고 다시 가져와 이 유실 위험을 막는다(dirty 가드와 동일한 "유실 방지" 계열).
+   ※ 조문·엔진·생성 로직 무접촉 — 저장된 행을 직렬화·병합할 뿐이다.
+   ================================================================ */
+export const BACKUP_FORMAT = "trustform.contracts";
+export const BACKUP_VERSION = 1;
+
+export interface ContractBackup {
+  format: typeof BACKUP_FORMAT;
+  version: number;
+  exported_at: string;
+  count: number;
+  contracts: ContractRow[];
+}
+
+/** 행 배열 → 백업 객체(순수). 시각은 호출자가 주입. */
+export function makeBackup(rows: ContractRow[], now: string): ContractBackup {
+  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exported_at: now, count: rows.length, contracts: rows };
+}
+
+/** 가져오기 가능한 최소 형태인지 검사(순수) — 손상·이질 데이터 격리용. */
+export function isValidRow(x: unknown): x is ContractRow {
+  if (!x || typeof x !== "object") return false;
+  const r = x as Record<string, unknown>;
+  return (
+    typeof r.id === "string" && r.id.length > 0 &&
+    typeof r.doc_type === "string" &&
+    typeof r.title === "string" &&
+    !!r.form_data && typeof r.form_data === "object"
+  );
+}
+
+/** 백업 텍스트 파싱·형식 검증(순수) — 형식 불일치 시 throw. */
+export function parseBackup(text: string): ContractBackup {
+  let obj: unknown;
+  try {
+    obj = JSON.parse(text);
+  } catch {
+    throw new Error("JSON 파싱 실패 — 올바른 백업 파일이 아닙니다.");
+  }
+  const b = obj as Partial<ContractBackup> | null;
+  if (!b || typeof b !== "object" || b.format !== BACKUP_FORMAT || !Array.isArray(b.contracts)) {
+    throw new Error("TrustForm 계약 백업 형식이 아닙니다.");
+  }
+  return b as ContractBackup;
+}
+
+/**
+ * 비파괴 병합(순수) — 가져온 행 중 **로컬에 없는 id만 추가**하고, 이미 있는 id는 건너뛴다.
+ * → 기존 계약을 절대 덮어쓰거나 지우지 않으며(데이터 안전), 같은 백업을 다시 가져와도
+ *   중복이 생기지 않는다(복원 멱등성). 가져온 파일 내부의 중복 id도 한 번만 추가.
+ */
+export function mergeImported(
+  existing: ContractRow[],
+  imported: unknown[],
+): { merged: ContractRow[]; added: number; skipped: number } {
+  const seen = new Set(existing.map((r) => r.id));
+  const toAdd: ContractRow[] = [];
+  for (const r of imported) {
+    if (!isValidRow(r) || seen.has(r.id)) continue;
+    seen.add(r.id);
+    toAdd.push(r);
+  }
+  return { merged: [...toAdd, ...existing], added: toAdd.length, skipped: imported.length - toAdd.length };
+}
+
+/** 내보내기 — 현재 모든 계약을 백업 객체로 반환(직렬화·다운로드는 호출자/UI 담당). */
+export function exportContracts(): ContractBackup {
+  return makeBackup(readAll(), new Date().toISOString());
+}
+
+/** 가져오기 — 백업 텍스트를 파싱·비파괴 병합해 저장. 추가/건너뜀 건수 반환. */
+export function importContracts(text: string): { added: number; skipped: number } {
+  const backup = parseBackup(text);
+  const { merged, added, skipped } = mergeImported(readAll(), backup.contracts);
+  writeAll(merged);
+  return { added, skipped };
 }

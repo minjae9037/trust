@@ -1171,7 +1171,7 @@ async function generateDoc(docId) {
     rows: [
       kvRow("구분", p.type || ""),
       kvRow("법인명/성명", p.name || ""),
-      kvRow("법인등록번호", [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-")),
+      kvRow(p.type === "개인" ? "생년월일" : "법인등록번호", [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-")),
       kvRow("사업자등록번호", [p.bizP1, p.bizP2, p.bizP3].filter(Boolean).join("-")),
       kvRow("대표이사", p.representativeDirector || ""),
       kvRow("사내이사", p.insideDirector || ""),
@@ -1750,7 +1750,7 @@ function buildAppformFullHTML() {
       if (i === 0) html += `<td class="key center" rowspan="${parties.length * 2}" style="width:10%;">${escHTML(label)}</td>`;
       html += `<td class="key center" style="width:10%;">법인명</td>`
             + `<td class="hl center" style="width:18%;">${escHTML(p.name)}</td>`
-            + `<td class="key center" style="width:25%;">법인등록번호</td>`
+            + `<td class="key center" style="width:25%;">${p.type === "개인" ? "생년월일" : "법인등록번호"}</td>`
             + `<td class="hl center" style="width:37%;">${escHTML(corpRegOf(p))}</td>`
             + `</tr><tr>`
             + `<td class="key center">대표자</td>`

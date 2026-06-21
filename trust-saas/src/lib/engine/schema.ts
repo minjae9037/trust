@@ -151,13 +151,19 @@ export interface DocField {
   placeholder?: string;
   options?: DocFieldOption[];
   default?: string | boolean;
+  /**
+   * 대형 법적 금액 필드 — 입력 즉시 천단위 콤마 + 한글 금액 에코를 표시한다(0 개수 오입력 방지).
+   * 산출물에 한글 금액으로 박히는 가격·원본가액 등에 사용. type 과 무관하게 금액 의미를 표시
+   * (principalValue 는 기존 저장본 콤마 호환을 위해 type="text" 유지 — money 로만 에코를 켠다).
+   */
+  money?: boolean;
 }
 
 export const DOC_FIELDS: Record<DocId, DocField[]> = {
   appform: [
     { key: "researchReport", type: "radio", label: "조사분석서", hint: "Doc 01 표지 우측 체크박스에 ■ 표시됩니다.", options: [{ v: "include", l: "포함" }, { v: "omit", l: "생략" }] },
     { key: "valuationMethod", type: "text", label: "신탁부동산 담보가격 산정방법", placeholder: "예) 감정평가금액[기준시점 2025.10.12., (주)○○감정평가법인]" },
-    { key: "valuationPrice", type: "amount", label: "신탁부동산 가격 (원)", hint: "Doc 01 「신탁부동산 가격」 칸에 한글 금액과 함께 자동 기재됩니다." },
+    { key: "valuationPrice", type: "amount", money: true, label: "신탁부동산 가격 (원)", hint: "Doc 01 「신탁부동산 가격」 칸에 한글 금액과 함께 자동 기재됩니다." },
     { key: "leaseStatus", type: "text", label: "임대차 등 선순위", placeholder: "예) 해당사항 없음 / 또는 보증금 등 선순위 내역" },
     { key: "priorityChangeNote", type: "text", label: "우선수익권 변경 메모 (선택)", hint: "표 하단에 「※ ...」 형태로 표시됩니다. 비워두면 출력하지 않습니다." },
     { key: "extraNotes", type: "textarea", label: "특이사항 (추가 기재)", hint: "표준 11개 문구 다음에 추가로 기재됩니다." },
@@ -171,7 +177,7 @@ export const DOC_FIELDS: Record<DocId, DocField[]> = {
     { key: "notes", type: "textarea", label: "특이사항 / 메모", placeholder: "" },
   ],
   valReport: [
-    { key: "principalValue", type: "text", label: "신탁재산 원본가액 (원)", placeholder: "예) 5,000,000,000" },
+    { key: "principalValue", type: "text", money: true, label: "신탁재산 원본가액 (원)", placeholder: "예) 5,000,000,000" },
     { key: "valuationDate", type: "text", label: "평가기준일", placeholder: "예) 2025-07-03" },
     { key: "valuationMethod", type: "radio", label: "평가방법", options: [{ v: "appraisal", l: "감정평가" }, { v: "book", l: "장부가액" }, { v: "other", l: "기타" }] },
     { key: "notes", type: "textarea", label: "특이사항 / 메모", placeholder: "감정평가기관·평가서 번호 등" },
