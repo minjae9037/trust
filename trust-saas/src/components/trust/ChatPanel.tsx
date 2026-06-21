@@ -26,12 +26,21 @@ interface Msg {
 }
 
 export function ChatPanel({ onClose }: { onClose: () => void }) {
-  const { form, mergeFormPatch } = useContractStore();
-  const [msgs, setMsgs] = useState<Msg[]>([
+  const { form, docTypeId, mergeFormPatch } = useContractStore();
+  // ★대화 자동 채움(update_form)은 담보신탁 ContractForm 전용이다(도구 스키마·
+  //   summarizeForm·mergeFormPatch 모두 collateral form 1:1). 공동사업표준협약서
+  //   (joint)는 입력 모델이 jointForm 으로 분리돼 있어, 이 채팅이 그대로 동작하면
+  //   ① 빈 collateral 컨텍스트를 보내 엉뚱한 안내를 하고 ② AI 패치를 **숨은
+  //   collateral form 에 적용**해 다른 계약을 조용히 오염시킨다(교차오염·정확성 갭).
+  //   joint 가 열려 있으면 자동 채움을 끄고 "양식에서 직접 입력" 안내로 전환한다
+  //   (PDF 팝업 차단 거짓 성공 차단·AI 반영 가시화와 동일한 정확성 가드레일).
+  const isJoint = docTypeId === "joint";
+  const [msgs, setMsgs] = useState<Msg[]>(() => [
     {
       role: "assistant",
-      display:
-        "안녕하세요. 담보신탁 계약 정보를 대화로 정리해 드릴게요. 위탁자(시행사) 상호부터 알려주시겠어요?",
+      display: isJoint
+        ? "공동사업표준협약서는 왼쪽 양식에서 직접 입력해 주세요. 대화 자동 채움은 현재 담보신탁 계약만 지원합니다. 협약 조건·절차가 궁금하시면 물어봐 주세요."
+        : "안녕하세요. 담보신탁 계약 정보를 대화로 정리해 드릴게요. 위탁자(시행사) 상호부터 알려주시겠어요?",
       api: "",
     },
   ]);
@@ -56,7 +65,14 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, formSummary: summarizeForm(form) }),
+        // joint 가 열려 있으면 collateral 폼 요약(빈/무관) 대신 현재 서류 맥락만
+        // 전달해 AI 가 collateral 값을 채우려 하지 않도록 한다(자동 채움 비활성).
+        body: JSON.stringify({
+          messages: apiMessages,
+          formSummary: isJoint
+            ? "현재 사용자는 '공동사업표준협약서'를 작성 중입니다. 이 서류는 폼 자동 채움(update_form)을 지원하지 않으니, 값을 채우려 하지 말고 질문에 답하거나 양식 직접 입력을 안내하세요."
+            : summarizeForm(form),
+        }),
       });
       // ★!res.ok 는 서버가 보낸 원시 JSON 본문({"error":"…"})을 그대로 throw 한다
       //   — catch 의 friendlyErrorMessage 가 passthrough 로 친화적 한국어를 추출
@@ -73,7 +89,19 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         { role: "assistant", display: replyDisplay || "(응답 없음)", api: data.reply || "" },
       ]);
 
-      if (data.patch) {
+      if (data.patch && isJoint) {
+        // ★교차오염 차단: joint 작성 중에는 AI 패치를 collateral form 에 적용하지
+        //   않는다(숨은 폼 오염 방지). 자동 채움 미지원을 사실대로 안내만 한다.
+        setMsgs((m) => [
+          ...m,
+          {
+            role: "assistant",
+            display: "ℹ 공동사업표준협약서는 왼쪽 양식에서 직접 입력해 주세요 — 대화 자동 채움은 담보신탁 계약만 지원합니다.",
+            api: "",
+            kind: "note",
+          },
+        ]);
+      } else if (data.patch) {
         const restored = restorePIIDeep(data.patch, piiMap.current);
         const patch = normalizePatchIds(toolInputToPatch(restored as Record<string, unknown>));
         mergeFormPatch(patch);
@@ -158,7 +186,11 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         <textarea
           className="input"
           rows={2}
-          placeholder="예) 위탁자는 ABC개발 주식회사, 우선수익자는 ○○은행 대출 50억, 비율 120%…"
+          placeholder={
+            isJoint
+              ? "공동사업표준협약서는 왼쪽 양식에서 입력하세요. 궁금한 점을 물어봐 주세요…"
+              : "예) 위탁자는 ABC개발 주식회사, 우선수익자는 ○○은행 대출 50억, 비율 120%…"
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
