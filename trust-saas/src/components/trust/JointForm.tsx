@@ -66,8 +66,16 @@ export function JointForm() {
   function onPdf() {
     if (!ok) return; // 버튼 disabled 와 더불어 방어적 차단
     try {
-      generateJointPDFDoc(jointForm);
-      setMsg("PDF 인쇄창을 열었습니다.");
+      // 인쇄창이 실제로 열렸을 때만 성공으로 표시한다. 팝업이 차단돼 창이 열리지
+      // 않았는데(generateJointPDFDoc=false, 빌더가 alert 만 띄움) "열었습니다"로
+      // 표시하면 만든 적 없는 PDF 를 성공으로 오인한다(담보신탁 DocStep onPdf 와
+      // 동일 원칙 — 팝업 차단 거짓 성공 차단, 법적 서류=정확성).
+      const opened = generateJointPDFDoc(jointForm);
+      setMsg(
+        opened
+          ? "PDF 인쇄창을 열었습니다 — 인쇄 대화상자에서 'PDF로 저장'을 선택하세요."
+          : "PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도해 주세요.",
+      );
     } catch (e) {
       setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
     }

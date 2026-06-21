@@ -28,6 +28,8 @@
      (E) joint PDF 도 동일 신호(차단=false / 열림=true)
      (F) 배선: index.ts boolean 전파 + DocStep onPdf 가 opened 분기로만
          genSnap 기록(차단 시 미기록) + 빌더 반환 신호 잔존 정적 단언
+     (G) joint 배선: JointForm onPdf 가 generateJointPDFDoc 반환값(opened)으로
+         분기 — 무조건 "열었습니다" 성공표시 제거(joint 컴포넌트 거짓 성공 차단)
 
    실행:
      cd trust-saas
@@ -146,6 +148,26 @@ console.log("\n[F] 배선 — boolean 전파 + onPdf 가 opened 분기로만 gen
   // 빌더 반환 신호 잔존(차단 false · 성공 true) — 회귀 정적 차단.
   ok(/if \(!w\) \{[\s\S]*?return false;/.test(builders), "builders: window.open 실패(!w) → return false");
   ok(/w\.document\.close\(\);\s*\n[\s\S]*?return true;/.test(builders), "builders: 정상 기록 후 return true");
+}
+
+console.log("\n[G] joint 배선 — JointForm.onPdf 가 generateJointPDFDoc 반환값으로 분기(거짓 성공 차단)");
+{
+  // 빌더([E])·파사드([F])는 joint 도 boolean 을 올바로 반환하지만, JointForm 컴포넌트가
+  // 그 반환값을 무시하고 무조건 "열었습니다"로 표시하면 팝업 차단 시 거짓 성공이 잔존한다
+  // (DocStep 은 [F]에서 검증되나 joint 컴포넌트 배선은 미검증이던 갭). 호출부 분기를 정적 단언.
+  const jointForm = src("src/components/trust/JointForm.tsx");
+
+  // onPdf 가 반환값(opened)을 수신한다.
+  ok(/const opened = generateJointPDFDoc\(jointForm\)/.test(jointForm),
+    "JointForm: onPdf 가 generateJointPDFDoc 반환값(opened) 수신");
+  // 성공 메시지가 opened 분기(삼항/조건) 안에만 있다 — 무조건 성공표시가 아니다.
+  ok(/opened\s*\?[\s\S]*?인쇄창을 열었습니다/.test(jointForm),
+    "JointForm: 성공 메시지는 opened 분기(조건부)에서만");
+  // 차단 시 친화적 실패 안내가 존재.
+  ok(/PDF 창을 열지 못했습니다/.test(jointForm), "JointForm: 차단 시 친화적 실패 안내");
+  // 과거 패턴(반환값 무시 후 무조건 성공) 제거 — 정적 회귀 차단.
+  ok(!/generateJointPDFDoc\(jointForm\);\s*\n\s*setMsg\("PDF 인쇄창을 열었습니다\."\)/.test(jointForm),
+    "JointForm: 과거 무조건 '열었습니다' 성공표시 제거");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
