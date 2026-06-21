@@ -1,11 +1,16 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { amountToHangul, parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
+import { amountToHangul, isValidRatio, parseAmount, priorityLimitFor, totalLoan, totalPriorityLimit } from "@/lib/engine/calc";
 
 export function StepLoanCalc() {
   const { form, updateParty, updateCommon } = useContractStore();
   const ratio = parseAmount(form.common.priorityRatio) || 120;
+  // 인라인 검증 — 범위 밖(100~150%) 비율은 게이트(validateDoc)가 생성을 차단하지만, 그 사실을
+  // 입력 지점에서 즉시 알리지 않으면 아래 한도표가 `대출금액 × 비율`로 산출한 잘못된 금액을
+  // 굵게 표시해 사용자가 신뢰할 위험이 있다. 게이트와 같은 단일 출처(isValidRatio)를 재사용해
+  // 판정 불일치 없이 그 입력 옆에서 즉시 짚어 준다(PartyCard·JointForm 인라인 패리티, 표시/접근성만).
+  const ratioInvalid = !isValidRatio(form.common.priorityRatio);
 
   return (
     <div>
@@ -23,31 +28,45 @@ export function StepLoanCalc() {
           STEP 02 의 우선수익자 <strong>대출금액</strong>에 비율(%)을 곱해{" "}
           <strong>우선수익한도금액</strong>이 자동 산정됩니다.
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: "var(--c-paper-soft)",
-            border: "1px solid var(--c-line-soft)",
-            borderRadius: "var(--r-pill)",
-            padding: "8px 14px",
-          }}
-        >
-          <label htmlFor="loan-priorityRatio" style={{ fontSize: 12, fontWeight: 600, color: "var(--c-ink-soft)" }}>
-            우선수익한도 비율
-          </label>
-          <input
-            id="loan-priorityRatio"
-            className="input"
-            type="number"
-            min={100}
-            max={150}
-            value={form.common.priorityRatio}
-            onChange={(e) => updateCommon({ priorityRatio: Number(e.target.value) || 120 })}
-            style={{ width: 74, textAlign: "center", fontWeight: 700 }}
-          />
-          <span style={{ fontWeight: 700 }}>%</span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "var(--c-paper-soft)",
+              border: "1px solid var(--c-line-soft)",
+              borderRadius: "var(--r-pill)",
+              padding: "8px 14px",
+            }}
+          >
+            <label htmlFor="loan-priorityRatio" style={{ fontSize: 12, fontWeight: 600, color: "var(--c-ink-soft)" }}>
+              우선수익한도 비율
+            </label>
+            <input
+              id="loan-priorityRatio"
+              className="input"
+              type="number"
+              min={100}
+              max={150}
+              value={form.common.priorityRatio}
+              onChange={(e) => updateCommon({ priorityRatio: Number(e.target.value) || 120 })}
+              aria-invalid={ratioInvalid || undefined}
+              aria-describedby={ratioInvalid ? "loan-priorityRatio-err" : undefined}
+              style={{ width: 74, textAlign: "center", fontWeight: 700 }}
+            />
+            <span style={{ fontWeight: 700 }}>%</span>
+          </div>
+          {ratioInvalid && (
+            <div
+              id="loan-priorityRatio-err"
+              className="field-hint"
+              role="alert"
+              style={{ color: "var(--c-danger)", maxWidth: 280, textAlign: "right" }}
+            >
+              100~150% 범위를 벗어난 비율입니다 — 이 값으로는 서류를 생성할 수 없습니다.
+            </div>
+          )}
         </div>
       </div>
 
