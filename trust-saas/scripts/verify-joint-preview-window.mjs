@@ -141,5 +141,32 @@ console.log("\n[F] 배선 — JointForm 사용·차단 분기 + 파사드 노출
     "index 파사드: previewJointHTML 노출");
 }
 
+console.log("\n[G] 배선 — JointForm 우측 실시간 2분할 미리보기(담보신탁 DocStep 동형)");
+{
+  const joint = src("src/components/trust/JointForm.tsx");
+
+  ok(/className="doc-split"/.test(joint),
+    "JointForm: 2분할 레이아웃(.doc-split) 도입");
+  ok(/className="doc-split-input"/.test(joint) && /className="doc-split-preview"/.test(joint),
+    "JointForm: 좌(입력)/우(미리보기) 컬럼 존재");
+  ok(/function useDebounced</.test(joint) && /useDebounced\(jointForm,\s*250\)/.test(joint),
+    "JointForm: 미리보기 250ms 디바운스(입력 끊김 방지)");
+  ok(/const previewPending = jointForm !== debouncedForm/.test(joint),
+    "JointForm: previewPending = 참조 불일치(갱신 대기 신호)");
+  ok(/previewJointHTML\(debouncedForm\)/.test(joint),
+    "JointForm: 인라인 미리보기는 디바운스 폼으로 생성");
+  ok(/srcDoc=\{previewHtml\}/.test(joint),
+    "JointForm: iframe srcDoc 로 완성 협약서 격리 렌더(WYSIWYG)");
+  ok(/className="preview-frame"/.test(joint),
+    "JointForm: .preview-frame(실 산출물과 동일 본문) 렌더");
+  ok(/previewPending && \(/.test(joint) && /갱신 중…/.test(joint),
+    "JointForm: 디바운스 대기 중 '갱신 중…' 인디케이터");
+  ok(/setPreviewNote\(/.test(joint) && /className="preview-note"/.test(joint),
+    "JointForm: 팝업 차단 안내를 preview-note 로 표시(성공 오인 방지)");
+  // 회귀 방지: 미리보기는 표시 전용 — 생성(Word/PDF) 로직 무접촉.
+  ok(/generateJointDoc\(jointForm\)/.test(joint) && /generateJointPDFDoc\(jointForm\)/.test(joint),
+    "JointForm: Word/PDF 생성 경로 무변경(미리보기는 표시 전용)");
+}
+
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail === 0 ? 0 : 1);
