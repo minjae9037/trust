@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth, isPositiveAmount } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
@@ -14,6 +14,17 @@ export function StepBasic() {
   // (StepLoanCalc 비율·PartyCard·JointForm 인라인 패리티, 표시/접근성만 — 빌더·조문·게이트 무접촉).
   const feeFilled = typeof c.trustFee === "string" && c.trustFee.trim().length > 0;
   const feeInvalid = feeFilled && !isPositiveAmount(c.trustFee);
+  // 표시 억제(cross-screen 정합) — 우선수익한도금액·신탁보수율은 STEP 02-1 의 비율(priorityRatio)·
+  // 대출금액으로 recalcDerived 가 자동 산정해 이 화면(STEP 05)에 그대로 미러링한다. 그런데
+  // recalcDerived 는 범위 밖(100~150%) 비율도 `parseAmount(ratio)||120` 로 곱해 한도를 산정하므로
+  // (예: 200% → 대출금액×2), 무효 비율을 입력하면 StepLoanCalc 한도 셀은 "—"로 억제되는데 이 화면의
+  // 한도금액 readonly·보수율·요약은 그 잘못된 큰 값을 자신 있게 표시하던 모순이 있었다(비율 인라인
+  // 오류는 StepLoanCalc 에만 존재 → 이 화면엔 무효 신호가 전무). 게이트(validateDoc)와 같은 단일
+  // 출처 isValidRatio 를 재사용해, 비율이 무효이거나 산정 한도가 양(+)이 아니면 한도금액·보수율·요약을
+  // 억제한다(빌더·조문·게이트 판정·데이터 모델 무접촉 — 표시/접근성만, StepLoanCalc 무효 비율 표시
+  // 억제와 동형 패리티).
+  const ratioInvalid = !isValidRatio(c.priorityRatio);
+  const limitShowable = !ratioInvalid && isPositiveAmount(c.priorityLimit);
   const years: number[] = [];
   for (let y = 2020; y <= 2030; y++) years.push(y);
 
@@ -69,8 +80,15 @@ export function StepBasic() {
           우선수익한도금액 (원) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
         </label>
         <div className="field-hint">STEP 02-1 에서 자동 산정.</div>
-        <input id="basic-priorityLimit" className="input" readOnly value={c.priorityLimit ? Number(c.priorityLimit).toLocaleString() + " 원" : ""}
-          placeholder="STEP 02-1 에서 자동 산정됨" style={{ background: "var(--c-paper-soft)" }} />
+        <input id="basic-priorityLimit" className="input" readOnly value={limitShowable ? Number(c.priorityLimit).toLocaleString() + " 원" : ""}
+          placeholder={ratioInvalid ? "우선수익한도 비율 확인 필요 — 산정 보류" : "STEP 02-1 에서 자동 산정됨"}
+          aria-describedby={ratioInvalid ? "basic-priorityLimit-note" : undefined}
+          style={{ background: "var(--c-paper-soft)" }} />
+        {ratioInvalid && (
+          <div id="basic-priorityLimit-note" className="field-hint" role="note" style={{ color: "var(--c-danger)" }}>
+            우선수익한도 비율이 유효 범위(100~150%)를 벗어나 한도금액·보수율 산정이 보류됩니다 — STEP 02-1 에서 비율을 고치면 다시 산정됩니다.
+          </div>
+        )}
       </div>
 
       <div className="field">
@@ -92,7 +110,7 @@ export function StepBasic() {
           신탁보수율 (우선수익한도금액 대비 %) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
         </label>
         <div className="field-hint">신탁보수 ÷ 우선수익한도금액 × 100 자동 산정.</div>
-        <input id="basic-trustFeeRate" className="input" readOnly value={c.trustFeeRate ? c.trustFeeRate + " %" : ""}
+        <input id="basic-trustFeeRate" className="input" readOnly value={limitShowable && c.trustFeeRate ? c.trustFeeRate + " %" : ""}
           placeholder="신탁보수·한도금액 입력 시 자동 계산" style={{ background: "var(--c-paper-soft)" }} />
       </div>
 
@@ -108,9 +126,9 @@ export function StepBasic() {
               서류를 생성할 수 없습니다"라고 경고하는데 같은 화면 요약이 그 음수 금액을 자신 있게
               표시하면 모순된 "확신 있어 보이는 잘못된 값"이 된다(StepLoanCalc 의 무효 비율 시
               한도금액 표시 억제와 동형의 정확성 패리티). 게이트·산출물 무접촉, 표시 전용. */}
-          <strong>요약</strong> 우선수익한도금액 {fmtKRW(c.priorityLimit)} ·{" "}
+          <strong>요약</strong> 우선수익한도금액 {limitShowable ? fmtKRW(c.priorityLimit) : "—"} ·{" "}
           신탁보수 {feeInvalid ? "—" : fmtKRW(c.trustFee)} ·
-          보수율 {c.trustFeeRate ? c.trustFeeRate + " %" : "(대기)"}
+          보수율 {limitShowable && c.trustFeeRate ? c.trustFeeRate + " %" : "(대기)"}
         </div>
       </div>
     </div>
