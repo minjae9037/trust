@@ -122,12 +122,23 @@ export function DocStep({ docId }: { docId: DocId }) {
     }
   }
 
-  // 현재 미리보기(previewHtml)를 새 창에서 전체 크기로 — 좁은 2분할 패널로는
-  // 어려운 다중 페이지 법적 서류 정독 검수용. previewDocHTML 출력을 변형 없이
-  // 그대로 띄우는 읽기 전용 보기(자동 인쇄 없음·조문 무접촉). 팝업 차단 시
-  // PDF 생성과 동일하게 성공으로 오인하지 않고 친화적 안내만 남긴다.
+  // 현재 미리보기를 새 창에서 전체 크기로 — 좁은 2분할 패널로는 어려운 다중
+  // 페이지 법적 서류 정독 검수용. previewDocHTML 출력을 변형 없이 그대로 띄우는
+  // 읽기 전용 보기(자동 인쇄 없음·조문 무접촉). 팝업 차단 시 PDF 생성과 동일하게
+  // 성공으로 오인하지 않고 친화적 안내만 남긴다.
   function onExpandPreview() {
-    const r = openDocPreviewWindow(previewHtml, () =>
+    // ★새 창은 항상 최신(라이브) form 으로 생성한다 — 인라인 미리보기는 타이핑
+    // 끊김 방지를 위해 250ms 디바운스(debouncedForm)지만, 정독 검수 창은 디바운스
+    // 대기 중이라도 직전 입력까지 반영된 최신본을 보여야 한다(법적 서류=정확성,
+    // 구버전 정독 방지). JointForm onExpandPreview 와 동일 원칙(라이브 폼). 라이브
+    // 생성이 드물게 throw 하면 디바운스 previewHtml 로 폴백해 빈 창을 띄우지 않는다.
+    let live: string;
+    try {
+      live = previewDocHTML(form, docId);
+    } catch {
+      live = previewHtml;
+    }
+    const r = openDocPreviewWindow(live, () =>
       window.open("", "_blank", "width=980,height=1100"),
     );
     setPreviewNote(

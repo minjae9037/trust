@@ -9,7 +9,10 @@
    단, 입력 필드와 검증 게이트(validateDoc)는 디바운스되면 안 된다
    (입력 즉시 반영 / 누락 안내 즉시 갱신 — UX·정확성). 이 가드는 그 계약을
    정적으로 단언해 "미리보기에 raw form 직결" 회귀를 차단한다.
-     (A) useDebounced 훅 존재 + 미리보기는 debouncedForm 사용(raw form 아님)
+     (A) useDebounced 훅 존재 + 인라인(2분할) 미리보기는 debouncedForm 사용
+         (raw form 아님). ※"크게 보기" 새 창(onExpandPreview)은 의도적으로
+         라이브 form 으로 정독본을 생성하므로(JointForm 패리티·구버전 정독 방지)
+         그 함수 본문은 raw-form 차단 검사에서 제외한다.
      (B) 검증 게이트(validateDoc)는 raw form 직결 — 디바운스 미적용
      (C) 디바운스는 미리보기 전용 — debouncedForm 의 유일 소비자가 previewDocHTML
 
@@ -31,11 +34,18 @@ const ok = (cond, label) => {
   else { fail++; console.log("  FAIL  " + label); }
 };
 
-console.log("\n[A] 디바운스 훅 존재 + 미리보기는 debouncedForm 사용");
+console.log("\n[A] 디바운스 훅 존재 + 인라인 미리보기는 debouncedForm 사용");
 ok(/function useDebounced\b/.test(src), "useDebounced 훅 정의 존재");
 ok(/useDebounced\(form,\s*\d+\)/.test(src), "form 을 디바운스해 debouncedForm 산출");
 ok(/previewDocHTML\(\s*debouncedForm\s*,\s*docId\s*\)/.test(src), "previewDocHTML 은 debouncedForm 사용");
-ok(!/previewDocHTML\(\s*form\s*,/.test(src), "previewDocHTML 에 raw form 직결 없음(회귀 차단)");
+// "크게 보기" 새 창(onExpandPreview)은 의도적으로 라이브 form 으로 정독본을
+// 생성한다(구버전 정독 방지·JointForm 패리티) → 그 함수 본문을 떼어낸 나머지
+// (인라인 2분할 미리보기 경로)에는 raw form 직결이 없어야 한다(디바운스 회귀 차단).
+const srcSansExpand = src.replace(/function onExpandPreview\(\)\s*\{[\s\S]*?\n  \}/, "");
+ok(!/previewDocHTML\(\s*form\s*,/.test(srcSansExpand),
+  "인라인 미리보기에 raw form 직결 없음(회귀 차단·expand 정독창은 의도적 라이브라 제외)");
+ok(/previewDocHTML\(\s*form\s*,\s*docId\s*\)/.test(src),
+  "onExpandPreview: 정독 새 창은 라이브 form 으로 생성(JointForm 패리티)");
 
 console.log("\n[B] 검증 게이트는 즉시(raw form) — 디바운스 미적용");
 ok(/validateDoc\(\s*form\s*,\s*docId\s*\)/.test(src), "validateDoc 은 raw form 사용(누락 안내 즉시)");

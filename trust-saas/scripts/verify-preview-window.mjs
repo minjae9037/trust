@@ -19,6 +19,9 @@
          "opened" + 핵심 조문 문자열 보존(실 산출물과 동일)
      (G) 배선 — DocStep 가 openDocPreviewWindow 사용·차단 분기 안내,
          preview-window.ts 가 html 무변형(write(html) 직접 전달)
+     (H) ★라이브 폼 정독(JointForm 패리티) — "크게 보기" 새 창은 디바운스된
+         previewHtml 이 아니라 최신(라이브) form 으로 생성한다(타이핑 직후에도
+         구버전 정독 방지, 법적 서류=정확성). 인라인 미리보기는 여전히 디바운스.
 
    실행:
      cd trust-saas
@@ -125,8 +128,8 @@ console.log("\n[G] 배선 — DocStep 사용·차단 분기 + preview-window 무
 
   ok(/import \{ openDocPreviewWindow \} from "@\/lib\/ui\/preview-window"/.test(docStep),
     "DocStep: openDocPreviewWindow import");
-  ok(/openDocPreviewWindow\(previewHtml,/.test(docStep),
-    "DocStep: 현재 previewHtml 로 호출");
+  ok(/openDocPreviewWindow\(live,/.test(docStep),
+    "DocStep: 라이브 생성본(live) 으로 호출");
   ok(/window\.open\(""\s*,\s*"_blank"/.test(docStep),
     "DocStep: window.open(_blank) 주입");
   ok(/r === "blocked"[\s\S]*?팝업 차단/.test(docStep),
@@ -138,6 +141,30 @@ console.log("\n[G] 배선 — DocStep 사용·차단 분기 + preview-window 무
     "preview-window: 빈/공백 → empty(새 창 안 띄움)");
   ok(/if \(!w\) return "blocked"/.test(helper),
     "preview-window: openFn=null → blocked");
+}
+
+console.log("\n[H] ★라이브 폼 정독 — '크게 보기'는 디바운스 아닌 최신 form 으로 생성(JointForm 패리티)");
+{
+  const docStep = src("src/components/trust/steps/DocStep.tsx");
+  // onExpandPreview 본문만 떼어 검사(인라인 미리보기 memo 와 혼동 방지).
+  const m = docStep.match(/function onExpandPreview\(\)\s*\{[\s\S]*?\n  \}/);
+  ok(!!m, "onExpandPreview 함수 추출");
+  const body = m ? m[0] : "";
+  // 새 창은 라이브 form 으로 생성(debouncedForm/previewHtml 디바운스본을 직접 띄우지 않음).
+  ok(/previewDocHTML\(form,\s*docId\)/.test(body),
+    "onExpandPreview: 라이브 previewDocHTML(form, docId) 로 새 창 생성");
+  ok(/openDocPreviewWindow\(live,/.test(body),
+    "onExpandPreview: 라이브 생성본(live) 을 새 창에 전달");
+  ok(!/openDocPreviewWindow\(previewHtml,/.test(body),
+    "onExpandPreview: 디바운스 previewHtml 을 직접 띄우지 않음(구버전 정독 방지)");
+  // 드문 throw 시 디바운스 previewHtml 폴백(빈 창 방지) — try/catch 로 안전.
+  ok(/try\s*\{[\s\S]*previewDocHTML\(form,\s*docId\)[\s\S]*\}\s*catch\s*\{[\s\S]*live\s*=\s*previewHtml/.test(body),
+    "onExpandPreview: 라이브 생성 실패 시 previewHtml 폴백(빈 창 방지)");
+  // 인라인(2분할) 미리보기는 여전히 디바운스(타이핑 끊김 방지) — 회귀 방지.
+  ok(/previewDocHTML\(debouncedForm,\s*docId\)/.test(docStep),
+    "인라인 미리보기는 여전히 debouncedForm(250ms 디바운스 보존)");
+  ok(/const previewPending = form !== debouncedForm/.test(docStep),
+    "previewPending = 참조 불일치(갱신 대기 신호) 보존");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
