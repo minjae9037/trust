@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { UPDATE_FORM_TOOL } from "@/lib/chat/formSchema";
+import { parseChatBody } from "@/lib/chat/request";
 
 export const runtime = "nodejs";
 
@@ -25,11 +26,6 @@ const SYSTEM_PERSONA = `당신은 한국 부동산신탁(담보신탁) 실무에
 
 말투: 간결하고 전문적인 한국어. 한 번에 1~2개 항목만 질문. 채운 내용은 짧게 확인해 줍니다.`;
 
-interface ChatBody {
-  messages: { role: "user" | "assistant"; content: string }[];
-  formSummary: string;
-}
-
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -39,12 +35,21 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: ChatBody;
+  let raw: unknown;
   try {
-    body = await req.json();
+    raw = await req.json();
   } catch {
     return NextResponse.json({ error: "잘못된 요청" }, { status: 400 });
   }
+
+  // ★입력 경계 검증 — messages 가 어긋난 본문(빈 배열·비배열·잘못된 원소)이
+  //   try 블록에서 TypeError 로 502(Claude 장애)로 오분류·영문 메시지 누출되지
+  //   않도록 단일 지점에서 차단(형제 라우트 advisor/feedback 와 동일 규약).
+  const parsed = parseChatBody(raw);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const { messages, formSummary } = parsed;
 
   const client = new Anthropic({ apiKey });
 
@@ -54,7 +59,7 @@ export async function POST(req: Request) {
       max_tokens: 1500,
       system: [
         { type: "text", text: SYSTEM_PERSONA, cache_control: { type: "ephemeral" } },
-        { type: "text", text: `[현재 폼 상태]\n${body.formSummary}` },
+        { type: "text", text: `[현재 폼 상태]\n${formSummary}` },
       ],
       tools: [
         {
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
         } as Anthropic.Tool,
       ],
       tool_choice: { type: "auto" },
-      messages: body.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
     let reply = "";
