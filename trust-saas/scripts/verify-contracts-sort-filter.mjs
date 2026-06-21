@@ -1,5 +1,5 @@
 /* ============================================================
-   회귀 가드 — 내 계약 목록의 상태 필터(전체/작성중/완료) + 정렬(최근/제목/준비도)
+   회귀 가드 — 내 계약 목록의 상태 필터(전체/작성중/완료) + 정렬(최근/제목/위탁자/준비도)
 
    배경: 검색·준비도 칩(verify-contracts-readiness)에 이어 계약이 쌓일 때의 탐색성을
    위해 상태 세그먼트 토글과 정렬 셀렉트를 추가했다. ContractsView.tsx 의
@@ -13,6 +13,7 @@
      (E) 정렬 title: 제목 가나다(ko) 오름차순
      (F) 정렬 readiness: 생성 가능 서류 수 내림차순, 산출정의 없는 종류(null)는 맨 뒤
      (G) 필터·정렬 직교성: 정렬이 필터 결과 건수를 바꾸지 않음
+     (H) 정렬 trustor: 위탁자명 가나다(ko) 오름차순, 위탁자명 빈 행은 맨 뒤(동명·빈값 안정 정렬)
 
    실행:
      cd trust-saas
@@ -48,6 +49,21 @@ function computeCounts(rows) {
     draft: rows.filter((r) => !isCompleted(r)).length,
   };
 }
+// contractRepo.contractIdentity 재현(카드/검색/정렬 단일 출처) — doc_type별 위탁자·물건 추출.
+function contractIdentity(r) {
+  const fd = r.form_data;
+  try {
+    if (r.doc_type === "joint") {
+      return { trustor: (fd?.gap?.name ?? "").trim(), property: (fd?.project?.site ?? "").trim() };
+    }
+    return {
+      trustor: (fd?.trustors?.[0]?.name ?? "").trim(),
+      property: (fd?.properties?.[0]?.address ?? "").trim(),
+    };
+  } catch {
+    return { trustor: "", property: "" };
+  }
+}
 function computeVisible(rows, { q = "", status = "all", sort = "recent" } = {}) {
   const needle = q.trim().toLowerCase();
   const out = rows.filter((r) => {
@@ -55,13 +71,25 @@ function computeVisible(rows, { q = "", status = "all", sort = "recent" } = {}) 
     if (status === "draft" && isCompleted(r)) return false;
     if (needle) {
       const docName = DOCUMENT_TYPES.find((d) => d.id === r.doc_type)?.name || r.doc_type;
-      if (!r.title.toLowerCase().includes(needle) && !docName.toLowerCase().includes(needle)) return false;
+      const { trustor, property } = contractIdentity(r);
+      const hay = `${r.title} ${docName} ${trustor} ${property}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
     }
     return true;
   });
   const sorted = [...out];
   if (sort === "title") {
     sorted.sort((a, b) => a.title.localeCompare(b.title, "ko"));
+  } else if (sort === "trustor") {
+    const name = (r) => contractIdentity(r).trustor;
+    sorted.sort((a, b) => {
+      const na = name(a);
+      const nb = name(b);
+      if (!na && !nb) return a.updated_at < b.updated_at ? 1 : -1;
+      if (!na) return 1;
+      if (!nb) return -1;
+      return na.localeCompare(nb, "ko") || (a.updated_at < b.updated_at ? 1 : -1);
+    });
   } else if (sort === "readiness") {
     const score = (r) => docReadiness(r)?.ready ?? -1;
     sorted.sort((a, b) => score(b) - score(a) || (a.updated_at < b.updated_at ? 1 : -1));
@@ -90,11 +118,14 @@ function partialForm() {
   f.properties[0].address = "서울특별시 강남구 테헤란로 1";
   return f; // 5/7
 }
+// 위탁자명을 정렬 검증용으로 구분(id1=병, id2=갑, id3·id4=빈값) — fullForm/partialForm 기본명 덮어씀.
+const f1 = fullForm();    f1.trustors[0].name = "병물산";
+const f2 = partialForm(); f2.trustors[0].name = "갑상사";
 const rows = [
-  { id: "1", doc_type: "collateral", status: "completed", title: "나 계약", form_data: fullForm(),    updated_at: "2026-06-21T10:00:00Z" }, // 7/7
-  { id: "2", doc_type: "collateral", status: "draft",     title: "가 계약", form_data: partialForm(), updated_at: "2026-06-21T12:00:00Z" }, // 5/7 (최신)
-  { id: "3", doc_type: "collateral", status: "draft",     title: "다 계약", form_data: blankContractForm(), updated_at: "2026-06-21T08:00:00Z" }, // 0/7
-  { id: "4", doc_type: "joint",      status: "completed", title: "라 협약", form_data: blankContractForm(), updated_at: "2026-06-21T09:00:00Z" }, // null
+  { id: "1", doc_type: "collateral", status: "completed", title: "나 계약", form_data: f1, updated_at: "2026-06-21T10:00:00Z" }, // 7/7, 위탁자 병물산
+  { id: "2", doc_type: "collateral", status: "draft",     title: "가 계약", form_data: f2, updated_at: "2026-06-21T12:00:00Z" }, // 5/7 (최신), 위탁자 갑상사
+  { id: "3", doc_type: "collateral", status: "draft",     title: "다 계약", form_data: blankContractForm(), updated_at: "2026-06-21T08:00:00Z" }, // 0/7, 위탁자 빈값
+  { id: "4", doc_type: "joint",      status: "completed", title: "라 협약", form_data: blankContractForm(), updated_at: "2026-06-21T09:00:00Z" }, // null, 위탁자 빈값
 ];
 
 console.log("\n[A] counts: all = draft + completed");
@@ -146,10 +177,21 @@ console.log("\n[F] 정렬 readiness → 생성 가능 수 내림차순, null(joi
 console.log("\n[G] 필터·정렬 직교성 — 정렬이 건수를 바꾸지 않음");
 {
   const base = computeVisible(rows, { status: "draft", sort: "recent" }).length;
-  for (const sort of ["recent", "title", "readiness"]) {
+  for (const sort of ["recent", "title", "trustor", "readiness"]) {
     const n = computeVisible(rows, { status: "draft", sort }).length;
     ok(n === base, `draft + ${sort} → ${n}건(필터 건수 불변)`);
   }
+}
+
+console.log("\n[H] 정렬 trustor → 위탁자명 가나다(ko) 오름차순, 빈 위탁자는 맨 뒤");
+{
+  const order = computeVisible(rows, { sort: "trustor" }).map((r) => r.id);
+  // id2=갑상사, id1=병물산, id3·id4=빈값(맨 뒤, 빈값끼리 recent: id4 09:00 > id3 08:00)
+  ok(JSON.stringify(order) === JSON.stringify(["2", "1", "4", "3"]), `trustor 순서 ${order.join(">")} (기대 2>1>4>3)`);
+  ok(order.slice(2).every((id) => contractIdentity(rows.find((r) => r.id === id)).trustor === ""), "빈 위탁자 행(id3·id4)은 맨 뒤");
+  // 위탁자명으로 검색도 함께 동작(검색 haystack에 위탁자 포함) — 정렬과 동일 출처 확인.
+  const found = computeVisible(rows, { q: "갑상사" }).map((r) => r.id);
+  ok(JSON.stringify(found) === JSON.stringify(["2"]), "위탁자명 '갑상사' 검색 → id2 단건");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
