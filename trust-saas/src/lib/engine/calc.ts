@@ -136,6 +136,18 @@ export function partyIdLabel(type: PartyType | undefined): string {
   return type === "개인" ? "생년월일" : "법인등록번호";
 }
 
+/**
+ * 우선수익자 표시용 순위 라벨 — 배열 순서(idx)가 곧 법적 우선순위다.
+ * 산출물에서 우선수익자 표·날인란이 배열 순서대로 "제N순위 우선수익자"로 박히고
+ * (builders.js: 별첨2 표 rank·날인 라벨 `제${i+1}순위 우선수익자`), 본문 제22조 정산
+ * 순위·제3조 의사결정(최선순위 우선수익자의 의사)도 이 순서를 따른다. 입력 화면(StepPriority)이
+ * 이 라벨을 함께 보여줘 "카드 순서 = 선·후순위"임을 입력 지점에서 명확히 한다.
+ * 표시 라벨일 뿐 조문·산출물 코드는 무접촉(빌더 출력 형식·의미와 일치).
+ */
+export function priorityRankLabel(idx: number): string {
+  return `제${idx + 1}순위`;
+}
+
 /** 우선수익자 1인의 한도금액 */
 export function priorityLimitFor(p: Party, ratio: number): number {
   const loan = parseAmount(p.loanAmount);

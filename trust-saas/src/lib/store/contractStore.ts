@@ -14,6 +14,7 @@ import {
   blankJointForm,
   blankParty,
   blankProperty,
+  moveInArray,
 } from "@/lib/engine/model";
 import { recalcDerived } from "@/lib/engine/calc";
 import { firstIncompleteDocStep } from "@/lib/engine/validate";
@@ -41,6 +42,8 @@ interface ContractState {
   // 관계사
   addParty: (role: PartyRole) => void;
   removeParty: (role: PartyRole, idx: number) => void;
+  /** 관계사 순서 변경 — dir(-1=위/선순위, +1=아래/후순위). 우선수익자는 순서=선·후순위. */
+  moveParty: (role: PartyRole, idx: number, dir: number) => void;
   updateParty: (role: PartyRole, idx: number, patch: Partial<Party>) => void;
   setSameAsTrustor: (which: "debtor" | "beneficiary", same: boolean) => void;
 
@@ -106,6 +109,16 @@ export const useContractStore = create<ContractState>((set) => ({
     set((st) => {
       const arr = st.form[role].filter((_, i) => i !== idx);
       return { form: withRecalc({ ...st.form, [role]: arr.length ? arr : [blankParty()] }) };
+    }),
+
+  moveParty: (role, idx, dir) =>
+    set((st) => {
+      const arr = moveInArray(st.form[role], idx, dir);
+      // 범위 밖 = 동일 참조 반환(no-op) → 상태 변경 없음(불필요 리렌더 방지)
+      if (arr === st.form[role]) return {};
+      const next: ContractForm = { ...st.form, [role]: arr };
+      // 우선수익자 순서는 한도 표·정산 순위 표기를 좌우 → updateParty 와 동일하게 재계산
+      return { form: role === "priorities" ? withRecalc(next) : next };
     }),
 
   updateParty: (role, idx, patch) =>

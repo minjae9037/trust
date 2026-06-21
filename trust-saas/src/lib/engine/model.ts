@@ -159,6 +159,23 @@ export function blankProperty(): Property {
   return { address: "", category: "", area: "", regNo: "" };
 }
 
+/**
+ * 배열에서 idx 요소를 dir(-1=위/앞, +1=아래/뒤) 방향 **인접** 요소와 맞바꾼 새 배열을 반환한다.
+ * 우선수익자(priorities)처럼 배열 순서 자체가 의미(선·후순위)를 갖는 목록의 순서 변경에 쓴다.
+ *  - dir 은 ±1(한 칸 이동)만 유효 — 그 외(0·2 등)는 입력을 그대로 반환 = no-op.
+ *  - 범위를 벗어나면(맨 위에서 위로·맨 아래에서 아래로) 입력 배열을 **그대로**(동일 참조) 반환 = no-op.
+ *  - 입력 배열·요소를 변형하지 않는다(순수·불변) — slice 로 복제한 새 배열에서만 교환.
+ */
+export function moveInArray<T>(arr: T[], idx: number, dir: number): T[] {
+  if (dir !== -1 && dir !== 1) return arr;
+  const j = idx + dir;
+  if (idx < 0 || idx >= arr.length || j < 0 || j >= arr.length) return arr;
+  const out = arr.slice();
+  out[idx] = arr[j];
+  out[j] = arr[idx];
+  return out;
+}
+
 export function blankContractForm(): ContractForm {
   return {
     trustors: [blankParty()],

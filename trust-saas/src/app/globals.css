@@ -788,6 +788,39 @@ body {
   }
   .btn-remove-party:hover { border-color: var(--c-danger); color: var(--c-danger); }
 
+  /* 우선수익자 순위 배지(제N순위·최선순위) — 표시 전용 */
+  .party-rank {
+    background: var(--c-brown-pastel);
+    color: var(--c-brown-deep);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  /* 우선수익자 순서 변경(▲▼) — 선·후순위 조정 */
+  .party-move {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .party-move-btn {
+    background: none;
+    border: 1px solid var(--c-line);
+    color: var(--c-ink-mute);
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .party-move-btn:hover:not(:disabled) { border-color: var(--c-brown); color: var(--c-brown); }
+  .party-move-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
   .btn-add-party {
     background: none;
     border: 1px dashed var(--c-line);

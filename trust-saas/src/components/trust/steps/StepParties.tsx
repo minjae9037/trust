@@ -1,6 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
+import { priorityRankLabel } from "@/lib/engine/calc";
 import { PartyCard } from "./PartyCard";
 
 export function StepParties() {
@@ -93,6 +94,11 @@ export function StepPriority() {
   return (
     <div>
       <h3 className="group-title">우선수익자 (금융기관 등)</h3>
+      <p className="field-hint" style={{ marginBottom: 14 }}>
+        카드의 표시 순서가 곧 <strong>법적 우선순위</strong>입니다 — 위에 있을수록 선순위입니다.
+        최선순위 우선수익자의 의사가 의사결정을 좌우하고(본문 제3조), 환가·정산도 이 순서를 따릅니다(제22조).
+        ▲▼ 로 순서를 바꿔 선·후순위를 조정하세요.
+      </p>
       {form.priorities.map((p, i) => (
         <PartyCard
           key={i}
@@ -102,6 +108,9 @@ export function StepPriority() {
           label="우선수익자"
           showLoanFields
           removable={form.priorities.length > 1}
+          orderable
+          count={form.priorities.length}
+          rankNote={i === 0 ? `${priorityRankLabel(i)} · 최선순위` : priorityRankLabel(i)}
         />
       ))}
       <button className="btn btn-ghost btn-sm" onClick={() => addParty("priorities")}>

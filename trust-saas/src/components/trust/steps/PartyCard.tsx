@@ -14,10 +14,19 @@ interface Props {
   label: string;
   showLoanFields?: boolean; // 우선수익자 전용
   removable: boolean;
+  /** 순서 변경(▲▼) 노출 — 우선수익자처럼 배열 순서가 곧 선·후순위인 목록에서만 true */
+  orderable?: boolean;
+  /** 같은 역할 카드 총수(순서 변경 버튼의 경계 비활성 판정용) */
+  count?: number;
+  /** 순위 배지 문구(예: "제1순위 · 최선순위") — 있으면 제목 옆에 표시. 표시 전용 */
+  rankNote?: string;
 }
 
-export function PartyCard({ role, idx, party, label, showLoanFields, removable }: Props) {
-  const { updateParty, removeParty } = useContractStore();
+export function PartyCard({ role, idx, party, label, showLoanFields, removable, orderable, count, rankNote }: Props) {
+  const { updateParty, removeParty, moveParty } = useContractStore();
+  const total = count ?? 1;
+  const isFirst = idx === 0;
+  const isLast = idx === total - 1;
   const [ocrMsg, setOcrMsg] = useState<string>("");
   const set = (patch: Partial<Party>) => updateParty(role, idx, patch);
 
@@ -79,10 +88,35 @@ export function PartyCard({ role, idx, party, label, showLoanFields, removable }
           marginBottom: 10,
         }}
       >
-        <strong style={{ fontSize: 13 }}>
+        <strong style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
           {label} {idx + 1}
+          {rankNote && <span className="party-rank">{rankNote}</span>}
         </strong>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {orderable && total > 1 && (
+            <div className="party-move" role="group" aria-label={`${label} ${idx + 1} 순위 변경`}>
+              <button
+                type="button"
+                className="party-move-btn"
+                onClick={() => moveParty(role, idx, -1)}
+                disabled={isFirst}
+                aria-label={`${label} ${idx + 1} 위로 이동(선순위로)`}
+                title="위로 이동 — 선순위로"
+              >
+                <span aria-hidden="true">▲</span>
+              </button>
+              <button
+                type="button"
+                className="party-move-btn"
+                onClick={() => moveParty(role, idx, 1)}
+                disabled={isLast}
+                aria-label={`${label} ${idx + 1} 아래로 이동(후순위로)`}
+                title="아래로 이동 — 후순위로"
+              >
+                <span aria-hidden="true">▼</span>
+              </button>
+            </div>
+          )}
           {isCorp && (
             <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer", margin: 0 }}>
               법인등기부 PDF
