@@ -411,6 +411,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
         <div className="contracts-toolbar">
           <input
             className="input"
+            aria-label="계약 검색 (제목·위탁자·서류)"
             placeholder="🔍 제목·위탁자·서류로 검색"
             value={q}
             onChange={(e) => setQ(e.target.value)}

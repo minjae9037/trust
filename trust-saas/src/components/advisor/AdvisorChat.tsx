@@ -411,6 +411,7 @@ export function AdvisorChat() {
       <div className="advisor-input-row">
         <textarea
           className="input"
+          aria-label="대체투자 실무 질문 입력"
           rows={2}
           placeholder="대체투자 실무 질문을 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)"
           value={input}

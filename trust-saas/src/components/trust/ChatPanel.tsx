@@ -191,6 +191,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       <div className="chat-input-row">
         <textarea
           className="input"
+          aria-label="AI 어시스턴트 질문 입력"
           rows={2}
           placeholder={
             isJoint

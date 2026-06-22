@@ -286,6 +286,7 @@ function SaveBar() {
     <div className="save-bar">
       <input
         className="input"
+        aria-label="계약 제목"
         placeholder="계약 제목 (예: 여주 홍문 담보신탁)"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
