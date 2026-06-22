@@ -10,7 +10,7 @@ import {
   previewDocHTML,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
-import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount } from "@/lib/engine/calc";
+import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 
@@ -248,6 +248,11 @@ export function DocStep({ docId }: { docId: DocId }) {
             // 개별 대출금액 인라인 패리티, 표시/접근성만 — 빌더·조문·게이트 판정 무접촉).
             const moneyFilled = f.money && typeof val === "string" && val.trim().length > 0;
             const moneyInvalid = moneyFilled && !isPositiveAmount(val as string);
+            // 자유 텍스트 날짜(평가기준일·회의 일자)는 산출물에 raw 그대로 박히므로, 입력이 숫자
+            // 날짜꼴일 때 "YYYY년 M월 D일"로 해석을 에코해 월·일 전치(07-03↔03-07)를 확인하게 하고
+            // 달력에 없는 날짜(2025-02-30)면 비차단 주의를 띄운다(계약 체결일 daysInMonth 클램프와
+            // 같은 isRealDate 단일 출처). 날짜꼴이 아닌 free-form 은 null → 무간섭(형식 강제 없음).
+            const dateInfo = f.date ? interpretDate(val as string) : null;
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -271,6 +276,16 @@ export function DocStep({ docId }: { docId: DocId }) {
                 {moneyInvalid && (
                   <div id={`${fid}-err`} className="field-hint" role="alert" style={{ color: "var(--c-danger)" }}>
                     유효하지 않은 금액입니다 — 0보다 큰 숫자만 입력할 수 있습니다 (이 값으로는 서류를 생성할 수 없습니다).
+                  </div>
+                )}
+                {dateInfo && dateInfo.real && (
+                  <div className="loan-hangul" role="status" aria-live="polite">
+                    {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일
+                  </div>
+                )}
+                {dateInfo && !dateInfo.real && (
+                  <div className="field-hint" role="status" style={{ color: "var(--c-danger)" }}>
+                    달력에 없는 날짜일 수 있습니다 — 연·월·일을 확인해 주세요.
                   </div>
                 )}
               </div>

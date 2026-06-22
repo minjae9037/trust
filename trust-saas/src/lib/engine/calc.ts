@@ -277,6 +277,40 @@ export function isRealDate(
   return day >= 1 && day <= daysInMonth(year, month);
 }
 
+/**
+ * 자유 텍스트 날짜 입력의 "달력 해석" — 평가기준일(valReport)·회의 일자(boardMin)처럼
+ * 산출물에 raw 그대로 박히는 자유 텍스트 날짜 필드를 입력 지점에서 확인·교차검증하게 한다
+ * (법적 효력 문서의 날짜 정확성).
+ *
+ * 계약 체결일(년·월·일 드롭다운)은 daysInMonth 클램프로 실재하지 않는 날짜를 애초에 못 만들지만,
+ * 자유 텍스트 날짜는 "2025-02-30"(달력에 없음)·"07-03↔03-07"(월·일 전치) 같은 오입력을 짚을
+ * 수단이 없었다. 이 함수는 입력이 **명확한 숫자 날짜꼴**일 때만 연·월·일을 해석하고
+ * isRealDate 단일 출처로 실재 여부를 함께 돌려준다 — 자유 텍스트 형식을 강제하지 않는다
+ * (날짜꼴이 아니면 null 로 무간섭 = 추정 형식 강제 금지 원칙).
+ *
+ * 인식 조건(보수적 — 오탐 차단): 문자열이 **숫자와 표준 날짜 구분자(. - / 년 월 일 공백)로만**
+ * 이뤄지고 숫자 그룹이 **정확히 3개**이며 **첫 그룹이 4자리(연도)** 일 때만 해석한다. 따라서
+ * "2025-07-03"·"2025.10.12."·"2025년 7월 1일" 은 해석하고, "해당사항 없음"·전화번호·금액
+ * ("5,000,000,000") 같은 free-form 은 null(무간섭).
+ *
+ * @returns 날짜꼴이면 { year, month, day, real }(real=실재 달력 날짜 여부), 아니면 null.
+ */
+export function interpretDate(
+  raw: string | number | null | undefined,
+): { year: number; month: number; day: number; real: boolean } | null {
+  const s = String(raw == null ? "" : raw).trim();
+  if (!s) return null;
+  // 숫자 + 표준 날짜 구분자만 — free-form 텍스트(임의 메모·금액·전화 등)는 무간섭
+  if (!/^[\d\s./\-년월일]+$/.test(s)) return null;
+  const groups = s.match(/\d+/g);
+  if (!groups || groups.length !== 3) return null;
+  if (groups[0].length !== 4) return null; // 첫 그룹 = 4자리 연도만(전화·기타 숫자 배제)
+  const year = Number(groups[0]);
+  const month = Number(groups[1]);
+  const day = Number(groups[2]);
+  return { year, month, day, real: isRealDate(year, month, day) };
+}
+
 /** HTML 이스케이프 (print 빌더에서 사용) */
 export function escHTML(s: string | number | null | undefined): string {
   return String(s == null ? "" : s)

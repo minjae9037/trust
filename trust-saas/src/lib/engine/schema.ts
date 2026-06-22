@@ -157,6 +157,12 @@ export interface DocField {
    * (principalValue 는 기존 저장본 콤마 호환을 위해 type="text" 유지 — money 로만 에코를 켠다).
    */
   money?: boolean;
+  /**
+   * 자유 텍스트 날짜 필드(평가기준일·회의 일자 등) — 입력이 숫자 날짜꼴이면 "YYYY년 M월 D일"로
+   * 해석을 에코해 월·일 전치(07-03↔03-07)를 확인하게 하고, 달력에 없는 날짜(2025-02-30)면
+   * 비차단 주의를 띄운다(interpretDate, 표시만 — 형식 강제·게이트 차단 없음).
+   */
+  date?: boolean;
 }
 
 export const DOC_FIELDS: Record<DocId, DocField[]> = {
@@ -178,13 +184,13 @@ export const DOC_FIELDS: Record<DocId, DocField[]> = {
   ],
   valReport: [
     { key: "principalValue", type: "text", money: true, label: "신탁재산 원본가액 (원)", placeholder: "예) 5,000,000,000" },
-    { key: "valuationDate", type: "text", label: "평가기준일", placeholder: "예) 2025-07-03" },
+    { key: "valuationDate", type: "text", date: true, label: "평가기준일", placeholder: "예) 2025-07-03" },
     { key: "valuationMethod", type: "radio", label: "평가방법", options: [{ v: "appraisal", l: "감정평가" }, { v: "book", l: "장부가액" }, { v: "other", l: "기타" }] },
     { key: "notes", type: "textarea", label: "특이사항 / 메모", placeholder: "감정평가기관·평가서 번호 등" },
   ],
   boardMin: [
     { key: "meetingType", type: "radio", label: "이사회 종류", options: [{ v: "regular", l: "정기" }, { v: "extraordinary", l: "임시" }] },
-    { key: "meetingDate", type: "text", label: "회의 일자", placeholder: "예) 2025-07-01" },
+    { key: "meetingDate", type: "text", date: true, label: "회의 일자", placeholder: "예) 2025-07-01" },
     { key: "agenda", type: "textarea", label: "결의 안건", placeholder: "예) 당사 소유 부동산을 한국투자부동산신탁(주)에 담보신탁하기로 결의" },
     { key: "resolution", type: "radio", label: "의결 방법", options: [{ v: "unanimous", l: "참석이사 전원 찬성" }, { v: "majority", l: "과반수 찬성" }] },
     { key: "notes", type: "textarea", label: "특이사항 / 메모", placeholder: "참석 이사·감사 명단 등" },
