@@ -374,6 +374,14 @@ export function JointForm() {
         <aside className="doc-split-preview">
           <div className="preview-head">
             <span className="preview-badge">실시간 미리보기</span>
+            {/* 담보신탁 DocStep 과 동형 — 필수 입력 누락(!ok) 동안엔 미리보기가 초안임을
+                미리보기 쪽에서 직접 표시(좌측 validate-box 만으로는 미리보기만 보는 사용자가
+                누락을 놓침). 낭독은 좌측 게이트(role=alert) 전담 → 시각 전용(글리프 aria-hidden). */}
+            {previewHtml && !ok && (
+              <span className="preview-badge-draft">
+                <span aria-hidden="true">✎ </span>초안 · 필수 입력 {missing.length}개 남음
+              </span>
+            )}
             <span className="field-hint">입력값이 즉시 반영됩니다 (공동사업표준협약서)</span>
             {previewPending && (
               <span className="preview-updating" role="status" aria-live="polite">

@@ -410,6 +410,15 @@ export function DocStep({ docId }: { docId: DocId }) {
       <aside className="doc-split-preview">
         <div className="preview-head">
           <span className="preview-badge">실시간 미리보기</span>
+          {/* 미리보기는 부분 입력도 빈칸으로 렌더하므로, 필수 입력이 누락된(!ok) 동안엔
+              이 미리보기가 완성본이 아니라 초안임을 미리보기 쪽에서 직접 표시한다(좌측
+              검증 게이트만 보이는 입력 옆에 있어 우측 미리보기만 보면 누락을 놓침). 낭독은
+              좌측 validate-box(role=alert)가 전담 → 시각 표시 전용(글리프 aria-hidden). */}
+          {previewHtml && !ok && (
+            <span className="preview-badge-draft">
+              <span aria-hidden="true">✎ </span>초안 · 필수 입력 {missing.length}개 남음
+            </span>
+          )}
           <span className="field-hint">입력값이 즉시 반영됩니다 ({meta?.name})</span>
           {previewPending && (
             <span className="preview-updating" role="status" aria-live="polite">
