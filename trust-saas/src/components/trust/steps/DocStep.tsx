@@ -296,6 +296,21 @@ export function DocStep({ docId }: { docId: DocId }) {
             // 비차단 주의를 띄운다(면적·날짜 readback 과 같은 isPositiveAmount/interpretDate 계열의
             // 표시 전용 확인 — 게이트·빌더·조문 무접촉, 자유 텍스트라 형식 강제·차단 없음).
             const pctInfo = f.pct ? interpretSharePct(val as string) : null;
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — Doc 04(신탁재산 원본가액 신고서)의
+            // 원본가액(principalValue)과 Doc 01(신청서·appform)의 신탁부동산 가격(valuationPrice)은
+            // 같은 신탁 부동산의 평가액을 서로 다른 서류에서 각각 입력받는다. 통상 동일 평가액이라
+            // 둘이 다르면 한쪽 오기(0 개수 오입력·구버전 평가) 가능성이 있어 입력 지점에서 부드럽게
+            // 되짚는다(막지 않음 — 원본가액=장부가·가격=감정가처럼 정당하게 다를 수 있어 사용자
+            // 선택 보존). 두 기존 입력의 순수 산술 비교일 뿐 새 상태/모델/엔진/조문 무접촉이고,
+            // 어느 한쪽이라도 미입력·무효(양수 아님)이면 미표출한다(나그·오탐 방지). StepLoanCalc
+            // 한도합계 vs 평가가격 advisory 와 동형의 "차단 아닌 되짚음".
+            const crossPrice = form.docContents.appform?.valuationPrice;
+            const valuationMismatch =
+              docId === "valReport" &&
+              f.key === "principalValue" &&
+              isPositiveAmount(val as string) &&
+              isPositiveAmount(crossPrice) &&
+              parseAmount(val as string) !== parseAmount(crossPrice);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -319,6 +334,17 @@ export function DocStep({ docId }: { docId: DocId }) {
                 {moneyInvalid && (
                   <div id={`${fid}-err`} className="field-hint" role="alert" style={{ color: "var(--c-danger)" }}>
                     유효하지 않은 금액입니다 — 0보다 큰 숫자만 입력할 수 있습니다 (이 값으로는 서류를 생성할 수 없습니다).
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 원본가액(Doc 04) ≠ 신탁부동산 가격(Doc 01)
+                    이면 같은 부동산 평가액이 문서마다 다른지 부드럽게 되짚는다(StepLoanCalc 한도합계 vs
+                    평가가격 advisory 와 동형의 "차단 아닌 되짚음"). 두 기존 입력 파생이라 새 상태/모델/
+                    엔진/조문 무접촉. role=status·aria-live=polite(동적 출현 SR 고지) + 선두 ⚠ aria-hidden
+                    (장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색 아님 — 검토 신호). */}
+                {valuationMismatch && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    신탁재산 원본가액({parseAmount(val as string).toLocaleString()} 원)이 신청서(Doc 01)에 입력한 신탁부동산 가격({parseAmount(crossPrice).toLocaleString()} 원)과 다릅니다 — 같은 부동산 평가액이 문서마다 다른지 확인하세요.
                   </div>
                 )}
                 {dateInfo && dateInfo.real && (
