@@ -312,7 +312,7 @@ function SaveBar() {
         onClick={save}
         disabled={busy}
       >
-        💾 저장
+        <span aria-hidden="true">💾 </span>저장
       </button>
       {/* 저장 상태 표시: 변경됨(미저장) ↔ 저장됨 */}
       {dirty ? (

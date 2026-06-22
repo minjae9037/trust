@@ -365,7 +365,7 @@ export function AdvisorChat() {
                 )}
                 {docId && (
                   <Link href={`/app?doc=${docId}`} className="doc-action-btn">
-                    📄 {DOC_LABEL[docId]} 서류 작성하기 →
+                    <span aria-hidden="true">📄 </span>{DOC_LABEL[docId]} 서류 작성하기<span aria-hidden="true"> →</span>
                   </Link>
                 )}
                 {body && !busy && (

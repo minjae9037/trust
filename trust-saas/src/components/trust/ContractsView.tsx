@@ -381,14 +381,14 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
             disabled={rows.length === 0}
             title="모든 계약을 JSON 백업 파일로 내보냅니다 (다른 브라우저·기기로 옮기거나 보관용)"
           >
-            ⬆ 백업 내보내기
+            <span aria-hidden="true">⬆ </span>백업 내보내기
           </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => fileRef.current?.click()}
             title="백업 파일(JSON)에서 계약을 가져옵니다 (기존 계약은 보존, 새 계약만 추가)"
           >
-            ⬇ 백업 가져오기
+            <span aria-hidden="true">⬇ </span>백업 가져오기
           </button>
           <input
             ref={fileRef}

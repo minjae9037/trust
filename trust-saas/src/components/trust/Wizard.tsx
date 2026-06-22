@@ -204,7 +204,11 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               disabled={batchBusy}
               title={`필수 입력을 충족한 ${readyCount}종 서류를 한 번에 Word(.docx)로 내려받습니다`}
             >
-              {batchBusy ? "⏳ 생성 중…" : `⬇ 준비된 ${readyCount}종 일괄 생성(.docx)`}
+              {batchBusy ? (
+                <><span aria-hidden="true">⏳ </span>생성 중…</>
+              ) : (
+                <><span aria-hidden="true">⬇ </span>{`준비된 ${readyCount}종 일괄 생성(.docx)`}</>
+              )}
             </button>
           )}
         </div>

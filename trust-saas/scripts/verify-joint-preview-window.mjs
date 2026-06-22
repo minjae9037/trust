@@ -138,8 +138,8 @@ console.log("\n[F] 배선 — JointForm 사용·차단 분기 + 파사드 노출
     "JointForm: window.open(_blank) 주입");
   ok(/r === "blocked"[\s\S]*?팝업 차단/.test(joint),
     "JointForm: 차단 시 친화적 안내(성공 오인 방지)");
-  ok(/🔍 크게 보기/.test(joint),
-    "JointForm: '🔍 크게 보기' 버튼 렌더");
+  ok(/<span aria-hidden="true">🔍 <\/span>크게 보기/.test(joint),
+    "JointForm: '🔍 크게 보기' 버튼 렌더(이모지 aria-hidden·verify-action-button-glyph-a11y)");
   ok(/export function previewJointHTML\(jointForm: JointForm\): string/.test(facade),
     "index 파사드: previewJointHTML 노출");
 }

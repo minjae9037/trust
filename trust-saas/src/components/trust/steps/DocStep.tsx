@@ -380,7 +380,7 @@ export function DocStep({ docId }: { docId: DocId }) {
             disabled={busy || !ok}
             title={ok ? "" : "필수 입력을 모두 채우면 활성화됩니다"}
           >
-            📄 Word(.docx) 생성
+            <span aria-hidden="true">📄 </span>Word(.docx) 생성
           </button>
           <button
             className="btn btn-ghost"
@@ -388,7 +388,7 @@ export function DocStep({ docId }: { docId: DocId }) {
             disabled={busy || !ok}
             title={ok ? "" : "필수 입력을 모두 채우면 활성화됩니다"}
           >
-            🖨 PDF 생성
+            <span aria-hidden="true">🖨 </span>PDF 생성
           </button>
           {/* 시각 표시 전용 — 낭독은 상단 영속 라이브 영역(genLiveStatus)이 담당(role=status
               미부착=중복 낭독 0). 글리프(✓/●)는 StatusGlyphText 로 aria-hidden(시각 보존). */}
@@ -424,7 +424,7 @@ export function DocStep({ docId }: { docId: DocId }) {
               onClick={onExpandPreview}
               title="현재 미리보기를 새 창에서 전체 크기로 봅니다(읽기 전용 — 인쇄 대화상자 없음)"
             >
-              🔍 크게 보기
+              <span aria-hidden="true">🔍 </span>크게 보기
             </button>
           )}
         </div>
