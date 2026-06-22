@@ -1168,6 +1168,13 @@ async function generateDoc(docId) {
   });
 
   // 관계사 1명 → 표
+  // 대표이사·사내이사 = 이사회 직위(법인 전용 개념). PartyCard 가 개인 당사자에겐
+  // 그 입력을 숨기는 결정(PartyCard.tsx isCorp)을 내렸으나 — 단 모델 값은 비파괴로
+  // 보존(법인↔개인 전환 시 복원) — 본 요약 표는 type 무관 항상 두 행을 박아, 개인
+  // 당사자 표에 '대표이사/사내이사' 행(빈칸 또는 법인 시절 stale 값)이 누수됐다.
+  // PartyCard 의 isCorp 결정을 산출물에 전파해 개인일 땐 두 행을 생략한다(값·다른 행
+  // 무변경). 본 출력은 verbatim 정본이 아니라 "입력값 검증용 임시 파일"이며, 계약서
+  // 본문 서명란(verbatim) 의 개인 정합은 별도(사업팀 판단) — 본 변경 범위 밖.
   const partyTable = (p) => new Table({
     width: { size: TABLE_W, type: WidthType.DXA },
     columnWidths: [2800, 6560],
@@ -1176,8 +1183,10 @@ async function generateDoc(docId) {
       kvRow("법인명/성명", p.name || ""),
       kvRow(p.type === "개인" ? "생년월일" : "법인등록번호", [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-")),
       kvRow("사업자등록번호", [p.bizP1, p.bizP2, p.bizP3].filter(Boolean).join("-")),
-      kvRow("대표이사", p.representativeDirector || ""),
-      kvRow("사내이사", p.insideDirector || ""),
+      ...(p.type !== "개인" ? [
+        kvRow("대표이사", p.representativeDirector || ""),
+        kvRow("사내이사", p.insideDirector || "")
+      ] : []),
       kvRow("주소", p.address || ""),
       kvRow("연락처", p.contact || "")
     ]
