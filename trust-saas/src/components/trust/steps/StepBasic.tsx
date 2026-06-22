@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul, weekdayKo, formatPeriodReadback } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul, weekdayKo, formatPeriodReadback, interpretPeriod } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
@@ -59,6 +59,24 @@ export function StepBasic() {
   // 되읽고 총 일수를 보여 입력 지점에서 교차검증하게 한다(formatPeriodReadback 단일 출처·
   // 표시 전용·빌더/조문/게이트 무접촉). 조건부 기간 텍스트("…변제시까지")는 "" 라 미표시.
   const periodReadback = formatPeriodReadback(c.trustPeriod);
+
+  // 신탁기간 시작일 vs 계약 체결일 선후 교차검증 advisory — 본문 제3조(verbatim)의 신탁기간은
+  // "[시작일]부터 [종료일]까지"이고, 계약 체결일자(common.year/month/day)는 같은 화면 위쪽에서
+  // 따로 입력된다. 신탁은 통상 계약 체결일 당일 또는 그 이후 효력이 개시되므로 신탁기간 시작일이
+  // 체결일보다 앞서면(역전) 두 날짜 중 하나가 오입력일 가능성이 높은데, 두 값이 같은 단계의 서로
+  // 다른 입력칸이라 그 선후 역전이 조용히 성립할 수 있었다(formatPeriodReadback 의 종료일<시작일
+  // 역전 점검은 신탁기간 한 칸 안의 두 날짜만 비교 → 체결일과의 교차는 사각이었다). 단계 교차
+  // 산술 정합 advisory(StepLoanCalc 한도합계 vs 평가가격)와 동형의 "막지 않는 되짚음"으로,
+  // interpretPeriod 단일 출처가 돌려준 시작일과 체결일을 UTC 자정 기준(TZ 무영향)으로 비교할 뿐
+  // 새 상태/모델/엔진/조문 무접촉이다. 체결일 일(日) 미정·신탁기간이 명확한 날짜 범위꼴이 아님
+  // (조건부 기간 "…변제시까지")·시작일 비실재이면 미표출(나그·오탐 방지).
+  const period = interpretPeriod(c.trustPeriod);
+  const periodStartsBeforeContract =
+    typeof c.day === "number" &&
+    !!period &&
+    period.start.real &&
+    Date.UTC(period.start.year, period.start.month - 1, period.start.day) <
+      Date.UTC(c.year, c.month - 1, c.day);
 
   return (
     <div className="field-grid">
@@ -158,6 +176,15 @@ export function StepBasic() {
         <input id="basic-trustPeriod" className="input" value={c.trustPeriod} onChange={(e) => updateCommon({ trustPeriod: e.target.value })} />
         {periodReadback && (
           <div className="loan-hangul" role="status" aria-live="polite">{periodReadback}</div>
+        )}
+        {/* 신탁기간 시작일이 계약 체결일보다 앞설 때만 부드럽게 되짚음(차단 아님) — 동적 출현이라
+            role=status·aria-live=polite 로 SR 고지, 선두 ⚠ 글리프는 aria-hidden(접근명 오염 0).
+            색 = var(--c-brown)(검토 신호 — 차단 적색 var(--c-danger) 아님), field-hint 재사용(새 CSS 0). */}
+        {periodStartsBeforeContract && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 6, color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            신탁기간 시작일({period!.start.year}년 {period!.start.month}월 {period!.start.day}일)이 계약 체결일({c.year}년 {c.month}월 {c.day}일)보다 앞섭니다 — 통상 신탁기간은 체결일 당일 또는 그 이후에 시작합니다. 확인하세요.
+          </div>
         )}
       </div>
 
