@@ -48,6 +48,37 @@ export interface Retrieved {
 }
 
 /**
+ * 멀티턴 후속 질문의 검색 질의 보강 — 대화 맥락을 회수에 반영.
+ *
+ * 종전 라우트는 `retrieve(lastUser.content, …)` 로 **마지막 사용자 발화 한 줄만** 검색했다.
+ * 그래서 "그럼 절차는?" "그건 왜 그래?" 처럼 그 자체엔 도메인 키워드가 없고 직전 맥락에
+ * 의존하는 후속 질문은 토큰이 매칭되지 않아 회수 0건 → 컨텍스트 미주입 → LLM 이 근거 없이
+ * 답했다(gap-report 2026-06-22 josa 마감 후 남은 최다 미적중 유형 = 맥락 의존 후속질문).
+ *
+ * 직전 사용자 발화(최근 N턴)를 현재 질의에 합쳐 그 맥락을 검색에 싣는다. tokenize 가 Set 으로
+ * 중복을 제거하므로 같은 키워드가 중복 가산되지 않고, 현재 발화 토큰은 그대로 보존된다(가산만·
+ * 후방호환). 직전 턴의 "담보신탁이 무엇인가요?" 키워드가 "그럼 절차는?" 질의의 회수를 끌어준다.
+ *
+ * ⚠️ 보수적 설계:
+ *   ① **user 턴만** 합친다 — assistant 답변 본문(장황한 마크다운·표)은 무관 태그까지 끌어와
+ *      노이즈가 크다. 사용자 발화가 가장 깨끗한 주제 신호.
+ *   ② **최근 창(windowUserTurns)만** — 대화가 길어 주제가 바뀌어도 오래된 발화가 회수를
+ *      오염시키지 않게 직전 몇 턴으로 제한(주제 전환 드리프트 차단). 현재 발화는 항상 포함.
+ *   ③ 단발(첫 턴)이면 그 발화만 반환 = 종전 동작 무변경.
+ */
+export function buildRetrievalQuery(
+  messages: { role: string; content: string }[],
+  windowUserTurns = 3,
+): string {
+  const userContents = messages
+    .filter((m) => m.role === "user" && typeof m.content === "string")
+    .map((m) => m.content);
+  if (userContents.length === 0) return "";
+  const window = windowUserTurns > 0 ? windowUserTurns : 1;
+  return userContents.slice(-window).join(" ");
+}
+
+/**
  * 질의와 가장 관련 높은 청크 topK 반환.
  * 태그 매칭 가중(3) + 본문 등장(1). 부분문자열(한글 합성어) 매칭 포함.
  */

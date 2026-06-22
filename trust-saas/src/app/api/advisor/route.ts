@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { retrieve, formatContext } from "@/lib/advisor/retrieve";
+import { retrieve, formatContext, buildRetrievalQuery } from "@/lib/advisor/retrieve";
 import { loadBackdataChunks } from "@/lib/advisor/backdata";
 import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
@@ -113,8 +113,11 @@ export async function POST(req: Request) {
       });
     }
   }
-  // 기본 KNOWLEDGE + (있으면) back-data 인덱스 병합 검색
-  const retrieved = lastUser ? retrieve(lastUser.content, 4, loadBackdataChunks()) : [];
+  // 기본 KNOWLEDGE + (있으면) back-data 인덱스 병합 검색.
+  // ★멀티턴 후속 질문("그럼 절차는?")은 마지막 발화만으론 회수 0건이 되므로, 직전 사용자
+  //   발화(최근 N턴)를 합친 맥락 질의로 검색한다(buildRetrievalQuery — 단발은 종전과 동일).
+  const retrievalQuery = buildRetrievalQuery(messages);
+  const retrieved = retrievalQuery ? retrieve(retrievalQuery, 4, loadBackdataChunks()) : [];
   const contextText = formatContext(retrieved);
 
   // 근거 출처 → 응답 헤더로 클라이언트에 전달.
