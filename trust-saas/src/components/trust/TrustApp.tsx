@@ -106,7 +106,33 @@ export function TrustApp() {
   return (
     <>
       <header className="topbar">
-        <div className="brand" style={{ cursor: "pointer" }} title="홈으로" onClick={goHome}>
+        {/* 브랜드 로고 = "홈으로(신탁사 선택)" 단축. 종전엔 <div onClick> 라 마우스
+            전용(cursor:pointer·title)이고 키보드/AT 엔 비-상호작용 div 로 노출됐다
+            (WCAG 4.1.2 Name·Role·Value / 키보드 동등성 갭). 내 계약 카드 본문
+            (ContractsView .contract-card-open)이 받은 것과 동형으로 role="button"·
+            tabIndex=0·aria-label·Enter/Space 키 핸들러를 부여해 키보드 동등성을 맞춘다.
+            onClick(goHome)·title·cursor·내부 마크업 보존(시각 무변경, 포커스 시 기본
+            포커스 링만 — WCAG 2.4.7 가시 포커스). goHome 의 미저장 변경 확인 가드는
+            클릭·키보드 양쪽이 동일 함수를 호출하므로 그대로 공유된다. */}
+        <div
+          className="brand"
+          style={{ cursor: "pointer" }}
+          title="홈으로"
+          role="button"
+          tabIndex={0}
+          aria-label="홈으로 — 신탁사 선택"
+          onClick={goHome}
+          onKeyDown={(e) => {
+            // 로고 자체에 포커스가 있을 때 난 Enter/Space 만 처리(e.currentTarget 기준).
+            // 내부 자식(brand-glyph 등)은 비-포커스라 사실상 버블이 없으나, 카드 패턴과
+            // 동일하게 가드해 일관성을 둔다. Space 의 페이지 스크롤은 preventDefault 로 차단.
+            if (e.target !== e.currentTarget) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              goHome();
+            }
+          }}
+        >
           <div className="brand-glyph">信託</div>
           <div>
             <div className="brand-name">TrustForm</div>
