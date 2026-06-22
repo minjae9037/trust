@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
 import { isValidRegNo, isPositiveAmount, formatAreaReadback } from "@/lib/engine/calc";
+import { useFocusAfterRemove } from "@/lib/ui/use-focus-after-remove";
 
 export function StepProperty() {
   const { form, addProperty, removeProperty, updateProperty } = useContractStore();
   const [ocrMsg, setOcrMsg] = useState("");
+  // 부동산 삭제 버튼 후 포커스를 "+ 부동산 추가" 버튼으로 이동(WCAG 2.4.3)
+  const propFocus = useFocusAfterRemove(form.properties.length);
 
   async function onPdf(file: File, idx: number) {
     setOcrMsg("부동산 등기부 분석 중…");
@@ -67,7 +70,7 @@ export function StepProperty() {
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  onClick={() => removeProperty(i)}
+                  onClick={() => { removeProperty(i); propFocus.markRemoved(); }}
                   aria-label={`부동산 ${i + 1} 삭제`}
                   title="삭제"
                 >
@@ -126,7 +129,7 @@ export function StepProperty() {
           </div>
         </div>
       ))}
-      <button className="btn btn-ghost btn-sm" onClick={addProperty}>
+      <button ref={propFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={addProperty}>
         + 부동산 추가
       </button>
     </div>

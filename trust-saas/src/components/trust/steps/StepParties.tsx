@@ -2,6 +2,7 @@
 
 import { useContractStore } from "@/lib/store/contractStore";
 import { priorityRankLabel, trustorRankLabel } from "@/lib/engine/calc";
+import { useFocusAfterRemove } from "@/lib/ui/use-focus-after-remove";
 import { PartyCard } from "./PartyCard";
 
 export function StepParties() {
@@ -10,6 +11,11 @@ export function StepParties() {
     addParty,
     setSameAsTrustor,
   } = useContractStore();
+
+  // 카드 삭제 버튼 후 포커스를 같은 그룹 "+ 추가" 버튼으로 이동(WCAG 2.4.3, 그룹별 1개씩)
+  const trustorFocus = useFocusAfterRemove(form.trustors.length);
+  const debtorFocus = useFocusAfterRemove(form.debtors.length);
+  const beneFocus = useFocusAfterRemove(form.beneficiaries.length);
 
   return (
     <div>
@@ -34,9 +40,10 @@ export function StepParties() {
           orderNoun="순서"
           moveUpHint="대표위탁자 쪽으로"
           moveDownHint="뒤로"
+          afterRemove={trustorFocus.markRemoved}
         />
       ))}
-      <button className="btn btn-ghost btn-sm" onClick={() => addParty("trustors")}>
+      <button ref={trustorFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={() => addParty("trustors")}>
         + 위탁자 추가
       </button>
 
@@ -61,9 +68,10 @@ export function StepParties() {
               party={p}
               label="채무자"
               removable={form.debtors.length > 1}
+              afterRemove={debtorFocus.markRemoved}
             />
           ))}
-          <button className="btn btn-ghost btn-sm" onClick={() => addParty("debtors")}>
+          <button ref={debtorFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={() => addParty("debtors")}>
             + 채무자 추가
           </button>
         </>
@@ -90,9 +98,10 @@ export function StepParties() {
               party={p}
               label="수익자"
               removable={form.beneficiaries.length > 1}
+              afterRemove={beneFocus.markRemoved}
             />
           ))}
-          <button className="btn btn-ghost btn-sm" onClick={() => addParty("beneficiaries")}>
+          <button ref={beneFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={() => addParty("beneficiaries")}>
             + 수익자 추가
           </button>
         </>
@@ -103,6 +112,7 @@ export function StepParties() {
 
 export function StepPriority() {
   const { form, addParty } = useContractStore();
+  const prioFocus = useFocusAfterRemove(form.priorities.length);
   return (
     <div>
       <h3 className="group-title">우선수익자 (금융기관 등)</h3>
@@ -123,9 +133,10 @@ export function StepPriority() {
           orderable
           count={form.priorities.length}
           rankNote={i === 0 ? `${priorityRankLabel(i)} · 최선순위` : priorityRankLabel(i)}
+          afterRemove={prioFocus.markRemoved}
         />
       ))}
-      <button className="btn btn-ghost btn-sm" onClick={() => addParty("priorities")}>
+      <button ref={prioFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={() => addParty("priorities")}>
         + 우선수익자 추가
       </button>
     </div>

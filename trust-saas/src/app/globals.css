@@ -1589,6 +1589,10 @@ body {
    키보드 포커스 가능하나 시각상 보이지 않으므로, 포커스가 안에 들어오면(focus-within)
    보이는 라벨(.btn)에 포커스 링을 표시(WCAG 2.4.7 가시 포커스, btn-stop 등과 동형 톤). */
 .file-upload-btn:focus-within { outline: 2px solid var(--c-brown); outline-offset: 2px; }
+/* 당사자·부동산 카드 삭제 후 포커스가 옮겨가는 "+ 추가" 버튼 — 키보드로 삭제(Enter/Space)
+   했을 때만 :focus-visible 이 매칭돼 가시 포커스 링을 보인다(마우스 삭제 시 미표시=시각 무변경,
+   WCAG 2.4.7, file-upload-btn·btn-stop 등과 동형 톤). */
+.party-add-btn:focus-visible { outline: 2px solid var(--c-brown); outline-offset: 2px; }
 /* 답변 생성 중지(Stop) — 전송 버튼 자리에 진행 중에만 노출(차분한 danger 톤). */
 .btn-stop { background: var(--c-paper); color: var(--c-danger); border-color: var(--c-danger-soft); }
 .btn-stop:hover:not(:disabled) { background: var(--c-danger-soft); border-color: var(--c-danger); }

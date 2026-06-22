@@ -26,6 +26,8 @@ interface Props {
   moveUpHint?: string;
   /** ▼(아래로) 이동의 의미 — 우선수익자=후순위로. 기본 "후순위로" */
   moveDownHint?: string;
+  /** 삭제 버튼 직후 호출 — 부모가 포커스를 "+ 추가" 버튼으로 옮기게 한다(WCAG 2.4.3, 표시 무영향) */
+  afterRemove?: () => void;
 }
 
 export function PartyCard({
@@ -41,6 +43,7 @@ export function PartyCard({
   orderNoun = "순위",
   moveUpHint = "선순위로",
   moveDownHint = "후순위로",
+  afterRemove,
 }: Props) {
   const { updateParty, removeParty, moveParty } = useContractStore();
   const total = count ?? 1;
@@ -158,7 +161,7 @@ export function PartyCard({
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => removeParty(role, idx)}
+              onClick={() => { removeParty(role, idx); afterRemove?.(); }}
               aria-label={`${label} ${idx + 1} 삭제`}
               title="삭제"
             >
