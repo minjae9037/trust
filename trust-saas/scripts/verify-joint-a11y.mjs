@@ -102,15 +102,17 @@ ok(
 // (D) 메시지성 live region: role="status" + aria-live="polite" 일관 표기
 // ──────────────────────────────────────────────
 console.log("\n[메시지성 live region 일관성]");
-// JointForm 생성 메시지 span — 생성 신선도 추가로 stale 안내 span 과 msg span 두
-// 분기가 됐으나, 둘 다 live region 이어야 한다(메시지성 안내 일관성·강화).
+// JointForm 생성 메시지 — 낭독 책임이 상단 SR 영속 라이브 영역(genLiveStatus)으로 이전됐다
+// (verify-joint-livestatus 가 영속 영역 자체를 단언). 여기선 ①영속 영역이 role=status+aria-live
+// 를 갖고 ②하단 stale/msg 시각 span 은 role=status/aria-live 미부착(중복 낭독 0)임을 확인한다.
 ok(
-  /freshness === "stale" \? \(\s*<span className="field-hint" role="status" aria-live="polite"/.test(joint),
-  "(D1a) JointForm stale 안내 span: role=status + aria-live=polite",
+  /<div className="sr-only" role="status" aria-live="polite" aria-atomic="true">\s*\{genLiveStatus\}/.test(joint),
+  "(D1a) JointForm SR 영속 라이브 영역(genLiveStatus): role=status + aria-live=polite + aria-atomic",
 );
 ok(
-  /msg && <span className="field-hint" role="status" aria-live="polite"/.test(joint),
-  "(D1b) JointForm 생성 메시지 span: role=status + aria-live=polite",
+  /freshness === "stale" \? \(\s*<span className="field-hint" style=/.test(joint) &&
+    /msg && <span className="field-hint" style=\{\{ color: "var\(--c-blue-deep\)" \}\}><StatusGlyphText/.test(joint),
+  "(D1b) JointForm stale/msg 시각 span 은 role=status/aria-live 미부착(낭독은 영속 영역 전담)",
 );
 // DocStep amount-echo
 ok(

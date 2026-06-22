@@ -7,6 +7,24 @@ import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { isValidCorpRegNo, isRealDate } from "@/lib/engine/calc";
+import { splitStatusGlyph } from "@/lib/ui/status-glyph";
+
+// stale(입력 변경) 안내 문구 단일 출처 — 시각 span 과 SR 영속 라이브 영역이 같은 문구를
+// 쓰도록 모듈 상수로 둔다(낭독은 글리프 ● 를 splitStatusGlyph 로 떼고 본문만).
+const STALE_MSG = "● 입력이 변경되었습니다 — 다시 생성하세요";
+
+// 동적 상태 메시지의 선두 장식 글리프(✓/●)를 aria-hidden 으로 감싸 시각만 보존하고
+// 본문은 그대로 두는 시각-전용 렌더(ContractsView StatusGlyphText 와 동형). 이 span 들은
+// role=status 를 갖지 않으므로(낭독은 영속 영역 전담) 선형 탐색 시 글리프 낭독만 막는다.
+function StatusGlyphText({ msg }: { msg: string }) {
+  const { glyph, text } = splitStatusGlyph(msg);
+  return (
+    <>
+      {glyph && <span aria-hidden="true">{glyph} </span>}
+      {text}
+    </>
+  );
+}
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다 완성 협약서
 // HTML 재생성·iframe srcDoc 재파싱을 막는다(담보신탁 DocStep 과 동일 패턴).
@@ -81,6 +99,18 @@ export function JointForm() {
   //    none(미생성)·fresh(무변경)·stale(변경됨) 판정으로 재생성 안내한다.
   const formSnap = useMemo(() => JSON.stringify(jointForm), [jointForm]);
   const freshness = genFreshness(formSnap, genSnap);
+
+  // 생성 상태(진행·완료·오류·stale)의 SR 영속 라이브 영역 단일 낭독 출처(ContractsView 14:05
+  // 선례). 종전엔 생성 msg span 이 `{msg && <span role="status">…}` 로 **메시지가 생길 때
+  // 비로소 마운트**돼 라이브 영역이 콘텐츠 변경 '전'에 DOM 부재 → 첫 메시지("Word 생성 중…")
+  // 미고지였다. stale 이면 변경 안내를, 아니면 생성 msg 를 — 장식 글리프(✓/●)는 떼고 본문만
+  // 고지한다. 하단 시각 span 은 낭독 책임 없음(role=status 미부착=중복 낭독 0).
+  const genLiveStatus =
+    freshness === "stale"
+      ? splitStatusGlyph(STALE_MSG).text
+      : msg
+        ? splitStatusGlyph(msg).text
+        : "";
 
   // 입력이 바뀌면 직전 생성 완료/오류 메시지는 더 이상 유효하지 않다 → 비운다
   // (생성 자체는 jointForm 을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고,
@@ -177,6 +207,13 @@ export function JointForm() {
           &lsquo;을&rsquo; = 한국투자부동산신탁(고정), &lsquo;갑&rsquo; = 시행사(입력). 정보를 입력하면
           협약서를 Word·PDF로 생성합니다.
         </p>
+      </div>
+
+      {/* 생성 상태 SR 영속 라이브 영역 — 진행(생성 중…)·완료·오류·stale 을 첫 메시지부터 고지.
+          ★항상 렌더(영속) → 라이브 영역이 콘텐츠 변경 '전'에 이미 DOM 에 존재(ContractsView·
+          advisor .advisor-live 선례). 시각 표시는 하단 버튼 행 span 이 담당, 이 영역은 낭독 전용. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {genLiveStatus}
       </div>
 
       <div className="doc-split">
@@ -318,12 +355,14 @@ export function JointForm() {
           >
             🖨 PDF 생성
           </button>
+          {/* 시각 표시 전용 — 낭독은 상단 영속 라이브 영역(genLiveStatus)이 담당(role=status
+              미부착=중복 낭독 0). 글리프(✓/●)는 StatusGlyphText 로 aria-hidden(시각 보존). */}
           {freshness === "stale" ? (
-            <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-danger)" }}>
-              ● 입력이 변경되었습니다 — 다시 생성하세요
+            <span className="field-hint" style={{ color: "var(--c-danger)" }}>
+              <StatusGlyphText msg={STALE_MSG} />
             </span>
           ) : (
-            msg && <span className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-blue-deep)" }}>{msg}</span>
+            msg && <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}><StatusGlyphText msg={msg} /></span>
           )}
         </div>
       </section>
