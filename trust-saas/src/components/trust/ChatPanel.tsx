@@ -48,6 +48,13 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // 스크린리더 전용 상태 고지(WCAG 4.1.3 Status Messages) — 시각 "…작성 중" 버블과 AI 폼
+  // 자동채움 "✓ … 반영됨" 노트는 라이브 영역이 아니어서, SR 사용자는 ① 답변이 작성 중인지
+  // ② AI 가 법적 폼 항목을 조용히 채웠는지를 전혀 듣지 못했다(시각 사용자만 인지하던 갭 —
+  // AdvisorChat .advisor-live 패리티). 작성 시작·답변 도착·자동채움 결과를 polite 라이브
+  // 영역으로 알린다(오류는 err 의 role=alert 가 전담 → 이중 낭독 회피). 표시/접근성 경계만:
+  // 페르소나·검색·PII 토큰화·폼 패치 로직 무접촉.
+  const [live, setLive] = useState("");
   const piiMap = useRef<PiiMap>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   // 드로어를 다이얼로그로: 마운트 시 입력란으로 포커스 이동(data-autofocus)·Tab
@@ -60,6 +67,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   async function deliver(history: Msg[]) {
     setErr("");
     setBusy(true);
+    setLive("답변을 작성하고 있습니다."); // SR 고지: 작성 시작(시각 "…작성 중" 버블은 라이브 영역 아님)
     setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 50);
 
     try {
@@ -93,6 +101,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         { role: "assistant", display: replyDisplay || "(응답 없음)", api: data.reply || "" },
       ]);
 
+      // SR 고지 본문 — 기본은 "도착"이되, AI 가 법적 폼 항목을 채운 경우(아래 applied)
+      // 무엇이 반영됐는지를 함께 알린다(시각 "✓ … 반영됨" 노트의 SR 패리티·값 미노출).
+      let liveDone = "답변이 도착했습니다.";
       if (data.patch && isJoint) {
         // ★교차오염 차단: joint 작성 중에는 AI 패치를 collateral form 에 적용하지
         //   않는다(숨은 폼 오염 방지). 자동 채움 미지원을 사실대로 안내만 한다.
@@ -116,12 +127,17 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
             ...m,
             { role: "assistant", display: `✓ ${applied.join(" · ")} 반영됨`, api: "", kind: "note" },
           ]);
+          liveDone = `답변 도착 · ${applied.join(" · ")} 반영됨`; // SR: AI 자동채움 결과 고지
         }
       }
+      setLive(liveDone); // SR 고지: 정상 완료(작성 중↔도착 내용 변화로 재낭독)
     } catch (e) {
       // ★표시/정보누출 경계: 네트워크 영문 오류(Failed to fetch 등)·서버 원시 JSON
       //   본문을 raw 노출하지 않고 친화적 한국어로 치환(단일 출처 friendlyErrorMessage).
       setErr(friendlyErrorMessage(e));
+      // SR 고지는 비움 — 실패는 err 의 role="alert" 가 실제 오류를 낭독하므로 여기서
+      // liveMsg 를 또 알리면 이중 낭독이 된다(stale "작성 중" 제거만, AdvisorChat 동형).
+      setLive("");
     } finally {
       setBusy(false);
       setTimeout(() => scrollRef.current?.scrollTo(0, 1e9), 50);
@@ -159,6 +175,12 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       aria-labelledby="chat-panel-title"
       tabIndex={-1}
     >
+      {/* SR 전용 상태 고지(WCAG 4.1.3) — 작성 중·답변 도착·AI 폼 자동채움 결과를 polite
+          라이브 영역으로 알린다. 시각 "…작성 중" 버블·"✓ 반영됨" 노트는 낭독 책임 없음
+          (role 미부착=중복 낭독 0). 항상 렌더(콘텐츠 변경 전 DOM 존재). 시각 무변경(.sr-only). */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {live}
+      </div>
       <div className="chat-head">
         <div>
           <strong id="chat-panel-title">AI 어시스턴트</strong>
