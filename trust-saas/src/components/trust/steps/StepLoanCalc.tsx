@@ -84,11 +84,17 @@ export function StepLoanCalc() {
       >
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
           <thead>
+            {/* 한도표는 우선수익한도금액(법적 금액)을 회사·열별로 보여주는 데이터 표다.
+                scope 속성이 없으면 스크린리더가 임의 셀(예: 한도금액 12,000,000,000 원)을
+                읽을 때 그것이 어느 열(대출금액↔한도금액)·어느 회사(행)에 속하는지 안정적으로
+                고지하지 못한다(WCAG 1.3.1). 열 헤더엔 scope="col", 행 식별자(회사명)·합계
+                라벨은 <th scope="row"> 로 두어 각 금액 셀을 열·행 헤더에 명시 연결한다.
+                값·산식·게이트·산출물 무접촉 — 표 의미구조(시각 무변경)만. */}
             <tr style={{ background: "var(--c-paper-soft)" }}>
-              <th style={th}>NO</th>
-              <th style={{ ...th, textAlign: "left" }}>회사명</th>
-              <th style={{ ...th, textAlign: "right" }}>대출금액 (원)</th>
-              <th style={{ ...th, textAlign: "right", color: "var(--c-brown)" }}>
+              <th scope="col" style={th}>NO</th>
+              <th scope="col" style={{ ...th, textAlign: "left" }}>회사명</th>
+              <th scope="col" style={{ ...th, textAlign: "right" }}>대출금액 (원)</th>
+              <th scope="col" style={{ ...th, textAlign: "right", color: "var(--c-brown)" }}>
                 우선수익한도금액 (원)
               </th>
             </tr>
@@ -115,7 +121,12 @@ export function StepLoanCalc() {
                 return (
                   <tr key={i}>
                     <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{i + 1}</td>
-                    <td style={td}>{p.name || "(STEP 02 에서 이름 입력)"}</td>
+                    {/* 회사명 = 행 식별자 → th scope="row"(같은 행의 대출금액·한도금액 셀이
+                        어느 회사 것인지 SR 에 연결). th 기본(가운데·굵게) 대신 기존 td 외형
+                        (좌측·보통 굵기)을 명시해 시각 무변경. */}
+                    <th scope="row" style={{ ...td, textAlign: "left", fontWeight: 400 }}>
+                      {p.name || "(STEP 02 에서 이름 입력)"}
+                    </th>
                     <td style={{ ...td, textAlign: "right" }}>
                       <input
                         className="input"
@@ -160,9 +171,9 @@ export function StepLoanCalc() {
           {form.priorities.length > 0 && (
             <tfoot>
               <tr style={{ background: "var(--c-paper-soft)" }}>
-                <td colSpan={2} style={{ ...td, textAlign: "right", fontWeight: 700 }}>
+                <th scope="row" colSpan={2} style={{ ...td, textAlign: "right", fontWeight: 700 }}>
                   합계
-                </td>
+                </th>
                 <td style={{ ...td, textAlign: "right", fontWeight: 700 }}>
                   {totalLoan(form).toLocaleString()} 원
                   {totalLoan(form) > 0 && (
