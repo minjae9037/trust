@@ -78,6 +78,23 @@ export function StepBasic() {
     Date.UTC(period.start.year, period.start.month - 1, period.start.day) <
       Date.UTC(c.year, c.month - 1, c.day);
 
+  // 신탁보수 vs 우선수익한도금액 정합 교차검증 advisory(표시 전용·게이트 아님) — 신탁보수율은
+  // 바로 아래 자동 필드가 "신탁보수 ÷ 우선수익한도금액 × 100"으로 산정하는데(라벨도 "우선수익
+  // 한도금액 대비 %"), 신탁보수가 한도금액 자체를 넘으면 보수율이 100%를 초과한다. 담보신탁에서
+  // 신탁보수는 통상 한도금액의 소수 %(수수료) 수준이므로 보수율 100% 초과는 두 금액 중 하나의
+  // 자릿수(0 개수) 오입력(예: 보수칸에 한도금액을 잘못 입력)일 가능성이 높은데, 두 값이 같은
+  // 화면의 서로 다른 입력칸(신탁보수는 직접 입력·한도금액은 STEP 02-1 자동)이라 그 초과가 조용히
+  // 성립할 수 있었다(보수율 자동 필드는 "250 %" 같은 큰 값을 자신 있게 표시할 뿐 무엇이 이상한지
+  // 짚지 않음). StepLoanCalc 한도합계 vs 평가가격·신탁기간 시작일 vs 체결일과 동형의 "막지 않는
+  // 되짚음"으로, 두 기존 입력(parseAmount)의 순수 산술 비교일 뿐 새 상태/모델/엔진/조문 무접촉이다.
+  // limitShowable(비율 유효 + 한도금액 양수) 이고 신탁보수가 유효(양수)일 때만 비교하므로, 무효
+  // 비율·한도 보류·무효 보수면 미표출한다(나그·오탐 방지 — 각 무효는 해당 인라인이 이미 안내).
+  const feeExceedsLimit =
+    limitShowable &&
+    !feeInvalid &&
+    parseAmount(c.trustFee) > 0 &&
+    parseAmount(c.trustFee) > parseAmount(c.priorityLimit);
+
   return (
     <div className="field-grid">
       <div className="field full">
@@ -168,6 +185,17 @@ export function StepBasic() {
         <div className="field-hint">신탁보수 ÷ 우선수익한도금액 × 100 자동 산정.</div>
         <input id="basic-trustFeeRate" className="input" readOnly value={limitShowable && c.trustFeeRate ? c.trustFeeRate + " %" : ""}
           placeholder="신탁보수·한도금액 입력 시 자동 계산" style={{ background: "var(--c-paper-soft)" }} />
+        {/* 신탁보수 > 우선수익한도금액(= 보수율 100% 초과)이면 자릿수 오입력 가능성을 부드럽게 되짚는다
+            (차단 아님 — 사용자 선택 보존). feeExceedsLimit 은 기존 입력(c.trustFee·c.priorityLimit)
+            파생이라 새 상태/모델/엔진/조문 무접촉. 동적 출현이라 role=status·aria-live=polite 로 SR 고지,
+            선두 ⚠ 글리프는 aria-hidden(접근명 오염 0). 색 = var(--c-brown)(검토 신호 — 차단 적색 아님),
+            field-hint 재사용(새 CSS 0). StepLoanCalc 한도합계 vs 평가가격 advisory 와 동형. */}
+        {feeExceedsLimit && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 6, color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            신탁보수({parseAmount(c.trustFee).toLocaleString()} 원)가 우선수익한도금액({parseAmount(c.priorityLimit).toLocaleString()} 원)을 초과합니다 — 보수율이 100%를 넘어 자릿수(0 개수) 오입력일 수 있습니다. 확인하세요.
+          </div>
+        )}
       </div>
 
       <div className="field full">
