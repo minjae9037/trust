@@ -133,6 +133,17 @@ export function StepPriority() {
         const trustorMatch = form.trustors
           .map((t) => ({ t, reason: samePartyReason(p, t) }))
           .find((m) => m.reason !== null);
+        // 입력 지점 구조 정합 교차검증(표시 전용·게이트 아님) — 우선수익자(채권자)는 피담보채권을
+        // 가진 자, 채무자는 그 채무를 지는 자라 동일 주체일 수 없다(같은 당사자면 피담보채권이 혼동으로
+        // 소멸해 담보 구조 불성립). 채무자를 위탁자와 다르게 별도 입력(debtorSameAsTrustor=false)하면
+        // STEP 01 채무자 목록과 STEP 02-1 우선수익자가 서로 다른 단계에서 입력돼, 같은 회사를 양쪽에
+        // 잘못 넣어도 짚을 신호가 없었다. 위 위탁자 교차검증과 동형으로 부드럽게 되짚는다. 채무자=위탁자
+        // (동일)인 경우는 위 trustorMatch 가 이미 같은 충돌을 덮으므로 별도 입력 시에만 본다(중복 회피).
+        const debtorMatch = form.debtorSameAsTrustor
+          ? undefined
+          : form.debtors
+              .map((d) => ({ d, reason: samePartyReason(p, d) }))
+              .find((m) => m.reason !== null);
         return (
           <Fragment key={i}>
             <PartyCard
@@ -158,6 +169,19 @@ export function StepPriority() {
                 이 우선수익자가 위탁자
                 {trustorMatch.t.name ? `(${trustorMatch.t.name})` : ""}와 같은 {trustorMatch.reason}입니다 —
                 담보신탁에서 위탁자(담보제공자)와 우선수익자(채권자)는 통상 다른 당사자입니다. 확인하세요.
+              </div>
+            )}
+            {debtorMatch && (
+              <div
+                className="field-hint"
+                role="status"
+                aria-live="polite"
+                style={{ marginTop: -8, marginBottom: 14, color: "var(--c-brown)", fontWeight: 600 }}
+              >
+                <span aria-hidden="true">⚠ </span>
+                이 우선수익자가 채무자
+                {debtorMatch.d.name ? `(${debtorMatch.d.name})` : ""}와 같은 {debtorMatch.reason}입니다 —
+                채무자(피담보채무를 지는 자)와 우선수익자(채권자)는 통상 다른 당사자입니다. 확인하세요.
               </div>
             )}
           </Fragment>
