@@ -123,6 +123,18 @@ export function StepConditions() {
             <div className="field-hint">입력한 회사명이 별첨4 제20조에 자동 기재됩니다(빈 값이면 빈칸 출력).</div>
           </div>
         )}
+        {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 대리금융기관(제20조)은 STEP 02 우선수익자 수로
+            자동 판정되는 구조가 복수(대주단)일 때 권한 위임을 위해 두는 조항인데(섹션 hint 와 동일 취지),
+            단독 우선수익자인데도 지정이 켜져 있으면 그 회사명이 별첨4 제20조에 그대로 기재된다(흔한
+            오설정). 정족수(제3조3항)는 단독에서 select 를 비활성화해 막지만, 대리금융기관 체크박스는
+            그런 가드가 없어 단독+지정 조합이 조용히 조문에 흘러들던 갭. 막지 않고(사용자 선택 보존)
+            입력 지점에서 부드럽게 되짚는다 — isMulti 는 priorityCount 파생이라 새 상태/모델/엔진 무접촉. */}
+        {c.agentBankEnabled && !isMulti && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            단독 우선수익자인데 대리금융기관(제20조)이 지정되어 있습니다 — 대리금융기관은 통상 복수(대주단) 구조에서 권한을 위임하기 위해 둡니다. 단독이면 지정 해제를 검토하세요.
+          </div>
+        )}
       </Section>
 
       {/* ── 5. 인허가 / 건축주 권한 ── */}
