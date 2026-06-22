@@ -298,7 +298,11 @@ export function AdvisorChat() {
       )}
       {msgs.length === 0 ? (
         <div className="advisor-empty">
-          <div className="advisor-empty-glyph">信託</div>
+          {/* 信託(신탁) = 빈 상태 브랜드 아바타(원형 그라데이션 글리프) — 순수 장식.
+              바로 아래 헤딩("무엇을 도와드릴까요?")·문단이 목적을 전달하므로, SR 이
+              빈 상태 진입 시 한자 글리프를 먼저 낭독해 선형 낭독을 오염시키지 않게
+              요소 전체를 aria-hidden 처리(가시 표시 무변경·WCAG 1.3.1). */}
+          <div className="advisor-empty-glyph" aria-hidden="true">信託</div>
           <h2>무엇을 도와드릴까요?</h2>
           <p>PF·신탁·자산유동화·딜 구조화·세무 — 대체투자 실무를 물어보세요.</p>
           <div className="advisor-suggest">
