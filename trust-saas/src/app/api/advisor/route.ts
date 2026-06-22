@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { retrieve, formatContext, buildRetrievalQuery } from "@/lib/advisor/retrieve";
+import { buildAdvisorSystem } from "@/lib/advisor/system";
 import { loadBackdataChunks } from "@/lib/advisor/backdata";
 import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
@@ -137,19 +138,10 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemBlocks: Anthropic.TextBlockParam[] = [
-    { type: "text", text: ADVISOR_PERSONA, cache_control: { type: "ephemeral" } },
-  ];
-  if (contextText) {
-    systemBlocks.push({
-      type: "text",
-      text:
-        "다음은 내부 지식베이스에서 검색된 참고자료입니다. 관련 있으면 근거로 활용하되, " +
-        "질문과 무관하면 무시하세요. 자료에 없는 수치는 단정하지 말고 확인이 필요하다고 하세요. " +
-        "자료에 특정 회사·기관·사업장 이름이 있어도 답변에 노출하지 말고 일반 실무지식으로 재구성하세요.\n\n" +
-        contextText,
-    });
-  }
+  // 시스템 프롬프트 조립(순수 buildAdvisorSystem) — grounding 있으면 참고자료 블록,
+  // 회수 0건이면 범위 주의 지침(OUT_OF_SCOPE_NOTE)을 주입해 코퍼스 밖 질문에 단정적
+  // 수치·조항을 지어내지 않게 가드레일을 건다(추정 금지·전문가 확인 권고).
+  const systemBlocks = buildAdvisorSystem(ADVISOR_PERSONA, contextText);
 
   const rs = new ReadableStream<Uint8Array>({
     async start(controller) {
