@@ -159,7 +159,12 @@ export function JointForm() {
     if (!id) return;
     const el = typeof document !== "undefined" ? document.getElementById(id) : null;
     if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // 모션 감축 설정(prefers-reduced-motion: reduce) 시 부드러운 스크롤은 JS 옵션이라
+    // CSS scroll-behavior 로 꺼지지 않으므로 여기서 존중해 즉시(auto) 스크롤한다(WCAG 2.3.3).
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
     (el as HTMLElement).focus({ preventScroll: true });
   }
 

@@ -1659,7 +1659,21 @@ body {
   50% { opacity: 1; transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .preview-updating-dot { animation: none; opacity: 0.8; }
+  /* 전정장애·광과민 사용자 존중(WCAG 2.3.3 Animation from Interactions): non-essential
+     모션을 전역 무력화한다. 종전엔 이 블록이 .preview-updating-dot 한 애니메이션만 껐고
+     fadeUp(진입)·slideIn(translateX 40px·토스트)·spin(스피너 무한 회전)·blink(캐럿 점멸)과
+     54개 transition 은 그대로 남아 모션 감축 설정이 부분만 반영됐다. transitionend/
+     animationend 에 의존하는 JS 가 없어(grep 0건) 이벤트 로직 무영향이며, 최종 상태
+     (opacity/transform 종료값)는 보존돼 레이아웃·가시성 무변경 — 모션만 제거된다. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important; /* spin·blink·preview-pulse 무한 반복 정지 */
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important; /* CSS 기반 부드러운 스크롤 즉시화 */
+  }
+  /* 진행 표시 점은 전역 규칙만 두면 keyframe 시작 프레임(opacity 0.3·scale 0.8)에 멈춰
+     흐릿·축소된 채 남으므로 안정 가시값으로 명시 고정(종전 동작 유지). */
+  .preview-updating-dot { animation: none !important; opacity: 0.8; transform: none; }
 }
 /* "크게 보기" — 현재 미리보기를 새 창에서 전체 크기로(읽기 전용) */
 .preview-expand {

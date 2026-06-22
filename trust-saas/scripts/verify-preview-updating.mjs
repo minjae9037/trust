@@ -61,7 +61,10 @@ console.log("\n[D] CSS 정의 + 모션 민감 배려");
 ok(/\.preview-updating\s*\{/.test(css), ".preview-updating 정의 존재");
 ok(/\.preview-updating-dot\s*\{/.test(css) && /@keyframes preview-pulse/.test(css),
   "펄스 점(dot) + keyframes 정의");
-ok(/prefers-reduced-motion[\s\S]{0,120}\.preview-updating-dot[\s\S]{0,40}animation:\s*none/.test(css),
+// reduce 블록이 전역 모션 무력화로 확장돼(verify-reduced-motion) prefers-reduced-motion
+// 와 .preview-updating-dot 사이 거리가 늘었다 → 거리 제한을 넓히고 `animation: none`(+
+// !important 허용)만 확인한다. 의미(reduce 시 dot 애니 off)는 동일.
+ok(/prefers-reduced-motion[\s\S]{0,1200}\.preview-updating-dot\s*\{[^}]*animation:\s*none/.test(css),
   "prefers-reduced-motion 시 애니메이션 off");
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL`);
