@@ -153,8 +153,14 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
           <strong>AI 어시스턴트</strong>
           <div className="field-hint">대화로 계약 조건을 채웁니다 · 민감정보는 토큰화 후 전송</div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={onClose}>
-          ✕
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={onClose}
+          aria-label="AI 어시스턴트 닫기"
+          title="닫기"
+        >
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 

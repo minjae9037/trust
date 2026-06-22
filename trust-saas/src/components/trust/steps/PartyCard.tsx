@@ -156,11 +156,13 @@ export function PartyCard({
           )}
           {removable && (
             <button
+              type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => removeParty(role, idx)}
+              aria-label={`${label} ${idx + 1} 삭제`}
               title="삭제"
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </button>
           )}
         </div>

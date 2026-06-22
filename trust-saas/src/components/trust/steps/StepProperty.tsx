@@ -64,8 +64,14 @@ export function StepProperty() {
                 />
               </label>
               {form.properties.length > 1 && (
-                <button className="btn btn-ghost btn-sm" onClick={() => removeProperty(i)}>
-                  ✕
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => removeProperty(i)}
+                  aria-label={`부동산 ${i + 1} 삭제`}
+                  title="삭제"
+                >
+                  <span aria-hidden="true">✕</span>
                 </button>
               )}
             </div>
