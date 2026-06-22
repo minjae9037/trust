@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
@@ -98,6 +98,16 @@ export function StepBasic() {
           onChange={(e) => updateCommon({ trustFee: e.target.value })}
           aria-invalid={feeInvalid || undefined}
           aria-describedby={feeInvalid ? "basic-trustFee-err" : undefined} />
+        {/* 한글 금액 readback — 신탁보수는 별첨3 보수액·신탁보수율 자동산정에 쓰이는 법적 금액인데,
+            대출금액(StepLoanCalc·PartyCard)·부동산 가격·원본가액(DocStep) 등 다른 모든 금액 입력은
+            amountToHangul 로 한글 금액을 에코해 자릿수 오입력(0 하나 누락 등)을 입력 지점에서 짚어 주나
+            신탁보수만 readback 이 없어 "오천만원정↔오백만원정"을 구별할 수 없던 마지막 금액 입력 갭.
+            StepLoanCalc·PartyCard 와 동일한 단일 출처(parseAmount>0 일 때 amountToHangul)·동일 loan-hangul
+            클래스 재사용(새 CSS 0). feeInvalid(0·음수·비숫자)와는 parseAmount 부호로 상호배타 — 무효면
+            미노출. 빌더·조문·게이트 무접촉(표시/접근성만). */}
+        {parseAmount(c.trustFee) > 0 && (
+          <div className="loan-hangul" role="status" aria-live="polite">{amountToHangul(c.trustFee)}</div>
+        )}
         {feeInvalid && (
           <div id="basic-trustFee-err" className="field-hint" role="alert" style={{ color: "var(--c-danger)" }}>
             유효하지 않은 신탁보수입니다 — 0보다 큰 숫자만 입력할 수 있습니다 (이 값으로는 서류를 생성할 수 없습니다).
