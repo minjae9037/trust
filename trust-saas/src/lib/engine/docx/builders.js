@@ -826,6 +826,9 @@ function getAnnex2Data() {
     return {
       rank: priorityRankLabel(i, f.priorities.length),
       name: p.name || "",
+      // 개인 당사자는 이 칸이 생년월일(YYMMDD-…)로 렌더돼야 한다 — 별첨2 나.수익자·다.채무자
+      // (mapBD: type 동반)와 동일하게 type 을 실어 가.우선수익자 표 라벨도 분기시킨다.
+      type: p.type || "법인",
       corpReg: [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-"),
       address: p.address || "",
       securedClaim: p.securedClaim || "",
@@ -933,7 +936,7 @@ function buildAnnex2Children() {
     data.priorities.forEach(p => {
       const fields = [
         ["성 명(상 호)", p.name],
-        ["법인등록번호", p.corpReg],
+        [p.type === "개인" ? "생년월일" : "법인등록번호", p.corpReg],
         ["사업장 소재지", p.address],
         ["피담보채권", p.securedClaim],
         ["채무자", p.claimDebtor],
@@ -2074,7 +2077,7 @@ function buildContractFullHTML() {
     a2.priorities.forEach(p => {
       const fields = [
         ["성 명(상 호)", p.name],
-        ["법인등록번호", p.corpReg],
+        [p.type === "개인" ? "생년월일" : "법인등록번호", p.corpReg],
         ["사업장 소재지", p.address],
         ["피담보채권", p.securedClaim],
         ["채무자", p.claimDebtor],
