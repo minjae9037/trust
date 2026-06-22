@@ -234,6 +234,20 @@ export function StepConditions() {
             </label>
           ))}
         </div>
+        {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 본 섹션 hint 가 명시하듯 "추가담보(2·3차)는
+            …조사분석서 생략 등 차이가 있습니다"가 제품이 단언하는 도메인 사실이다(추정 아님). 그런데
+            조사분석서 포함 여부(appform.researchReport)는 신청서(Doc 01) 단계에서 따로 설정돼, 차수를
+            추가(2·3차)로 두고도 조사분석서가 '포함'으로 남아 신청서 표1 체크박스에 "■ 포함"이 박히는
+            모순이 조용히 성립하던 갭. 대리금융기관(제20조)·담보보수 안분·제21조 인허가 유형 advisory 와
+            동형의 조건-의존 정합으로, 막지 않고(사용자 선택 보존) 입력 지점에서 부드럽게 되짚는다.
+            ★조건은 기존 필드(collateralOrder·appform.researchReport) 파생이라 새 상태/모델/엔진 무접촉이고,
+            researchReport 는 신청서(appform) 산출물 키지만 본 advisory 는 표시일 뿐 builders·게이트 무관. */}
+        {c.collateralOrder === "additional" && form.docContents.appform?.researchReport === "include" && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 10, color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            추가(2·3차) 담보인데 신청서(Doc 01) 조사분석서가 &lsquo;포함&rsquo;으로 설정되어 있습니다 — 추가담보는 통상 선순위 담보 잔존을 전제로 조사분석서를 생략합니다. 새 조사분석서가 필요한지 확인하세요.
+          </div>
+        )}
       </Section>
 
       {/* ── 계약 프로파일 요약 ── */}
