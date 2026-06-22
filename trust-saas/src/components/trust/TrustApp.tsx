@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useContractStore, isFormDirty } from "@/lib/store/contractStore";
 import {
@@ -24,6 +24,15 @@ export function TrustApp() {
   const [view, setView] = useState<View>("company");
   const [company, setCompany] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  // AI 어시스턴트 다이얼로그를 닫으면 포커스를 트리거(chat-fab)로 되돌린다 — fab 은
+  // 드로어 열림 시 언마운트되므로 복귀는 다이얼로그 밖(여기)에서 해야 한다(WCAG
+  // 2.4.3 Focus Order). 다이얼로그 내부의 포커스 트랩·Esc·초기 포커스는 useDialog 담당.
+  const fabRef = useRef<HTMLButtonElement>(null);
+  const chatWasOpen = useRef(false);
+  useEffect(() => {
+    if (chatWasOpen.current && !chatOpen) fabRef.current?.focus();
+    chatWasOpen.current = chatOpen;
+  }, [chatOpen]);
   const store = useContractStore();
   const {
     docTypeId,
@@ -217,7 +226,13 @@ export function TrustApp() {
       {view === "contracts" && <ContractsView onOpen={openContract} />}
 
       {!chatOpen && (
-        <button className="chat-fab" onClick={() => setChatOpen(true)} title="AI 어시스턴트">
+        <button
+          ref={fabRef}
+          type="button"
+          className="chat-fab"
+          onClick={() => setChatOpen(true)}
+          title="AI 어시스턴트"
+        >
           💬 AI 어시스턴트
         </button>
       )}

@@ -10,6 +10,7 @@ import {
   buildChatApiMessages,
 } from "@/lib/chat/formSchema";
 import { isSubmitEnter } from "@/lib/ui/keys";
+import { useDialog } from "@/lib/ui/use-dialog";
 import { friendlyErrorMessage } from "@/lib/ui/error-message";
 import {
   tokenizePII,
@@ -49,6 +50,9 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState("");
   const piiMap = useRef<PiiMap>({});
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 드로어를 다이얼로그로: 마운트 시 입력란으로 포커스 이동(data-autofocus)·Tab
+  // 포커스 트랩·Esc 닫기. 트리거(chat-fab)로의 포커스 복귀는 TrustApp 이 담당.
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
 
   // 주어진 화면 이력으로 /api/chat 을 호출하고 응답을 처리한다(최초 전송·재전송 공용).
   // ★실패해도 입력란·이력을 건드리지 않으므로, 마지막 사용자 메시지가 버블로 보존되어
@@ -147,10 +151,17 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
   const canRetry = !!err && msgs[msgs.length - 1]?.role === "user";
 
   return (
-    <div className="chat-panel">
+    <div
+      className="chat-panel"
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chat-panel-title"
+      tabIndex={-1}
+    >
       <div className="chat-head">
         <div>
-          <strong>AI 어시스턴트</strong>
+          <strong id="chat-panel-title">AI 어시스턴트</strong>
           <div className="field-hint">대화로 계약 조건을 채웁니다 · 민감정보는 토큰화 후 전송</div>
         </div>
         <button
@@ -192,6 +203,7 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
         <textarea
           className="input"
           aria-label="AI 어시스턴트 질문 입력"
+          data-autofocus
           rows={2}
           placeholder={
             isJoint
