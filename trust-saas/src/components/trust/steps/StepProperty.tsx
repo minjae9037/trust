@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
-import { isValidRegNo, isPositiveAmount } from "@/lib/engine/calc";
+import { isValidRegNo, isPositiveAmount, formatAreaReadback } from "@/lib/engine/calc";
 
 export function StepProperty() {
   const { form, addProperty, removeProperty, updateProperty } = useContractStore();
@@ -95,6 +95,14 @@ export function StepProperty() {
                 <div id={`prop-${i}-area-err`} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
                   면적은 0보다 큰 숫자만 입력하세요 (㎡ 단위는 자동 표기 — 이 값으로는 서류를 생성할 수 없습니다).
                 </div>
+              )}
+              {/* 면적 확인용 readback — 면적은 별첨1·신청서·계약서 별지 부동산표에 `area + "㎡"`로
+                  박히는 정량 입력값이라, 금액 한글 readback(자릿수 확인)과 같은 철학으로 입력 지점에서
+                  규모를 눈으로 교차검증하게 한다(천단위 콤마 + 평 환산). ★산출물은 ㎡만 표기하고 평은
+                  입력 확인 표시 전용이다(빌더·조문 무접촉). formatAreaReadback 은 양수일 때만 문구를
+                  돌려주므로 위 무효 안내(0·음수·비숫자)와 상호배타 — loan-hangul 기존 클래스 재사용(새 CSS 0). */}
+              {formatAreaReadback(p.area) && (
+                <div className="loan-hangul" role="status" aria-live="polite">{formatAreaReadback(p.area)}</div>
               )}
             </div>
             <div className="field">

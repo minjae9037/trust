@@ -311,6 +311,40 @@ export function interpretDate(
   return { year, month, day, real: isRealDate(year, month, day) };
 }
 
+/* ---------------- 면적(㎡) 확인용 해석 ---------------- */
+
+/** 1평 = 400/121 ㎡ (척관법 6자×6자 = 36 평방자) — 대한민국 부동산 표준 환산 상수(추정 아님). */
+export const SQM_PER_PYEONG = 400 / 121;
+
+/**
+ * 면적(㎡) 입력의 "확인용 해석" — 신탁부동산 표(별첨1·신청서·계약서 별지)에 `area + "㎡"`로
+ * 그대로 박히는 정량 입력값을, 입력 지점에서 자릿수·규모를 눈으로 검증하게 한다(금액 한글
+ * readback 과 같은 철학). ★산출물은 ㎡ 만 표기하고 평 환산은 **입력 확인 표시 전용**이다
+ * (빌더·조문 무접촉). 양(+)의 숫자가 아니면 null — 빈 값·0·음수·비숫자는 인라인 무효 안내가
+ * 담당하고 이 readback 은 무간섭(상호배타). parseAmount/isPositiveAmount 단일 출처로 콤마·
+ * 공백·소수점을 금액 검증과 동일하게 허용한다.
+ * @returns 양수면 { sqm, pyeong }, 아니면 null.
+ */
+export function interpretArea(
+  raw: string | number | null | undefined,
+): { sqm: number; pyeong: number } | null {
+  if (!isPositiveAmount(raw)) return null;
+  const sqm = parseAmount(raw);
+  return { sqm, pyeong: sqm / SQM_PER_PYEONG };
+}
+
+/**
+ * 면적 확인용 readback 문구 — "1,234.56㎡ · 약 373.4평"(천단위 콤마·평은 소수 첫째 자리
+ * 반올림 근사). 입력이 양(+)의 숫자가 아니면 ""(미표시). 표시 전용·산출물 무접촉.
+ */
+export function formatAreaReadback(raw: string | number | null | undefined): string {
+  const a = interpretArea(raw);
+  if (!a) return "";
+  const sqm = a.sqm.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const pyeong = a.pyeong.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return `${sqm}㎡ · 약 ${pyeong}평`;
+}
+
 /** HTML 이스케이프 (print 빌더에서 사용) */
 export function escHTML(s: string | number | null | undefined): string {
   return String(s == null ? "" : s)
