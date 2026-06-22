@@ -223,10 +223,13 @@ export function dequeueUndo(queue: ContractRow[], id: string): ContractRow[] {
 /**
  * "(사본)" 제목 생성 — 기존 사본 접미사를 한 번 벗겨(중첩 방지) 충돌 시 번호를 붙인다.
  * 예) "계약 A" → "계약 A (사본)", 다시 복제 → "계약 A (사본 2)".
+ * 사본 접미사를 벗긴 뒤의 트림·빈 → "제목 없음" 폴백은 normalizeTitle 단일 출처를 재사용한다
+ * (저장 saveContract·이름변경 renameRow 와 동일 규칙 — 종전 인라인 `.trim() || "제목 없음"`
+ * 중복을 제거해, 정규화 규칙이 바뀌어도 세 경로가 갈리지 않게 한다. 호이스팅으로 정의 앞 호출 안전).
  * (순수 함수 — 회귀 가드에서 직접 단언)
  */
 export function nextCopyTitle(base: string, existingTitles: string[]): string {
-  const root = (base || "").replace(/\s*\(사본(?: \d+)?\)\s*$/, "").trim() || "제목 없음";
+  const root = normalizeTitle((base || "").replace(/\s*\(사본(?: \d+)?\)\s*$/, ""));
   const taken = new Set(existingTitles);
   let cand = `${root} (사본)`;
   for (let n = 2; taken.has(cand); n++) cand = `${root} (사본 ${n})`;
