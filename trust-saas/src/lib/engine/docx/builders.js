@@ -1494,7 +1494,8 @@ function buildAppformDocxChildren() {
     return new TableCell(co);
   };
   const corpRegOf = (p) => [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-");
-  const repTextOf = (p) => p.representativeDirector ? "대표이사 " + p.representativeDirector
+  const repTextOf = (p) => p.type === "개인" ? ""
+                       : p.representativeDirector ? "대표이사 " + p.representativeDirector
                        : p.insideDirector ? "사내이사 " + p.insideDirector : "";
 
   // ============ 메인 표 영역 ============
@@ -1751,7 +1752,8 @@ function buildAppformFullHTML() {
   const isInclude = cn.researchReport === "include";
   const checkMark = isInclude ? "■ 포함&nbsp;&nbsp;&nbsp;&nbsp;□ 생략" : "□ 포함&nbsp;&nbsp;&nbsp;&nbsp;■ 생략";
   const corpRegOf = (p) => [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-");
-  const repTextOf = (p) => p.representativeDirector ? "대표이사 " + p.representativeDirector
+  const repTextOf = (p) => p.type === "개인" ? ""
+                       : p.representativeDirector ? "대표이사 " + p.representativeDirector
                        : p.insideDirector ? "사내이사 " + p.insideDirector : "";
   const hl = (v) => `<span class="hl">${escHTML(v || "")}</span>`;
 
