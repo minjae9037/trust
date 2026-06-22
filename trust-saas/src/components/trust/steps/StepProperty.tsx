@@ -54,12 +54,12 @@ export function StepProperty() {
           >
             <strong style={{ fontSize: 13 }}>부동산 {i + 1}</strong>
             <div style={{ display: "flex", gap: 8 }}>
-              <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer", margin: 0 }}>
+              <label className="btn btn-ghost btn-sm file-upload-btn" style={{ cursor: "pointer", margin: 0 }}>
                 등기부 PDF
                 <input
                   type="file"
                   accept="application/pdf"
-                  style={{ display: "none" }}
+                  className="sr-only"
                   onChange={(e) => e.target.files?.[0] && onPdf(e.target.files[0], i)}
                 />
               </label>

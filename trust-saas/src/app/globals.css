@@ -1585,6 +1585,10 @@ body {
 .btn-ghost { background: var(--c-paper); color: var(--c-ink-soft); border-color: var(--c-line); }
 .btn-ghost:hover:not(:disabled) { border-color: var(--c-brown); color: var(--c-ink); }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
+/* 파일 업로드 라벨(법인등기부/등기부 PDF) — 내부 <input type=file> 가 .sr-only 로
+   키보드 포커스 가능하나 시각상 보이지 않으므로, 포커스가 안에 들어오면(focus-within)
+   보이는 라벨(.btn)에 포커스 링을 표시(WCAG 2.4.7 가시 포커스, btn-stop 등과 동형 톤). */
+.file-upload-btn:focus-within { outline: 2px solid var(--c-brown); outline-offset: 2px; }
 /* 답변 생성 중지(Stop) — 전송 버튼 자리에 진행 중에만 노출(차분한 danger 톤). */
 .btn-stop { background: var(--c-paper); color: var(--c-danger); border-color: var(--c-danger-soft); }
 .btn-stop:hover:not(:disabled) { background: var(--c-danger-soft); border-color: var(--c-danger); }

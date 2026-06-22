@@ -144,12 +144,12 @@ export function PartyCard({
             </div>
           )}
           {isCorp && (
-            <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer", margin: 0 }}>
+            <label className="btn btn-ghost btn-sm file-upload-btn" style={{ cursor: "pointer", margin: 0 }}>
               법인등기부 PDF
               <input
                 type="file"
                 accept="application/pdf"
-                style={{ display: "none" }}
+                className="sr-only"
                 onChange={(e) => e.target.files?.[0] && onCorpPdf(e.target.files[0])}
               />
             </label>
