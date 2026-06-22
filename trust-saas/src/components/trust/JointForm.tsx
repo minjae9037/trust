@@ -67,6 +67,14 @@ export function JointForm() {
   const agD = String(project.agreementDay ?? "").trim();
   const agreementDateInvalid =
     agY !== "" && agM !== "" && agD !== "" && !isRealDate(Number(agY), Number(agM), Number(agD));
+  // 협약일이 실재하는 날짜면 "YYYY년 M월 D일"로 해석을 에코한다(담보신탁 DocStep 자유 텍스트
+  // 날짜 readback 패리티). 협약일은 협약서 제1조·서명란에 박히는 법적 날짜인데, 연·월·일이
+  // 따로따로 자유 텍스트라 "3월 7일 ↔ 7월 3일" 같은 월·일 전치는 둘 다 달력상 실재하는 날짜라
+  // agreementDateInvalid(실재하지 않는 날짜) 검사로는 잡히지 않는다. 해석한 날짜를 그대로 되읽어
+  // 주면 사용자가 입력 지점에서 전치를 확인할 수 있다(비차단·표시 경계, 게이트 판정 무접촉).
+  // agreementDateInvalid 와 상호배타(실재=readback / 비실재=invalid 안내)·게이트와 동일 isRealDate.
+  const agreementDateReal =
+    agY !== "" && agM !== "" && agD !== "" && isRealDate(Number(agY), Number(agM), Number(agD));
 
   // ── 생성 신선도 (담보신탁 DocStep 과 동형) — 값 기반 입력 스냅샷(참조 동일성
   //    대신 직렬화 비교, store dirty 추적과 동일 패턴). 생성 후 입력이 바뀌면
@@ -254,6 +262,13 @@ export function JointForm() {
             <div className="field full">
               <div id="joint-agreement-err" className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
                 실재하지 않는 협약일입니다 (연·월·일 확인)
+              </div>
+            </div>
+          )}
+          {agreementDateReal && (
+            <div className="field full">
+              <div className="loan-hangul" role="status" aria-live="polite">
+                {Number(agY)}년 {Number(agM)}월 {Number(agD)}일
               </div>
             </div>
           )}
