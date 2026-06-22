@@ -331,6 +331,26 @@ export function DocStep({ docId }: { docId: DocId }) {
               typeof form.common.day === "number" &&
               Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day) >
                 Date.UTC(form.common.year, form.common.month - 1, form.common.day);
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — Doc 05(이사회 의사록·boardMin)의
+            // 회의 일자(meetingDate)가 계약 체결일(common.year/month/day)보다 미래(뒤)인지
+            // 순수 날짜 비교로 되짚는다. 담보신탁에서 위탁자(법인) 이사회의 담보신탁 결의는
+            // 통상 계약 체결을 위한 선행 절차(결의 → 체결)라 회의 일자는 체결일 당일 또는
+            // 그 이전인데, 회의 일자(Doc 05 자유 텍스트)와 체결일(STEP 05 드롭다운)이 서로
+            // 다른 화면에서 입력돼 회의 일자가 체결일보다 뒤인 선후 역전(한쪽 날짜의 연도·
+            // 월·일 오기 가능성)이 조용히 성립할 수 있었다. 평가기준일 vs 체결일 advisory
+            // (d2a6f23)와 동형의 "차단 아닌 되짚음"으로, 이미 해석된 dateInfo(interpretDate
+            // 단일 출처)와 체결일을 Date.UTC 자정 기준(TZ·시각 성분 무영향)으로 비교할 뿐
+            // 새 상태/모델/엔진/조문 무접촉이다. 날짜꼴 아님·비실재 날짜·체결일 일(日) 미정·
+            // 체결일과 같거나 이전이면 미표출(나그·오탐 방지). 드물게 추인 결의 등 정당한
+            // 경우의 사용자 선택을 보존(막지 않음).
+            const boardMeetingAfterContract =
+              docId === "boardMin" &&
+              f.key === "meetingDate" &&
+              dateInfo !== null &&
+              dateInfo.real &&
+              typeof form.common.day === "number" &&
+              Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day) >
+                Date.UTC(form.common.year, form.common.month - 1, form.common.day);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -386,6 +406,18 @@ export function DocStep({ docId }: { docId: DocId }) {
                   <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
                     <span aria-hidden="true">⚠ </span>
                     평가기준일({dateInfo!.year}년 {dateInfo!.month}월 {dateInfo!.day}일)이 계약 체결일({form.common.year}년 {form.common.month}월 {form.common.day}일)보다 뒤입니다 — 통상 신탁재산 평가는 계약 체결 이전 또는 당일에 이뤄집니다. 확인하세요.
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 이사회 회의 일자(Doc 05)가 계약
+                    체결일보다 미래(뒤)이면 한쪽 날짜 오기 가능성을 부드럽게 되짚는다(평가기준일
+                    vs 체결일 advisory 와 동형의 "차단 아닌 되짚음" — 결의→체결 선행 통상). dateInfo·
+                    form.common 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite
+                    (동적 출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)
+                    (차단 적색 아님 — 검토 신호). */}
+                {boardMeetingAfterContract && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    이사회 회의 일자({dateInfo!.year}년 {dateInfo!.month}월 {dateInfo!.day}일)가 계약 체결일({form.common.year}년 {form.common.month}월 {form.common.day}일)보다 뒤입니다 — 통상 위탁자 이사회의 담보신탁 결의는 계약 체결 이전 또는 당일에 이뤄집니다. 확인하세요.
                   </div>
                 )}
                 {pctInfo && pctInfo.inRange && (
