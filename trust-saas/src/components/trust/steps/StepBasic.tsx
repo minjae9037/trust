@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul, weekdayKo } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
@@ -45,6 +45,14 @@ export function StepBasic() {
   const setYear = (y: number) => updateCommon({ year: y, ...clampDay(y, c.month) });
   const setMonth = (mo: number) => updateCommon({ month: mo, ...clampDay(c.year, mo) });
 
+  // 체결일 요일 readback — 계약 체결일자(년·월·일)는 daysInMonth 클램프로 실재하지 않는 날짜를
+  // 애초에 못 만들지만(월·일 전치 무관), 5종 서류 전체에 박히는 핵심 법적 날짜이고 평가기준일·
+  // 이사회 회의일자·협약일(DocStep·JointForm) 처럼 **주말(토·일) 체결은 신탁 실무에서 점검이
+  // 필요한 신호**다. 일(日)이 선택됐을 때만 한글 요일을 함께 되읽어 입력 지점에서 눈으로 교차검증
+  // 하게 한다(자유텍스트 날짜 요일 readback 의 체결일 드롭다운 동선 — 표시 전용·빌더/조문/게이트
+  // 무접촉, weekdayKo 단일 출처·loan-hangul 기존 클래스 재사용). 일이 "미정"이면 미표시.
+  const contractWeekday = typeof c.day === "number" ? weekdayKo(c.year, c.month, c.day) : "";
+
   return (
     <div className="field-grid">
       <div className="field full">
@@ -81,6 +89,11 @@ export function StepBasic() {
           </select>
           <span>일</span>
         </div>
+        {contractWeekday && (
+          <div className="loan-hangul" role="status" aria-live="polite">
+            {c.year}년 {c.month}월 {c.day}일 ({contractWeekday})
+          </div>
+        )}
       </div>
 
       <div className="field">
