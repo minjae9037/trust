@@ -311,6 +311,26 @@ export function DocStep({ docId }: { docId: DocId }) {
               isPositiveAmount(val as string) &&
               isPositiveAmount(crossPrice) &&
               parseAmount(val as string) !== parseAmount(crossPrice);
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — Doc 04(신탁재산 원본가액 신고서)의
+            // 평가기준일(valuationDate)이 계약 체결일(common.year/month/day)보다 미래(뒤)인지
+            // 순수 날짜 비교로 되짚는다. 담보신탁에서 신탁재산 평가(감정평가 등)는 통상 계약
+            // 체결을 위한 선행 절차라 평가기준일은 체결일 당일 또는 그 이전인데, 평가기준일과
+            // 체결일은 서로 다른 화면(Doc 04 자유 텍스트 ↔ STEP 05 드롭다운)에서 입력돼 평가
+            // 기준일이 체결일보다 뒤인 선후 역전이 조용히 성립할 수 있었다(한쪽 날짜의 연도·
+            // 월·일 오기 가능성). StepBasic 신탁기간 시작 vs 체결일 advisory(2eddf65)와 동형의
+            // "차단 아닌 되짚음"으로, 이미 해석된 dateInfo(interpretDate 단일 출처)와 체결일을
+            // Date.UTC 자정 기준(TZ·시각 성분 무영향)으로 비교할 뿐 새 상태/모델/엔진/조문
+            // 무접촉이다. 날짜꼴 아님·비실재 날짜(dateInfo 없음/real=false)·체결일 일(日) 미정
+            // 이면 미표출(나그·오탐 방지). 드물게 계약 후 재평가 등 정당한 경우의 사용자 선택을
+            // 보존(막지 않음). 체결일과 같거나 이전이면 미표출.
+            const valuationAfterContract =
+              docId === "valReport" &&
+              f.key === "valuationDate" &&
+              dateInfo !== null &&
+              dateInfo.real &&
+              typeof form.common.day === "number" &&
+              Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day) >
+                Date.UTC(form.common.year, form.common.month - 1, form.common.day);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -355,6 +375,17 @@ export function DocStep({ docId }: { docId: DocId }) {
                 {dateInfo && !dateInfo.real && (
                   <div className="field-hint" role="status" style={{ color: "var(--c-danger)" }}>
                     달력에 없는 날짜일 수 있습니다 — 연·월·일을 확인해 주세요.
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 평가기준일(Doc 04)이 계약 체결일보다
+                    미래(뒤)이면 한쪽 날짜 오기 가능성을 부드럽게 되짚는다(StepBasic 신탁기간 시작 vs
+                    체결일 advisory 와 동형의 "차단 아닌 되짚음"). dateInfo·form.common 파생이라 새 상태/
+                    모델/엔진/조문 무접촉. role=status·aria-live=polite(동적 출현 SR 고지) + 선두 ⚠
+                    aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색 아님 — 검토 신호). */}
+                {valuationAfterContract && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    평가기준일({dateInfo!.year}년 {dateInfo!.month}월 {dateInfo!.day}일)이 계약 체결일({form.common.year}년 {form.common.month}월 {form.common.day}일)보다 뒤입니다 — 통상 신탁재산 평가는 계약 체결 이전 또는 당일에 이뤄집니다. 확인하세요.
                   </div>
                 )}
                 {pctInfo && pctInfo.inRange && (
