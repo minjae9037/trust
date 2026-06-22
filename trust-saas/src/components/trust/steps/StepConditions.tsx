@@ -192,6 +192,18 @@ export function StepConditions() {
             ))}
           </div>
         </div>
+        {/* 입력 지점 교차검증(표시 전용·게이트 아님·프로파일 기록 항목) — 담보보수 납부 주체를
+            "우선수익자(안분)"로 둔 경우, '안분'은 통상 복수 우선수익자 사이에서 보수를 비율대로
+            나눌 때 의미를 가지는데, STEP 02 우선수익자가 단독(!isMulti)이면 안분 대상이 없다.
+            대리금융기관(제20조) 단독 advisory 와 동형의 구조-의존 정합 되짚음 — 막지 않고(사용자
+            선택 보존) 입력 지점에서 부드럽게 확인을 권유한다. isMulti 는 priorityCount 파생이라
+            새 상태/모델/엔진 무접촉이고, feePayer 는 프로파일 기록 항목이라 조문·산출물 무관. */}
+        {c.feePayer === "priority" && !isMulti && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 8, color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            단독 우선수익자인데 담보보수 납부 주체가 &lsquo;우선수익자(안분)&rsquo;로 설정되어 있습니다 — &lsquo;안분&rsquo;은 통상 복수 우선수익자 사이에서 보수를 나눌 때 의미를 가집니다. 단독이면 안분 대상이 없으니 설정을 확인하세요.
+          </div>
+        )}
         <label className="inline-check" style={{ marginTop: 10 }}>
           <input type="checkbox" checked={!!c.fundMgmtAccount} onChange={(e) => set({ fundMgmtAccount: e.target.checked })} />
           <span>자금관리계좌(자금집행요청·별첨5) 특약 병행</span>
