@@ -550,7 +550,9 @@ body {
   .wizard-layout.joint-mode .form-panel { width: 100%; max-width: 100%; }
   @media (max-width: 980px) {
     .wizard-layout { grid-template-columns: 1fr; gap: 24px; }
-    .stepper { display: none; }
+    /* .stepper(진행 단계)는 모바일에서 숨기지 않고 가로 스크롤 레일로 전환한다.
+       단, 알약형 오버라이드는 base .stepper-item 정의보다 뒤에 와야 적용되므로
+       규칙 본문은 아래 .stepper-flag 정의 뒤의 별도 @media 블록에 둔다. */
   }
 
   .stepper {
@@ -640,6 +642,57 @@ body {
   .stepper-flag { margin-left: auto; font-size: 11px; line-height: 1; flex-shrink: 0; }
   .stepper-flag.ok { color: var(--c-success); }
   .stepper-flag.warn { color: var(--c-danger); }
+
+  /* 모바일(<980px) 진행 레일 — 세로 사이드바를 숨기는 대신 가로 스크롤 레일로
+     전환해 12단계 전체 위치·단계별 준비도(✓/⚠)·임의 단계 점프를 모바일에서도
+     유지(데스크톱 stepper 패리티). ★base .stepper-item 정의 '뒤'에 둬야 알약형
+     오버라이드가 적용된다(앞에 두면 .stepper-item 기본 버튼 리셋을 가림). */
+  @media (max-width: 980px) {
+    .stepper {
+      position: static;
+      padding: 4px 0 0;
+      border: none;
+      background: none;
+      border-radius: 0;
+      /* ★grid 항목의 기본 min-width:auto 는 내용(레일 전체 폭)만큼 늘어나
+         페이지를 가로로 밀어낸다 → min-width:0 으로 컬럼에 가둬 레일이
+         자체 overflow-x 로 스크롤되게 한다. */
+      min-width: 0;
+    }
+    .stepper-title { display: none; }
+    .stepper-list {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      padding: 2px 2px 8px;
+      -webkit-overflow-scrolling: touch;
+      /* ★grid 안 flex 스크롤 컨테이너의 스크롤 오버플로(레일 전체 폭)가 문서의
+         스크롤 가능 폭으로 누수돼 페이지가 통째로 가로 스크롤되던 Chromium 케이스
+         차단 — paint 컨테인먼트로 오버플로를 레일 안에 가둔다(레일 내부 가로
+         스크롤은 정상 유지). */
+      contain: paint;
+    }
+    .stepper-item {
+      width: auto;
+      flex: 0 0 auto;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--c-line-soft);
+      border-radius: 999px;
+      scroll-snap-align: center;
+    }
+    .stepper-item.active {
+      border-color: var(--c-brown);
+      background: var(--c-bg-soft, rgba(0, 0, 0, 0.04));
+    }
+    /* 라벨은 활성 단계에서만 노출(현재 위치 표시) — 비활성은 번호 배지+준비도
+       마커만 보여 컴팩트하게. 가로 auto 마진(데스크톱 우측 정렬)은 해제. */
+    .stepper-label { display: none; }
+    .stepper-item.active .stepper-label { display: inline; white-space: nowrap; }
+    .stepper-flag { margin-left: 4px; }
+  }
 
   /* ============================================================
      FORM PANEL

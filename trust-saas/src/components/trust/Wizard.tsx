@@ -107,6 +107,19 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
     headingRef.current?.focus();
   }, [step]);
 
+  // ── 모바일(<980px) 진행 레일의 활성 단계를 보이도록 가로 스크롤 ──
+  //    데스크톱 stepper 는 세로 사이드바라 12단계가 항상 보이지만, 모바일에선
+  //    가로 스크롤 레일(globals.css <980px)이라 단계가 바뀌면 활성 항목이 화면
+  //    밖일 수 있다. 활성 항목을 레일 중앙으로 가로 스크롤한다(block:"nearest"
+  //    이라 페이지 세로 스크롤은 가로채지 않음). ★데스크톱(세로 사이드바)엔
+  //    부작용이 없도록 가로 레일 전환 중단점과 동일한 980px 에서만 동작.
+  const activeStepRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 980px)").matches) return;
+    activeStepRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [step]);
+
   // ── 준비된 서류 일괄 생성(.docx) — 필수 입력을 충족한 서류만 한 번에 내려받기.
   //    각 서류 step을 일일이 열어 7번 생성 클릭하던 수고를 제거(랜딩 카피 "입력 한 번으로 일괄 생성"과 일치).
   //    검증 게이트(docReady=validateDoc.ok)를 통과한 서류만 대상 → 누락 서류는 절대 생성하지 않음(정확성 보존).
@@ -306,13 +319,15 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
       <div className="wizard-layout">
         <aside className="stepper">
           <div className="stepper-title">진행 단계</div>
-          <div>
+          {/* stepper-list: 데스크톱은 세로 스택, 모바일(<980px)은 가로 스크롤 레일(globals.css) */}
+          <div className="stepper-list">
             {STEPS.map((s) => {
               const ready = s.docId ? docReady[s.idx] : undefined;
               return (
                 <button
                   key={s.idx}
                   type="button"
+                  ref={s.idx === step ? activeStepRef : undefined}
                   className={"stepper-item" + (s.idx === step ? " active" : "")}
                   onClick={() => goStep(s.idx)}
                   aria-current={s.idx === step ? "step" : undefined}
@@ -325,7 +340,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
                   }
                 >
                   <span className="stepper-num">{s.idx}</span>
-                  <span>{s.title}</span>
+                  <span className="stepper-label">{s.title}</span>
                   {ready !== undefined && (
                     <>
                       {/* 글리프는 장식(aria-hidden) — 의미는 .sr-only 텍스트로 고지
