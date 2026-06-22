@@ -383,13 +383,17 @@ export function AdvisorChat() {
                           }
                         }}
                       >
-                        {feedbackSent[i] === "up" ? "👍 의견 감사합니다" : "👎 더 개선하겠습니다"}
+                        {feedbackSent[i] === "up" ? (
+                          <><span aria-hidden="true">👍 </span>의견 감사합니다</>
+                        ) : (
+                          <><span aria-hidden="true">👎 </span>더 개선하겠습니다</>
+                        )}
                       </span>
                     ) : (
                       <>
                         <span className="advisor-feedback-label">이 답변이 도움이 됐나요?</span>
-                        <button className="fb-btn" onClick={() => sendFeedback(i, "up")} title="도움됨">👍</button>
-                        <button className="fb-btn" onClick={() => sendFeedback(i, "down")} title="개선 필요">👎</button>
+                        <button className="fb-btn" onClick={() => sendFeedback(i, "up")} title="도움됨" aria-label="도움됨"><span aria-hidden="true">👍</span></button>
+                        <button className="fb-btn" onClick={() => sendFeedback(i, "down")} title="개선 필요" aria-label="개선 필요"><span aria-hidden="true">👎</span></button>
                       </>
                     )}
                     <button
