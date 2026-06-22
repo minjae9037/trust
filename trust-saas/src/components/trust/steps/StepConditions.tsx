@@ -163,6 +163,19 @@ export function StepConditions() {
             </div>
           </div>
         )}
+        {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 제21조 인허가 조항을 포함(includeArt21!==false)했다는 것은
+            이 섹션 hint 가 명시하듯 "인허가 진행 사업"을 의미하는데, 그 안에서 인허가 유형(licenseType)을
+            "none"(=「해당 없음(순수 담보)」)으로 두면 "인허가 진행 사업인데 인허가가 해당 없음"이라는 구조적
+            모순이 된다(섹션 hint "인허가 진행 사업이면 포함, 순수 단순담보이면 제외합니다." 와 어긋남). 대리금융기관·
+            담보보수 단독 advisory 와 동형의 조건-의존 정합 갭 — 막지 않고(사용자 선택 보존) 입력 지점에서
+            부드럽게 되짚는다. ★이미 includeArt21!==false 블록 안이라 추가 조건은 licenseType==="none" 뿐이고,
+            기존 필드(includeArt21·licenseType) 파생이라 새 상태/모델/엔진 무접촉. */}
+        {c.includeArt21 !== false && c.licenseType === "none" && (
+          <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 4, color: "var(--c-brown)", fontWeight: 600 }}>
+            <span aria-hidden="true">⚠ </span>
+            제21조 인허가 조항을 포함했는데 인허가 유형이 &lsquo;해당 없음(순수 담보)&rsquo;으로 설정되어 있습니다 — 제21조는 통상 인허가 진행 사업일 때 둡니다. 인허가 진행 사업이면 유형을 선택하고, 순수 단순담보면 위 제21조 포함을 해제하는 것을 검토하세요.
+          </div>
+        )}
       </Section>
 
       {/* ── 6. 처분(공매) 방식 ── */}
