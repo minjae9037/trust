@@ -129,8 +129,11 @@ console.log("\n[F] 배선 — JointForm 사용·차단 분기 + 파사드 노출
     "JointForm: previewJointHTML import");
   ok(/import \{ openDocPreviewWindow \} from "@\/lib\/ui\/preview-window"/.test(joint),
     "JointForm: openDocPreviewWindow import");
-  ok(/openDocPreviewWindow\(previewJointHTML\(jointForm\),/.test(joint),
-    "JointForm: previewJointHTML(jointForm) 로 호출");
+  // 라이브 previewJointHTML(jointForm) 로 생성하되 throw 시 디바운스 previewHtml 로
+  // 폴백(담보신탁 DocStep onExpandPreview 패리티) → openDocPreviewWindow 엔 폴백
+  // 가능한 live 를 전달한다(상세 방어 검증은 verify-preview-sandbox [E]).
+  ok(/live\s*=\s*previewJointHTML\(jointForm\)/.test(joint) && /openDocPreviewWindow\(\s*live\s*,/.test(joint),
+    "JointForm: previewJointHTML(jointForm)→live 로 호출(throw 폴백 방어)");
   ok(/window\.open\(""\s*,\s*"_blank"/.test(joint),
     "JointForm: window.open(_blank) 주입");
   ok(/r === "blocked"[\s\S]*?팝업 차단/.test(joint),

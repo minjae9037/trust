@@ -374,9 +374,18 @@ export function DocStep({ docId }: { docId: DocId }) {
           </div>
         )}
         {previewHtml ? (
+          // 읽기 전용 미리보기는 정적 HTML+CSS만 렌더한다(스크립트 불필요) → 완전
+          // 격리 sandbox(빈 값=allow-* 전무)로 ① 스크립트 실행 불능 ② 부모 origin
+          // 차단(opaque origin)을 강제한다. 빌더 출력은 이미 escHTML/escAttr 로
+          // 이스케이프되고 stripAutoPrint 로 <script> 가 제거되지만, 이 미리보기는
+          // 입력한 PII(주민번호·사업자번호 등)가 박힌 법적 서류라 그 두 방어가
+          // 회귀해도(이벤트 핸들러 주입 등) 코드가 실행되거나 localStorage(저장 계약)에
+          // 닿지 못하도록 방어심층화한다. 정적 렌더라 allow-scripts/allow-same-origin
+          // 불요 — 표·조문·인라인 스타일은 sandbox 와 무관하게 그대로 표시된다.
           <iframe
             className="preview-frame"
             srcDoc={previewHtml}
+            sandbox=""
             title={`${meta?.name ?? "서류"} 미리보기`}
           />
         ) : (

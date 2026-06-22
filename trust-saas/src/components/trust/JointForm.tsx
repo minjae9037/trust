@@ -124,8 +124,16 @@ export function JointForm() {
   // 조문 무접촉). 팝업 차단 시 PDF 생성과 동일하게 성공으로 오인하지 않고 안내만.
   function onExpandPreview() {
     // 새 창은 항상 최신(라이브) jointForm 으로 — 디바운스 대기 중에도 정독은
-    // 즉시 최신을 보여 준다. 차단 시 PDF 생성과 동일하게 성공 오인 없이 안내만.
-    const r = openDocPreviewWindow(previewJointHTML(jointForm), () =>
+    // 즉시 최신을 보여 준다. 라이브 생성이 드물게 throw 하면 디바운스 previewHtml 로
+    // 폴백해 빈 창/미처리 예외를 막는다(담보신탁 DocStep onExpandPreview 와 동일 방어).
+    // 차단 시 PDF 생성과 동일하게 성공 오인 없이 안내만.
+    let live: string;
+    try {
+      live = previewJointHTML(jointForm);
+    } catch {
+      live = previewHtml;
+    }
+    const r = openDocPreviewWindow(live, () =>
       window.open("", "_blank", "width=980,height=1100"),
     );
     setPreviewNote(
@@ -329,9 +337,16 @@ export function JointForm() {
             </div>
           )}
           {previewHtml ? (
+            // 읽기 전용 미리보기는 정적 HTML+CSS만 렌더한다(스크립트 불필요) → 완전
+            // 격리 sandbox(빈 값=allow-* 전무)로 스크립트 실행 불능 + 부모 origin
+            // 차단(opaque origin). 빌더 escHTML/escAttr·stripAutoPrint 가 1차 방어지만,
+            // PII 가 박힌 법적 서류 미리보기라 그 방어 회귀 시에도 코드 실행·localStorage
+            // 접근을 막는 방어심층화(담보신탁 DocStep preview-frame 과 동형). 정적 렌더라
+            // allow-scripts/allow-same-origin 불요 — 표·조문·스타일은 그대로 표시.
             <iframe
               className="preview-frame"
               srcDoc={previewHtml}
+              sandbox=""
               title="공동사업표준협약서 미리보기"
             />
           ) : (
