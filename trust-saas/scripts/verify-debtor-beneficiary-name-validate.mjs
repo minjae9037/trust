@@ -89,9 +89,10 @@ console.log("\n[C] 동일 해제 + 이름 입력 → 통과");
 {
   const form = readyForm();
   form.debtorSameAsTrustor = false;
-  form.debtors = [{ ...form.debtors[0], name: "병차주 주식회사" }];
+  // 주소도 함께 입력(별도 입력 당사자는 이름+주소 모두 필수 — 주소 게이트와 동기).
+  form.debtors = [{ ...form.debtors[0], name: "병차주 주식회사", address: "서울특별시 강남구 테헤란로 2" }];
   form.beneficiarySameAsTrustor = false;
-  form.beneficiaries = [{ ...form.beneficiaries[0], name: "정수익 주식회사" }];
+  form.beneficiaries = [{ ...form.beneficiaries[0], name: "정수익 주식회사", address: "서울특별시 서초구 서초대로 3" }];
   ok(!has(form, "contract", DEBTOR_LABEL), "채무자 이름 입력 → 누락 아님");
   ok(!has(form, "contract", BENEF_LABEL), "수익자 이름 입력 → 누락 아님");
   ok(validateDoc(form, "contract").ok, "분리 + 이름 입력 + 공통 충족 → contract 생성 가능");

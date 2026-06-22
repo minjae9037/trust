@@ -56,6 +56,25 @@ function commonMissing(form: ContractForm): Missing[] {
   if (!form.beneficiarySameAsTrustor && !form.beneficiaries.some((p) => hasText(p.name))) {
     m.push(miss("수익자 (성명/상호)", 1));
   }
+  // 채무자·수익자 (별도 입력 시) — 주소 (STEP 01)
+  // 이름과 동일하게, 별도 입력(sameAsTrustor=false)이면 그 주소가 별첨2(나.수익자·다.채무자 표
+  // valCell(address))·관계사 표(partyGroup→partyTable kvRow "주소")에 그대로 박힌다(builders.js).
+  // 종전 게이트는 이름만 검사하고 주소는 분리 입력 시에도 검사하지 않아, "동일 해제 + 이름은 입력
+  // 했으나 주소 미입력"이면 별첨2/관계사 표에 빈 주소칸이 박힌 계약서가 생성됐다(직전에 닫은 빈
+  // 성명칸과 동형 결함). 이름 검사와 대칭으로 닫는다(빈칸 박힌 법적 서류 차단 — inbox C2).
+  // ⚠️ sameAsTrustor=true(기본)일 땐 검사하지 않는다 — 위탁자 주소로 충분(무회귀, 이름·biz·corp·
+  // birth 검사가 모두 `!sameAsTrustor` 일 때만 도는 것과 동일 정책). "최소 1인 주소" 기준도 이름과
+  // 동일(some) — 분리를 선언했으면 주소 있는 당사자가 최소 1인 필요. ⚠️ 위탁자·우선수익자 주소는
+  // 본 게이트 범위 밖이다 — 그 둘은 기본(동일 모드 무관) 항상-입력 경로라 빈 주소 게이트 추가 시
+  // 기존 저장 계약을 새로 막을 회귀 위험이 있고, 별도 정책 판단(필수화 범위)을 요한다. 별도 채무자·
+  // 수익자는 사용자가 「위탁자와 다름」을 명시 선언한 opt-in 당사자(기본은 미검사)라, 이름과 함께
+  // 주소도 필수로 보는 것이 정합적이며 기본 경로를 건드리지 않아 회귀가 없다.
+  if (!form.debtorSameAsTrustor && !form.debtors.some((p) => hasText(p.address))) {
+    m.push(miss("채무자 (주소)", 1));
+  }
+  if (!form.beneficiarySameAsTrustor && !form.beneficiaries.some((p) => hasText(p.address))) {
+    m.push(miss("수익자 (주소)", 1));
+  }
   // 대출금액(우선수익한도 산정 근거): 합계 > 0 (STEP 02-1)
   if (!form.priorities.some((p) => parseAmount(p.loanAmount) > 0)) {
     m.push(miss("우선수익자 대출금액", 3));
