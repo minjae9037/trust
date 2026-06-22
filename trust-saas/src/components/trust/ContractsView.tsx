@@ -346,12 +346,29 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
 
   const filtersActive = status !== "all" || q.trim().length > 0;
 
+  // 전이 상태(일괄 생성 진행·백업 결과)의 SR 영속 라이브 영역 단일 낭독 출처.
+  // 일괄 생성이 진행/완료 중이면 그 메시지를, 아니면 백업 결과를 — 장식 글리프(✓ 등)는
+  // splitStatusGlyph 로 떼고 본문만 고지한다. 각 위치의 시각 span 은 낭독 책임을 갖지 않아
+  // (role=status 미부착) 중복 낭독이 없고, 아래 영속 영역이 첫 메시지부터 안정 고지한다.
+  const liveStatus = batch?.msg
+    ? splitStatusGlyph(batch.msg).text
+    : backupMsg
+      ? splitStatusGlyph(backupMsg).text
+      : "";
+
   return (
     <main className="page active">
       <div className="page-header">
         <div className="page-eyebrow">내 계약</div>
         <h1 className="page-title">저장된 계약</h1>
         <p className="page-desc">작성 중이거나 완료한 계약을 이어서 편집하거나 서류를 다시 생성할 수 있습니다.</p>
+      </div>
+
+      {/* 전이 상태 SR 영속 라이브 영역 — 일괄 생성 진행(0/N→완료)·백업 결과를 첫 메시지부터 고지.
+          ★항상 렌더(영속) → 라이브 영역이 콘텐츠 변경 '전'에 이미 DOM 에 존재(advisor .advisor-live 선례).
+          시각 표시는 카드 버튼 옆·백업 바의 span 이 담당하고 이 영역은 낭독 전용(중복 낭독 0). */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveStatus}
       </div>
 
       {/* 백업(내보내기)·복원(가져오기) — 로컬 저장 데이터의 유실 방지·기기 이동.
@@ -380,8 +397,9 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
             hidden
             onChange={onImportFile}
           />
+          {/* 시각 표시 전용 — 낭독은 상단 영속 라이브 영역(liveStatus)이 담당(role=status 미부착=중복 낭독 0). */}
           {backupMsg && (
-            <span className="field-hint" role="status" aria-live="polite">
+            <span className="field-hint">
               <StatusGlyphText msg={backupMsg} />
             </span>
           )}
@@ -640,11 +658,10 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                     삭제
                   </button>
                 </div>
+                {/* 시각 표시 전용(카드 옆 진행 표시) — 낭독은 상단 영속 라이브 영역(liveStatus)이 담당. */}
                 {batch?.id === r.id && batch.msg && (
                   <span
                     className="field-hint"
-                    role="status"
-                    aria-live="polite"
                     style={{ textAlign: "right", maxWidth: 320 }}
                   >
                     <StatusGlyphText msg={batch.msg} />

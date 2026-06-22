@@ -111,10 +111,10 @@ console.log("\n[C] ContractsView — StatusGlyphText 헬퍼 + backupMsg·batch.m
   ok(hi >= 0, "StatusGlyphText 헬퍼 컴포넌트 정의 존재");
   ok(/const \{ glyph, text \} = splitStatusGlyph\(msg\)/.test(hseg), "헬퍼가 splitStatusGlyph 사용");
   ok(/\{glyph && <span aria-hidden="true">\{glyph\} <\/span>\}/.test(hseg), "헬퍼가 글리프 aria-hidden span 렌더");
-  // 두 라이브 영역이 헬퍼 경유
-  ok(/role="status" aria-live="polite">\s*<StatusGlyphText msg=\{backupMsg\} \/>/.test(cv),
-    "backupMsg 가 StatusGlyphText 경유");
-  ok(/<StatusGlyphText msg=\{batch\.msg\} \/>/.test(cv), "batch.msg 가 StatusGlyphText 경유");
+  // 두 시각 표시 span 이 헬퍼 경유(낭독은 상단 영속 라이브 영역 liveStatus 가 전담 →
+  //  시각 span 의 role=status/aria-live 는 제거됨, verify-contracts-livestatus 가 별도 단언)
+  ok(/<StatusGlyphText msg=\{backupMsg\} \/>/.test(cv), "backupMsg 가 StatusGlyphText 경유(시각 span)");
+  ok(/<StatusGlyphText msg=\{batch\.msg\} \/>/.test(cv), "batch.msg 가 StatusGlyphText 경유(시각 span)");
   // 삭제 실행취소 🗑 aria-hidden
   ok(/<span aria-hidden="true">🗑 <\/span>\s*<strong>\{u\.title\}<\/strong> 삭제됨/.test(cv),
     "삭제 실행취소 🗑 글리프 aria-hidden + 제목/삭제됨 보존");
