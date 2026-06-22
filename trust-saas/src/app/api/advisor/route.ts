@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { retrieve, formatContext, buildRetrievalQuery } from "@/lib/advisor/retrieve";
-import { buildAdvisorSystem } from "@/lib/advisor/system";
+import { buildAdvisorSystem, groundingStrength } from "@/lib/advisor/system";
 import { loadBackdataChunks } from "@/lib/advisor/backdata";
 import { buildSources } from "@/lib/advisor/sources";
 import { logQuery } from "@/lib/advisor/log";
@@ -141,7 +141,11 @@ export async function POST(req: Request) {
   // 시스템 프롬프트 조립(순수 buildAdvisorSystem) — grounding 있으면 참고자료 블록,
   // 회수 0건이면 범위 주의 지침(OUT_OF_SCOPE_NOTE)을 주입해 코퍼스 밖 질문에 단정적
   // 수치·조항을 지어내지 않게 가드레일을 건다(추정 금지·전문가 확인 권고).
-  const systemBlocks = buildAdvisorSystem(ADVISOR_PERSONA, contextText);
+  // ★회수는 됐으나 최고점수가 약하면(겨우 임계만 넘긴 tangential grounding) 강한 매칭과
+  //   동일한 "근거로 활용" 프레이밍 대신 약한 grounding 주의(WEAK_GROUNDING_NOTE)를 덧대
+  //   LLM 이 빈약한 자료에 과의존하지 않게 한다(strength 는 회수 최고점수로만 결정).
+  const strength = groundingStrength(retrieved[0]?.score ?? 0);
+  const systemBlocks = buildAdvisorSystem(ADVISOR_PERSONA, contextText, strength);
 
   const rs = new ReadableStream<Uint8Array>({
     async start(controller) {
