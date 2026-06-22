@@ -79,7 +79,8 @@ const partyDescAttrs = party.match(/aria-describedby=\{[^}]*\}/g) || [];
 const partyErrKeys = partyDescAttrs.flatMap((a) =>
   [...a.matchAll(/fid\("(\w+Err)"\)/g)].map((m) => m[1]));
 const uniqPartyErrKeys = [...new Set(partyErrKeys)];
-ok(uniqPartyErrKeys.length === 3 && uniqPartyErrKeys.every((k) =>
+// corpErr·birthErr·bizErr + loanErr(대출금액 무효 안내·우선수익자 showLoanFields, StepLoanCalc 패리티)=4
+ok(uniqPartyErrKeys.length === 4 && uniqPartyErrKeys.every((k) =>
     new RegExp(`<div id=\\{fid\\("${k}"\\)\\}`).test(party)),
   `(D) PartyCard describedby 참조 errKey 전부 동명 오류 div id 로 실재=고아 0 (${uniqPartyErrKeys.join(",")})`);
 

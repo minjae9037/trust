@@ -5,7 +5,7 @@ import type { Party, PartyType } from "@/lib/engine/model";
 import type { PartyRole } from "@/lib/store/contractStore";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
-import { isValidBizNo, isValidCorpRegNo, isValidBirthDate, partyIdLabel } from "@/lib/engine/calc";
+import { isValidBizNo, isValidCorpRegNo, isValidBirthDate, partyIdLabel, isPositiveAmount, parseAmount, amountToHangul } from "@/lib/engine/calc";
 
 interface Props {
   role: PartyRole;
@@ -71,6 +71,13 @@ export function PartyCard({
   // isValidBirthDate 단일 출처를 사용하며, 게이트는 부분 입력까지 생성 차단으로 별도 방어한다.
   const birthDigits = String(party.corpRegFront ?? "").replace(/\D/g, "");
   const birthInvalid = party.type === "개인" && birthDigits.length === 6 && !isValidBirthDate(party.corpRegFront, party.corpRegBack);
+
+  // 대출금액(우선수익자 전용·showLoanFields) readback — 이 카드(STEP 02)에서 입력하는 대출금액은
+  // StepLoanCalc(STEP 03) 표와 같은 값인데, 종전엔 STEP 03 에만 한글 금액 readback·무효 안내가 있고
+  // 이 입력 지점엔 없어 두 지점의 피드백이 갈렸다(자릿수 오입력을 STEP 03 가서야 인지). 게이트(validateDoc)와
+  // 동일한 isPositiveAmount 단일 출처로 무효를 즉시 짚고, amountToHangul 로 금액을 확인시킨다(StepLoanCalc 동형·표시 전용).
+  const loanFilled = String(party.loanAmount ?? "").trim().length > 0;
+  const loanInvalid = loanFilled && !isPositiveAmount(party.loanAmount);
 
   // 법인 전용 입력 affordance — 자연인(개인)에겐 존재하지 않는 개념이라 개인일 때 숨긴다.
   //   · 대표이사/사내이사 = 이사회 직위(법인 전용). 사업자등록번호는 개인사업자도 보유하므로 제외(계속 노출).
@@ -282,7 +289,17 @@ export function PartyCard({
               <label className="field-label" htmlFor={fid("loanAmount")}>대출금액 (원)</label>
               <input id={fid("loanAmount")} className="input" type="number" inputMode="numeric" value={party.loanAmount}
                 placeholder="예) 5000000000"
+                aria-invalid={loanInvalid || undefined}
+                aria-describedby={loanInvalid ? fid("loanErr") : undefined}
                 onChange={(e) => set({ loanAmount: e.target.value })} />
+              {parseAmount(party.loanAmount) > 0 && (
+                <div className="loan-hangul" role="status" aria-live="polite">{amountToHangul(party.loanAmount)}</div>
+              )}
+              {loanInvalid && (
+                <div id={fid("loanErr")} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
+                  유효하지 않은 금액입니다 — 이 값으로는 서류를 생성할 수 없습니다.
+                </div>
+              )}
             </div>
             <div className="field">
               <label className="field-label" htmlFor={fid("claimDebtor")}>피담보채권 채무자</label>
