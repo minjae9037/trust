@@ -16,6 +16,22 @@ export function StepLoanCalc() {
   //   "—" 로 억제하는 것과 동형의 정확성 패리티). 게이트는 무접촉(표시 전용).
   const ratioInvalid = !isValidRatio(form.common.priorityRatio);
 
+  // 입력 지점 교차검증(표시 전용·게이트 아님) — 우선수익한도금액 합계가 신청서(Doc 01)에
+  // 입력한 신탁부동산 가격(담보 평가가격)을 초과하는지 순수 산술로 되짚는다. 담보신탁에서
+  // 우선수익한도금액(= 대출금액 × 비율)은 통상 담보가치 범위 안에서 설정되므로, 합계 한도가
+  // 평가가격을 넘으면 담보가치 대비 한도 과다 가능성을 입력 지점에서 확인하도록 부드럽게
+  // 안내한다(막지 않음 — 추가담보·선순위 잔존 등 정당한 경우의 사용자 선택을 보존). 두 값
+  // 모두 사용자 입력의 순수 산술 비교일 뿐 새 상태/모델/엔진/조문 무접촉이고, 가격이 비어
+  // 있거나(미입력) 비율이 무효이면(한도 보류) 표출하지 않는다(나그·오탐 방지). 조건 정합
+  // advisory(StepConditions 4종)와 동형의 "차단 아닌 되짚음" — 게이트(validateDoc)·빌더 무관.
+  const valPrice = form.docContents.appform?.valuationPrice;
+  const totalLimit = totalPriorityLimit(form);
+  const overLimit =
+    !ratioInvalid &&
+    totalLimit > 0 &&
+    isPositiveAmount(valPrice) &&
+    totalLimit > parseAmount(valPrice);
+
   return (
     <div>
       <div
@@ -204,6 +220,18 @@ export function StepLoanCalc() {
           ? "비율이 유효 범위(100~150%)를 벗어나 한도금액 산정이 보류됩니다 — 비율을 고치면 다시 산정됩니다."
           : "산정된 합계는 STEP 04 의 우선수익한도금액에 자동 반영됩니다."}
       </div>
+
+      {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 우선수익한도금액 합계 > 신탁부동산 가격(담보 평가가격)
+          이면 담보가치 대비 한도 과다 가능성을 순수 산술로 부드럽게 되짚는다(StepConditions 조건 정합
+          advisory 4종과 동형의 "차단 아닌 되짚음"). overLimit 은 기존 입력(totalPriorityLimit·appform
+          valuationPrice) 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite(동적 출현
+          SR 고지) + 선두 ⚠ 글리프 aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색 아님). */}
+      {overLimit && (
+        <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 10, color: "var(--c-brown)", fontWeight: 600 }}>
+          <span aria-hidden="true">⚠ </span>
+          우선수익한도금액 합계({totalLimit.toLocaleString()} 원)가 신청서(Doc 01)에 입력한 신탁부동산 가격({parseAmount(valPrice).toLocaleString()} 원)을 초과합니다 — 담보가치 대비 한도가 큰지 확인하세요.
+        </div>
+      )}
     </div>
   );
 }
