@@ -134,7 +134,7 @@ console.log("[D] gap/project 한 단계 병합 — 부분 저장본 무크래시
   ok(!crashed, "부분 저장본 로드 시 크래시 없음");
   ok(st.jointForm.gap.name === "갑상호", "있는 키는 복원");
   ok(st.jointForm.gap.repDir === "" && st.jointForm.project.site === "", "누락 키는 blankJointForm 기본값으로 보전");
-  ok(st.jointForm.project.agreementYear === "2025", "project 기본값(협약 연도) 보전");
+  ok(st.jointForm.project.agreementYear === String(new Date().getFullYear()), "project 기본값(협약 연도=현재 연도) 보전");
   ok(st.jointForm.representative === "developer", "representative 기본값 보전");
   // null form_data 도 무크래시
   let crashed2 = false;

@@ -25,8 +25,16 @@ export function StepBasic() {
   // 억제와 동형 패리티).
   const ratioInvalid = !isValidRatio(c.priorityRatio);
   const limitShowable = !ratioInvalid && isPositiveAmount(c.priorityLimit);
+  // 연도 드롭다운 범위 — 시스템 현재 연도 기준(종전 하드코딩 2020~2030 은 해가 바뀌면
+  // 미래 연도가 목록에서 빠져 기본값/선택값이 옵션에 없게 된다). 현재 연도 -6 ~ +4 로 두면
+  // 2026 기준 종전 범위(2020~2030)와 동일하되 매년 자동 전진한다. ★저장 계약을 다시 열 때
+  // 그 계약의 연도(c.year)가 이 범위 밖이어도(예: 오래된 계약) 항상 선택 가능하도록 범위에 합집합한다.
+  const thisYear = new Date().getFullYear();
+  const curY = typeof c.year === "number" && Number.isFinite(c.year) ? c.year : thisYear;
+  const loY = Math.min(thisYear - 6, curY);
+  const hiY = Math.max(thisYear + 4, curY);
   const years: number[] = [];
-  for (let y = 2020; y <= 2030; y++) years.push(y);
+  for (let y = loY; y <= hiY; y++) years.push(y);
 
   // 일(日) 드롭다운은 선택한 연·월의 유효일만 노출(2월 28/29·소월 30) → 2월 31일 등
   // 실재하지 않는 체결일을 애초에 만들 수 없게 한다(법적 효력 문서의 정확성 보장).

@@ -186,7 +186,10 @@ export function blankContractForm(): ContractForm {
     priorities: [blankParty()],
     properties: [blankProperty()],
     common: {
-      year: 2026,
+      // 계약 체결일 기본 연도 = 시스템 현재 연도. 하드코딩(과거 연도)은 해가 바뀌면
+      // 백데이팅된 법적 서류를 만든다(joint agreementYear "2025" 사례) → 신규 작성 시점의
+      // 현재 연도로 둔다. month/day 는 placeholder(사용자가 드롭다운으로 선택).
+      year: new Date().getFullYear(),
       month: 3,
       day: 1,
       trustFee: "",
@@ -231,7 +234,9 @@ export function blankContractForm(): ContractForm {
 export function blankJointForm(): JointForm {
   return {
     gap: { name: "", repDir: "", address: "", corpRegFront: "", corpRegBack: "", _inputMethod: "manual" },
-    project: { name: "", site: "", scaleUse: "", agreementYear: "2025", agreementMonth: "", agreementDay: "" },
+    // 협약 연도 기본값 = 시스템 현재 연도(자유 텍스트). 종전 하드코딩 "2025"는 2026 기준
+    // 과거 연도로, 신규 협약서가 입력 즉시 백데이팅되던 정확성 결함(담보신탁 year 와 동일 원칙).
+    project: { name: "", site: "", scaleUse: "", agreementYear: String(new Date().getFullYear()), agreementMonth: "", agreementDay: "" },
     representative: "developer",
   };
 }
