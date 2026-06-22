@@ -379,6 +379,90 @@ export function interpretDate(
   return { year, month, day, real, weekday: weekdayKo(year, month, day) };
 }
 
+/* ---------------- 신탁기간(날짜 범위) 확인용 해석 ---------------- */
+
+/**
+ * 신탁기간 자유 텍스트의 "날짜 범위 해석" — 담보신탁계약서 본문 제3조(verbatim 정본)는
+ * 신탁기간을 "…[년][월][일]부터 [년][월][일]까지 로 한다"는 **날짜 범위**로 정의하고,
+ * 그 입력값(common.trustPeriod)은 계약서·신청서 표에 raw 그대로 박힌다. 자유 텍스트라
+ * ① 종료일이 시작일보다 빠른 역전 ② 주말 시작/종료(점검 신호) ③ 월·일 전치(둘 다 실재라
+ * isRealDate 로 안 걸림) ④ 비실재 날짜(2026-02-30)를 입력 지점에서 짚을 수단이 없었다
+ * (금액 한글·면적 평환산·사건 날짜 요일 readback 과 같은 표시 전용·비차단 확인 계열의
+ * 날짜 범위 확장).
+ *
+ * 입력이 **명확한 날짜 범위꼴**(숫자 그룹 정확히 6개·첫·넷째 그룹이 4자리 연도)일 때만
+ * 시작·종료 두 날짜로 해석하고 isRealDate/weekdayKo 단일 출처로 실재·요일을 함께 돌려준다.
+ * 날짜 범위꼴이 아니면 null(무간섭) — 조건부 기간 텍스트("…채권 변제시까지")처럼 한글이
+ * 섞인 free-form 은 해석하지 않는다(interpretDate 와 동일한 보수적 인식 = 추정 형식 강제 금지).
+ *
+ * 인식 조건(오탐 차단): 문자열이 **숫자 + 날짜 구분자(. - / 년 월 일 공백) + 범위 연결어
+ * (부터·까지·~)** 로만 이뤄지고 숫자 그룹이 **정확히 6개**이며 첫·넷째 그룹이 4자리일 때.
+ * 따라서 "2026년 6월 20일부터 2028년 6월 19일까지"·"2026.6.20 ~ 2028.6.19" 는 해석하고,
+ * "담보신탁 등기일로부터 우선수익자 채권 변제시까지" 는 null(무간섭).
+ *
+ * ⚠️ 표시 전용 — 빌더·조문·게이트 무접촉. 기간은 **총 일수**(시작<종료일 때만, UTC 기준
+ * 정확값 = TZ 무영향)만 돌려준다(년·개월 분해는 월경계 클램프로 정의가 갈려 오산 위험 →
+ * 정확성 최우선 원칙상 배제).
+ *
+ * @returns 날짜 범위꼴이면 { start, end, bothReal, endAfterStart, days }, 아니면 null.
+ *   start/end = { year, month, day, real, weekday } (interpretDate 와 동형 단일 출처)
+ *   bothReal  = 두 날짜 모두 실재 달력 날짜
+ *   endAfterStart = 두 날짜 실재이며 종료가 시작보다 뒤(역전·동일 = false)
+ *   days      = endAfterStart 일 때만 총 일수(정수), 아니면 null
+ */
+export function interpretPeriod(
+  raw: string | number | null | undefined,
+): {
+  start: { year: number; month: number; day: number; real: boolean; weekday: string };
+  end: { year: number; month: number; day: number; real: boolean; weekday: string };
+  bothReal: boolean;
+  endAfterStart: boolean;
+  days: number | null;
+} | null {
+  const s = String(raw == null ? "" : raw).trim();
+  if (!s) return null;
+  // 숫자 + 날짜 구분자 + 범위 연결어(부터·까지·~)만 — 한글이 섞인 조건부 기간은 무간섭
+  if (!/^[\d\s./\-년월일부터까지~]+$/.test(s)) return null;
+  const groups = s.match(/\d+/g);
+  if (!groups || groups.length !== 6) return null;
+  if (groups[0].length !== 4 || groups[3].length !== 4) return null; // 첫·넷째 = 4자리 연도만
+  const mk = (a: string, b: string, c: string) => {
+    const year = Number(a);
+    const month = Number(b);
+    const day = Number(c);
+    return { year, month, day, real: isRealDate(year, month, day), weekday: weekdayKo(year, month, day) };
+  };
+  const start = mk(groups[0], groups[1], groups[2]);
+  const end = mk(groups[3], groups[4], groups[5]);
+  const bothReal = start.real && end.real;
+  // 두 날짜 모두 실재할 때만 순서·기간 산정(UTC 자정 기준 = TZ·자정 시각 성분 무영향)
+  const t0 = bothReal ? Date.UTC(start.year, start.month - 1, start.day) : 0;
+  const t1 = bothReal ? Date.UTC(end.year, end.month - 1, end.day) : 0;
+  const endAfterStart = bothReal && t1 > t0;
+  const days = endAfterStart ? Math.round((t1 - t0) / 86400000) : null;
+  return { start, end, bothReal, endAfterStart, days };
+}
+
+/**
+ * 신탁기간 날짜 범위 readback 문구 — 시작·종료 두 날짜를 한글 요일과 함께 되읽고,
+ * 종료가 시작보다 뒤면 총 일수를, 역전/동일이면 점검 안내를, 비실재 날짜면 그 사실을
+ * 덧붙인다. 날짜 범위꼴이 아니면 ""(미표시 = 조건부 기간 텍스트엔 무간섭). 표시 전용·
+ * 산출물 무접촉. 선두 장식 글리프를 쓰지 않아 컨트롤 접근명/낭독 오염 0.
+ * 예: "2026년 6월 20일 (토) → 2028년 6월 19일 (월) · 총 730일".
+ */
+export function formatPeriodReadback(raw: string | number | null | undefined): string {
+  const p = interpretPeriod(raw);
+  if (!p) return "";
+  const one = (d: { year: number; month: number; day: number; real: boolean; weekday: string }) =>
+    `${d.year}년 ${d.month}월 ${d.day}일` + (d.real ? ` (${d.weekday})` : " — 실재하지 않는 날짜");
+  let out = `${one(p.start)} → ${one(p.end)}`;
+  if (p.bothReal) {
+    if (p.endAfterStart) out += ` · 총 ${p.days!.toLocaleString()}일`;
+    else out += " · 종료일이 시작일보다 빠르거나 같습니다(확인 필요)";
+  }
+  return out;
+}
+
 /* ---------------- 면적(㎡) 확인용 해석 ---------------- */
 
 /** 1평 = 400/121 ㎡ (척관법 6자×6자 = 36 평방자) — 대한민국 부동산 표준 환산 상수(추정 아님). */

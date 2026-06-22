@@ -1,7 +1,7 @@
 "use client";
 
 import { useContractStore } from "@/lib/store/contractStore";
-import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul, weekdayKo } from "@/lib/engine/calc";
+import { fmtKRW, daysInMonth, isPositiveAmount, isValidRatio, parseAmount, amountToHangul, weekdayKo, formatPeriodReadback } from "@/lib/engine/calc";
 
 export function StepBasic() {
   const { form, updateCommon } = useContractStore();
@@ -52,6 +52,13 @@ export function StepBasic() {
   // 하게 한다(자유텍스트 날짜 요일 readback 의 체결일 드롭다운 동선 — 표시 전용·빌더/조문/게이트
   // 무접촉, weekdayKo 단일 출처·loan-hangul 기존 클래스 재사용). 일이 "미정"이면 미표시.
   const contractWeekday = typeof c.day === "number" ? weekdayKo(c.year, c.month, c.day) : "";
+
+  // 신탁기간 날짜 범위 readback — 본문 제3조(verbatim)는 신탁기간을 "[년][월][일]부터
+  // [년][월][일]까지"의 날짜 범위로 정의하는데, 이 자유 텍스트엔 종료일 역전·주말 시작/종료·
+  // 비실재 날짜를 짚을 수단이 없었다. 입력이 명확한 날짜 범위꼴일 때만 두 날짜를 요일과 함께
+  // 되읽고 총 일수를 보여 입력 지점에서 교차검증하게 한다(formatPeriodReadback 단일 출처·
+  // 표시 전용·빌더/조문/게이트 무접촉). 조건부 기간 텍스트("…변제시까지")는 "" 라 미표시.
+  const periodReadback = formatPeriodReadback(c.trustPeriod);
 
   return (
     <div className="field-grid">
@@ -147,7 +154,11 @@ export function StepBasic() {
 
       <div className="field full">
         <label className="field-label" htmlFor="basic-trustPeriod">신탁기간 <span className="req">*</span></label>
+        <div className="field-hint">날짜 범위(예: 2026년 6월 20일부터 2028년 6월 19일까지)로 입력하면 기간·요일을 확인해 드립니다. 조건부 기간(…변제시까지)도 입력할 수 있습니다.</div>
         <input id="basic-trustPeriod" className="input" value={c.trustPeriod} onChange={(e) => updateCommon({ trustPeriod: e.target.value })} />
+        {periodReadback && (
+          <div className="loan-hangul" role="status" aria-live="polite">{periodReadback}</div>
+        )}
       </div>
 
       <div className="field full">
