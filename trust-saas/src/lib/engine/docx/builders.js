@@ -1060,7 +1060,7 @@ function renderAnnexPreviewHTML() {
       a2.priorities.map(p => `
         <tr><td rowspan="6" style="${cellTd}background:#f7f2e8;text-align:center;font-weight:700;width:13%;">${p.rank}</td>
             <td style="${keyTd}width:24%;">성 명(상 호)</td><td style="${cellTd}">${p.name || muted("(미입력)")}</td></tr>
-        <tr><td style="${keyTd}">법인등록번호</td><td style="${cellTd}">${p.corpReg || muted("(미입력)")}</td></tr>
+        <tr><td style="${keyTd}">${p.type === "개인" ? "생년월일" : "법인등록번호"}</td><td style="${cellTd}">${p.corpReg || muted("(미입력)")}</td></tr>
         <tr><td style="${keyTd}">사업장 소재지</td><td style="${cellTd}">${p.address || muted("(미입력)")}</td></tr>
         <tr><td style="${keyTd}">피담보채권</td><td style="${cellTd}">${p.securedClaim ? p.securedClaim.replace(/\n/g, "<br>") : muted("(STEP 02 에서 입력)")}</td></tr>
         <tr><td style="${keyTd}">채무자</td><td style="${cellTd}">${p.claimDebtor || muted("(STEP 02 에서 입력)")}</td></tr>
