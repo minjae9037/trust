@@ -25,7 +25,8 @@
 
    핵심 불변식:
      (A) 세 턴이 모두 <article> 요소로 렌더(div 아님)·각 advisor-msg 클래스 유지.
-     (B) 각 article 이 발화자 aria-label(내 질문 / 상담 답변)을 가짐(탐색 이름).
+     (B) 각 article 이 발화자+라운드번호 aria-label(내 질문 N / 상담 답변 N)을
+         가짐(탐색 이름) — N=Math.floor(i/2)+1, 질문·답변 한 쌍이 같은 번호.
      (C) aria-label 이 className '앞' → turnlabels 블록 앵커 보존(무회귀).
      (D) 02:35 .sr-only 발화자 라벨 보존(선형 읽기 라벨과 탐색 article 공존).
      (E) ★과다 낭독 회피 무회귀 — 컨테이너 .advisor-msgs 는 role=log/aria-live
@@ -77,29 +78,29 @@ console.log("\n[A] 세 턴이 <article> 요소로 렌더(div 아님)");
   ok((chat.match(/<\/article>/g) || []).length >= 3, "</article> 닫는 태그 ≥ 3(세 턴)");
 }
 
-console.log("\n[B] 각 article 이 발화자 aria-label(탐색 이름)을 가짐");
+console.log("\n[B] 각 article 이 발화자+라운드번호 aria-label(탐색 이름)을 가짐");
 {
-  ok(/aria-label="내 질문"/.test(userTag), "user article aria-label=\"내 질문\"");
-  ok(/aria-label="상담 답변"/.test(normTag), "정상 답변 article aria-label=\"상담 답변\"");
-  ok(/aria-label="상담 답변"/.test(errTag), "오류 답변 article aria-label=\"상담 답변\"");
+  ok(/aria-label=\{`내 질문 \$\{turn\}`\}/.test(userTag), "user article aria-label={`내 질문 ${turn}`}");
+  ok(/aria-label=\{`상담 답변 \$\{turn\}`\}/.test(normTag), "정상 답변 article aria-label={`상담 답변 ${turn}`}");
+  ok(/aria-label=\{`상담 답변 \$\{turn\}`\}/.test(errTag), "오류 답변 article aria-label={`상담 답변 ${turn}`}");
 }
 
 console.log("\n[C] aria-label 이 className '앞' — turnlabels 블록 앵커 보존(무회귀)");
 {
   // turnlabels 가드가 부분문자열로 격리하는 앵커가 그대로 살아 있는지 직접 확인
-  ok(chat.includes('aria-label="내 질문" className="advisor-msg user"'),
+  ok(chat.includes('aria-label={`내 질문 ${turn}`} className="advisor-msg user"'),
     "user: aria-label → className 순서(앵커 className=\"advisor-msg user\" 보존)");
-  ok(chat.includes('aria-label="상담 답변" className="advisor-msg assistant">'),
+  ok(chat.includes('aria-label={`상담 답변 ${turn}`} className="advisor-msg assistant">'),
     "정상: 앵커 className=\"advisor-msg assistant\"> 보존");
-  ok(chat.includes('aria-label="상담 답변" className="advisor-msg assistant" role="alert"'),
+  ok(chat.includes('aria-label={`상담 답변 ${turn}`} className="advisor-msg assistant" role="alert"'),
     "오류: 앵커 className=\"advisor-msg assistant\" role=\"alert\" 보존");
 }
 
 console.log("\n[D] 02:35 .sr-only 발화자 라벨 보존(선형 읽기 라벨과 공존)");
 {
-  ok(/<span className="sr-only">내 질문\. <\/span>/.test(chat), ".sr-only \"내 질문.\" 라벨 보존");
-  ok((chat.match(/<span className="sr-only">상담 답변\. <\/span>/g) || []).length === 2,
-    ".sr-only \"상담 답변.\" 라벨 2회(정상·오류) 보존");
+  ok(/<span className="sr-only">내 질문 \{turn\}\. <\/span>/.test(chat), ".sr-only \"내 질문 {turn}.\" 라벨 보존");
+  ok((chat.match(/<span className="sr-only">상담 답변 \{turn\}\. <\/span>/g) || []).length === 2,
+    ".sr-only \"상담 답변 {turn}.\" 라벨 2회(정상·오류) 보존");
 }
 
 console.log("\n[E] ★과다 낭독 회피 무회귀 — 컨테이너 role=log/aria-live 미부착");

@@ -316,11 +316,18 @@ export function AdvisorChat() {
       ) : (
         <div className="advisor-msgs" ref={scrollRef} aria-busy={busy}>
           {msgs.map((m, i) => {
+            // 대화 라운드 번호 — msgs 는 user→assistant 교대로 쌓이므로(deliver/ask 가
+            // 항상 사용자 발화 뒤 답변 자리표시자를 붙임) 짝 인덱스로 라운드를 센다
+            // (질문과 그 답변이 같은 번호). 긴 상담 이력을 스크린리더로 탐색할 때
+            // 라벨·탐색 이름이 전부 똑같은 "내 질문"/"상담 답변"이라 "지금 몇 번째
+            // 턴인지" 위치를 잡을 수 없던 갭을 메운다(WCAG 2.4.6 Headings and Labels —
+            // 라벨이 위치를 설명, 시각 표시 무변경·sr-only/aria-label 경계만).
+            const turn = Math.floor(i / 2) + 1;
             if (m.role !== "assistant") {
               return (
-                <article key={i} aria-label="내 질문" className="advisor-msg user">
+                <article key={i} aria-label={`내 질문 ${turn}`} className="advisor-msg user">
                   {/* 턴 <article>=답변 단위 SR 탐색. 상세: verify-advisor-turn-landmarks. */}
-                  <span className="sr-only">내 질문. </span>
+                  <span className="sr-only">내 질문 {turn}. </span>
                   {m.content}
                 </article>
               );
@@ -328,8 +335,8 @@ export function AdvisorChat() {
             if (m.error) {
               // 생성 실패 — 답변이 아니므로 피드백/복사/출처 대신 "다시 시도"만 노출.
               return (
-                <article key={i} aria-label="상담 답변" className="advisor-msg assistant" role="alert">
-                  <span className="sr-only">상담 답변. </span>
+                <article key={i} aria-label={`상담 답변 ${turn}`} className="advisor-msg assistant" role="alert">
+                  <span className="sr-only">상담 답변 {turn}. </span>
                   <span style={{ color: "var(--c-danger)" }}>{m.content}</span>
                   {canRetry && (
                     <button
@@ -346,8 +353,8 @@ export function AdvisorChat() {
             }
             const { body, docId } = parseAction(m.content);
             return (
-              <article key={i} aria-label="상담 답변" className="advisor-msg assistant">
-                <span className="sr-only">상담 답변. </span>
+              <article key={i} aria-label={`상담 답변 ${turn}`} className="advisor-msg assistant">
+                <span className="sr-only">상담 답변 {turn}. </span>
                 <div
                   className="md"
                   ref={(el) => {

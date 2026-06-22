@@ -119,7 +119,7 @@ console.log("\n[D] ★아웃라인 오염 차단 — 태그 기반 .md h1/.md h2
 console.log("\n[E] 무회귀 — remarkGfm·발화자 라벨·md 컨테이너 보존");
 {
   ok(/remarkPlugins=\{\[remarkGfm\]\}/.test(chat), "remarkGfm 보존");
-  ok(/className="sr-only">상담 답변\./.test(chat), "발화자 .sr-only '상담 답변.' 라벨 보존(turnlabels 무회귀)");
+  ok(/className="sr-only">상담 답변 \{turn\}\./.test(chat), "발화자 .sr-only '상담 답변 {turn}.' 라벨 보존(turnlabels 무회귀)");
   ok(/className="md"/.test(chat), ".md 렌더 컨테이너 보존");
   ok(/parseAction\(m\.content\)/.test(chat), "parseAction(액션 마커) 보존");
 }
