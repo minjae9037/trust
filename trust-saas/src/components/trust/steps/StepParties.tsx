@@ -1,7 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { priorityRankLabel, trustorRankLabel } from "@/lib/engine/calc";
+import { priorityRankLabel, samePartyReason, trustorRankLabel } from "@/lib/engine/calc";
 import { useFocusAfterRemove } from "@/lib/ui/use-focus-after-remove";
 import { PartyCard } from "./PartyCard";
 
@@ -121,21 +122,47 @@ export function StepPriority() {
         최선순위 우선수익자의 의사가 의사결정을 좌우하고(본문 제3조), 환가·정산도 이 순서를 따릅니다(제22조).
         ▲▼ 로 순서를 바꿔 선·후순위를 조정하세요.
       </p>
-      {form.priorities.map((p, i) => (
-        <PartyCard
-          key={i}
-          role="priorities"
-          idx={i}
-          party={p}
-          label="우선수익자"
-          showLoanFields
-          removable={form.priorities.length > 1}
-          orderable
-          count={form.priorities.length}
-          rankNote={i === 0 ? `${priorityRankLabel(i)} · 최선순위` : priorityRankLabel(i)}
-          afterRemove={prioFocus.markRemoved}
-        />
-      ))}
+      {form.priorities.map((p, i) => {
+        // 입력 지점 구조 정합 교차검증(표시 전용·게이트 아님) — 담보신탁에서 위탁자(담보제공자)와
+        // 우선수익자(채권자)는 구조적으로 반대편 당사자라 동일 주체일 수 없는데, 두 목록이 서로 다른
+        // 단계(STEP 02 관계사 vs 02-1 우선수익자)에서 입력돼 같은 회사를 양쪽에 잘못 넣어도 짚을 신호가
+        // 없었다. 이 우선수익자가 어느 위탁자와 같은 식별자(사업자번호·법인등록번호, 없으면 이름)를
+        // 가지면 부드럽게 되짚는다(StepLoanCalc 한도합계 vs 평가가격·StepBasic 보수율 advisory 와 동형의
+        // "막지 않는 되짚음"). samePartyReason 은 이미 입력된 두 당사자의 순수 비교일 뿐 새 상태/모델/
+        // 엔진/조문 무접촉이고, 식별자가 양쪽 다 완비돼 다르면(다른 주체 확정) 이름이 같아도 미표출한다.
+        const trustorMatch = form.trustors
+          .map((t) => ({ t, reason: samePartyReason(p, t) }))
+          .find((m) => m.reason !== null);
+        return (
+          <Fragment key={i}>
+            <PartyCard
+              role="priorities"
+              idx={i}
+              party={p}
+              label="우선수익자"
+              showLoanFields
+              removable={form.priorities.length > 1}
+              orderable
+              count={form.priorities.length}
+              rankNote={i === 0 ? `${priorityRankLabel(i)} · 최선순위` : priorityRankLabel(i)}
+              afterRemove={prioFocus.markRemoved}
+            />
+            {trustorMatch && (
+              <div
+                className="field-hint"
+                role="status"
+                aria-live="polite"
+                style={{ marginTop: -8, marginBottom: 14, color: "var(--c-brown)", fontWeight: 600 }}
+              >
+                <span aria-hidden="true">⚠ </span>
+                이 우선수익자가 위탁자
+                {trustorMatch.t.name ? `(${trustorMatch.t.name})` : ""}와 같은 {trustorMatch.reason}입니다 —
+                담보신탁에서 위탁자(담보제공자)와 우선수익자(채권자)는 통상 다른 당사자입니다. 확인하세요.
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
       <button ref={prioFocus.addBtnRef} type="button" className="btn btn-ghost btn-sm party-add-btn" onClick={() => addParty("priorities")}>
         + 우선수익자 추가
       </button>

@@ -225,6 +225,41 @@ export function trustorRankLabel(idx: number): string {
   return idx === 0 ? "대표위탁자" : "";
 }
 
+/**
+ * 두 당사자가 같은 법적 주체로 보이는지 — 입력 지점 구조 정합 교차검증(표시 전용)용 순수 비교.
+ * 담보신탁에서 위탁자(담보제공자)와 우선수익자(채권자)는 구조적으로 반대편 당사자라 동일 주체일 수
+ * 없는데(같은 회사를 양쪽에 잘못 넣는 오입력 가능), 두 목록이 서로 다른 단계에서 입력돼 그 충돌을
+ * 짚을 신호가 없었다. 이 헬퍼는 두 Party 의 **이미 입력된 식별자**만 비교한다(새 상태·모델·엔진·조문
+ * 무접촉, 게이트 아님). 오탐(false positive)을 막기 위해 **공통으로 사용할 수 있는 가장 강한 식별자
+ * 한 가지**만 본다:
+ *   ① 두 당사자 모두 사업자번호(3+2+5)가 정확히 10자리로 채워졌으면 → 그 번호의 일치/불일치로 단정
+ *      (서로 다르면 다른 주체로 확정 → 이름이 우연히 같아도 일치 아님).
+ *   ② 아니고 두 당사자 모두 법인등록번호(6+7)가 정확히 13자리로 채워졌으면 → 그 번호로 단정.
+ *   ③ 어느 식별자도 양쪽 모두 완비되지 않았으면 → 이름(trim·비어있지 않음) 일치로만 판단(약한 신호).
+ * 반환: 일치 근거("사업자번호"|"법인등록번호"|"이름") 또는 null. 식별번호 형식 유효성(체크섬)은
+ * 묻지 않는다 — 동일성(같은 자리 입력) 비교일 뿐이고, 형식 유효성은 각 입력의 인라인 검증이 담당한다.
+ */
+function bizDigits(p: Party): string {
+  const d = (String(p.bizP1 ?? "") + String(p.bizP2 ?? "") + String(p.bizP3 ?? "")).replace(/\D/g, "");
+  return d.length === 10 ? d : "";
+}
+function corpRegDigits(p: Party): string {
+  const d = (String(p.corpRegFront ?? "") + String(p.corpRegBack ?? "")).replace(/\D/g, "");
+  return d.length === 13 ? d : "";
+}
+export function samePartyReason(a: Party, b: Party): "사업자번호" | "법인등록번호" | "이름" | null {
+  const aBiz = bizDigits(a);
+  const bBiz = bizDigits(b);
+  if (aBiz && bBiz) return aBiz === bBiz ? "사업자번호" : null;
+  const aCorp = corpRegDigits(a);
+  const bCorp = corpRegDigits(b);
+  if (aCorp && bCorp) return aCorp === bCorp ? "법인등록번호" : null;
+  const aName = String(a.name ?? "").trim();
+  const bName = String(b.name ?? "").trim();
+  if (aName && bName && aName === bName) return "이름";
+  return null;
+}
+
 /** 우선수익자 1인의 한도금액 */
 export function priorityLimitFor(p: Party, ratio: number): number {
   const loan = parseAmount(p.loanAmount);
