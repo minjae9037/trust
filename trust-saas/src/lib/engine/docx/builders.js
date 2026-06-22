@@ -2249,7 +2249,7 @@ function buildGenericDocFullHTML(docId, meta) {
     const corpReg = [t.corpRegFront, t.corpRegBack].filter(Boolean).join("-");
     return `<tr><td class="key">위탁자 ${f.trustors.length > 1 ? i + 1 : ""}</td>
       <td><div>${escHTML(t.name || "")} (${escHTML(t.type || "")})</div>
-      <div style="font-size:9pt;color:#555;">법인등록번호: ${escHTML(corpReg)} / ${escHTML(t.address || "")}</div></td></tr>`;
+      <div style="font-size:9pt;color:#555;">${t.type === "개인" ? "생년월일" : "법인등록번호"}: ${escHTML(corpReg)} / ${escHTML(t.address || "")}</div></td></tr>`;
   }).join("");
   const fieldRows = fields.filter(fd => fd.key !== "notes" || content.notes).map(fd => {
     let val = content[fd.key] || "";
