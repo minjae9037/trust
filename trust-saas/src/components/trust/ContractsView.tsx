@@ -370,6 +370,27 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
 
   const filtersActive = status !== "all" || q.trim().length > 0;
 
+  // 검색·필터 결과 건수 SR 라이브 고지 — 시각 사용자는 툴바 우측 "N / M건"과 빈 결과 안내가
+  // 검색어/필터에 따라 즉시 갱신되는 걸 보지만, 그 카운트 span 과 빈 결과 <p> 는 라이브 영역이
+  // 아니어서 SR 사용자는 필터링 결과(몇 건 남았는지·0건인지)를 전혀 듣지 못했다(WCAG 4.1.3
+  // 상태 메시지). 필터가 활성일 때만 결과 건수를 polite 라이브 영역으로 고지한다. 키 입력마다
+  // 낭독되지 않도록 짧게 디바운스하고, 필터 해제·로딩·오류·초기 진입에는 메시지를 비워 침묵한다
+  // (시각 표시는 기존 span·<p> 가 담당 → 낭독 책임 분리·중복 낭독 0). 검색/정렬 로직·조문·엔진·
+  // 검증 게이트 무접촉 — 이미 산출된 visible.length 를 SR 에 들려줄 뿐이다.
+  const [searchAnnounce, setSearchAnnounce] = useState("");
+  useEffect(() => {
+    if (loading || err || !filtersActive) {
+      setSearchAnnounce(""); // 초기 진입·로딩·오류·필터 해제 → 이전 고지 비움(새 낭독 없음).
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setSearchAnnounce(
+        visible.length > 0 ? `검색 결과 ${visible.length}건` : "조건에 맞는 계약이 없습니다",
+      );
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [filtersActive, visible.length, loading, err]);
+
   // 전이 상태(일괄 생성 진행·백업 결과)의 SR 영속 라이브 영역 단일 낭독 출처.
   // 일괄 생성이 진행/완료 중이면 그 메시지를, 아니면 백업 결과를 — 장식 글리프(✓ 등)는
   // splitStatusGlyph 로 떼고 본문만 고지한다. 각 위치의 시각 span 은 낭독 책임을 갖지 않아
@@ -397,6 +418,14 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
           시각 표시는 카드 버튼 옆·백업 바의 span 이 담당하고 이 영역은 낭독 전용(중복 낭독 0). */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveStatus}
+      </div>
+
+      {/* 검색·필터 결과 건수 SR 라이브 고지 — 시각 카운트(툴바 "N/M건")·빈 결과 <p> 는 라이브가
+          아니라 SR 사용자에게 필터 결과를 들려줄 전용 영역(항상 렌더 = 콘텐츠 변경 전 DOM 존재).
+          전이 상태(liveStatus)와 분리된 별도 polite 영역이라 검색 고지가 일괄생성/백업 메시지와
+          섞이지 않는다. 시각 표시는 기존 span·<p> 가 담당하고 이 영역은 낭독 전용(중복 낭독 0). */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {searchAnnounce}
       </div>
 
       {/* 백업(내보내기)·복원(가져오기) — 로컬 저장 데이터의 유실 방지·기기 이동.

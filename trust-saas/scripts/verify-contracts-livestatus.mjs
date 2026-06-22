@@ -105,8 +105,14 @@ console.log("\n[D] ★중복 낭독 0 — 카드 batch.msg·백업 backupMsg 시
   ok(/<StatusGlyphText msg=\{backupMsg\} \/>/.test(kSeg), "백업 span 이 StatusGlyphText 경유");
   ok(!/role="status"/.test(kSeg) && !/aria-live/.test(kSeg),
     "★백업 span 에 role=status/aria-live 미부착(낭독은 영속 영역 전담)");
-  // 영속 sr-only 라이브 영역은 정확히 1곳(과다 영역 회귀 감지)
-  ok((cv.match(/<div className="sr-only" role="status"/g) || []).length === 1, "sr-only 영속 라이브 영역 정확히 1곳");
+  // 영속 sr-only 라이브 영역은 정확히 2곳(과다 영역 회귀 감지) — 전이 상태(liveStatus)와
+  // 검색·필터 결과 건수(searchAnnounce)는 목적이 달라 분리된 별도 영역이다(서로 섞이면 일괄
+  // 생성/백업 메시지와 검색 고지가 한 영역에서 덮어써짐). 각자 단일 출처를 렌더하므로 우발적
+  // 3번째 영역(과다 proliferation)은 여전히 이 단언이 잡는다(verify-contracts-search-announce 와 상보).
+  const liveRegions = cv.match(/<div className="sr-only" role="status"/g) || [];
+  ok(liveRegions.length === 2, `sr-only 영속 라이브 영역 정확히 2곳(전이+검색, 실제 ${liveRegions.length})`);
+  ok(/\{liveStatus\}/.test(cv) && /\{searchAnnounce\}/.test(cv),
+    "두 영역이 각각 {liveStatus}(전이)·{searchAnnounce}(검색 결과) 단일 출처 렌더(목적 분리)");
 }
 
 console.log("\n[E] 무회귀 — 진행/완료/백업 문구 verbatim·실행취소 바 role=status·새 CSS 0·로직 무접촉");
