@@ -1775,6 +1775,14 @@ body {
 .contract-rename-input { max-width: 280px; padding: 5px 9px; font-size: 14px; font-weight: 700; }
 /* 위탁자·물건 소재지 — 실무 식별 기준이라 회색 메타(.field-hint)보다 한 단계 또렷하게. */
 .contract-card-identity { font-size: 12.5px; font-weight: 600; color: var(--c-brown); }
+/* 검색어 일치 강조 — 목록 검색 시 카드 제목·식별줄·서류명에서 일치 구간만 따뜻한
+   톤으로 강조(탐색성·표시 전용). box-decoration-break: clone 으로 줄바꿈에도 둥근
+   모서리·배경이 끊기지 않게 한다. 색 토큰 재사용(신규 색 0). */
+.search-hl {
+  background: var(--c-brown-pastel); color: var(--c-ink);
+  border-radius: 2px; padding: 0 1px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
 .ready-chip {
   font-size: 11.5px; font-weight: 700; line-height: 1; white-space: nowrap;
   padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid transparent;

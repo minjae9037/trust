@@ -19,6 +19,7 @@ import { validateDoc, validateJoint } from "@/lib/engine/validate";
 import { generateCollateralDoc, generateJointDoc } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
+import { highlightSegments } from "@/lib/ui/highlight";
 import { formatRelativeTime } from "@/lib/engine/calc";
 
 /**
@@ -39,6 +40,28 @@ function StatusGlyphText({ msg }: { msg: string }) {
     <>
       {glyph && <span aria-hidden="true">{glyph} </span>}
       {text}
+    </>
+  );
+}
+/**
+ * 검색어 일치 부분 시각 강조 — 카드 제목·식별줄·서류명에서 현재 검색어와 일치하는
+ * 구간만 `.search-hl` span 으로 감싼다(highlightSegments 단일 출처). 검색어가 비면
+ * 전체가 비매칭 단일 세그먼트라 평문과 동일하게 렌더된다(동작 무변경). 강조는 순수
+ * 시각 표시이므로 의미 텍스트는 그대로 낭독되고 SR 의미는 바뀌지 않는다(span=장식).
+ */
+function Highlight({ text, query }: { text: string; query: string }) {
+  const segs = highlightSegments(text, query);
+  return (
+    <>
+      {segs.map((s, i) =>
+        s.match ? (
+          <span key={i} className="search-hl">
+            {s.text}
+          </span>
+        ) : (
+          <span key={i}>{s.text}</span>
+        ),
+      )}
     </>
   );
 }
@@ -563,7 +586,9 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                       </button>
                     </span>
                   ) : (
-                    <span className="contract-card-title">{r.title}</span>
+                    <span className="contract-card-title">
+                      <Highlight text={r.title} query={q} />
+                    </span>
                   )}
                   <span className={"badge " + (r.status === "completed" ? "ready" : "soon")}>
                     {r.status === "completed" ? "완료" : "작성중"}
@@ -595,10 +620,12 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                   )}
                 </div>
                 {identityLine && (
-                  <div className="contract-card-identity" style={{ marginTop: 4 }}>{identityLine}</div>
+                  <div className="contract-card-identity" style={{ marginTop: 4 }}>
+                    <Highlight text={identityLine} query={q} />
+                  </div>
                 )}
                 <div className="field-hint" style={{ marginTop: 5 }}>
-                  {docName}
+                  <Highlight text={docName} query={q} />
                   {r.category ? ` · ${CATEGORY_LABEL[r.category as Category] || r.category}` : ""} ·{" "}
                   {/* 수정 시각 = 상대 표기(최근 수정순 정렬 훑기). 정확한 전체 시각은 title(hover)·
                       sr-only 로 보존해 상대 표기로 잃는 정밀도를 보강한다(표시 전용). 손상 저장본의
