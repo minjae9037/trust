@@ -323,6 +323,26 @@ export function isRealDate(
   return day >= 1 && day <= daysInMonth(year, month);
 }
 
+/** 한글 요일 표기(일~토) — getUTCDay() 인덱스(0=일) 단일 출처. */
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+/**
+ * 실재하는 날짜의 한글 요일("월"~"일")을 돌려준다(실재하지 않으면 "").
+ *
+ * 평가기준일·회의 일자·협약일 같은 **사건(event) 날짜**는 산출물에 그대로 박히는데,
+ * 월·일 전치(03-07↔07-03)는 둘 다 실재해 isRealDate 로는 잡히지 않고, "YYYY년 M월 D일"
+ * 에코만으로는 사용자가 머릿속으로 요일을 재확인하기 어렵다. 신탁 실무에서 평가기준일·
+ * 이사회 회의일자·협약 체결일이 주말(토·일)에 잡히는 것은 점검이 필요한 신호이므로,
+ * 요일을 함께 되읽어 주면 입력 지점에서 그 타당성을 눈으로 교차검증할 수 있다.
+ *
+ * ⚠️ 표시 전용 — 빌더·조문·게이트 무접촉(생년월일 readback 은 요일이 무의미하므로 대상 아님).
+ * TZ 영향이 없도록 UTC 기준으로 계산한다(자정 시각 성분 없음 = 달력 날짜의 요일만 산출).
+ */
+export function weekdayKo(year: number, month: number, day: number): string {
+  if (!isRealDate(year, month, day)) return "";
+  return WEEKDAY_KO[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
 /**
  * 자유 텍스트 날짜 입력의 "달력 해석" — 평가기준일(valReport)·회의 일자(boardMin)처럼
  * 산출물에 raw 그대로 박히는 자유 텍스트 날짜 필드를 입력 지점에서 확인·교차검증하게 한다
@@ -339,11 +359,12 @@ export function isRealDate(
  * "2025-07-03"·"2025.10.12."·"2025년 7월 1일" 은 해석하고, "해당사항 없음"·전화번호·금액
  * ("5,000,000,000") 같은 free-form 은 null(무간섭).
  *
- * @returns 날짜꼴이면 { year, month, day, real }(real=실재 달력 날짜 여부), 아니면 null.
+ * @returns 날짜꼴이면 { year, month, day, real, weekday }(real=실재 달력 날짜 여부,
+ *          weekday=실재 시 한글 요일 "월"~"일"·비실재면 ""), 아니면 null.
  */
 export function interpretDate(
   raw: string | number | null | undefined,
-): { year: number; month: number; day: number; real: boolean } | null {
+): { year: number; month: number; day: number; real: boolean; weekday: string } | null {
   const s = String(raw == null ? "" : raw).trim();
   if (!s) return null;
   // 숫자 + 표준 날짜 구분자만 — free-form 텍스트(임의 메모·금액·전화 등)는 무간섭
@@ -354,7 +375,8 @@ export function interpretDate(
   const year = Number(groups[0]);
   const month = Number(groups[1]);
   const day = Number(groups[2]);
-  return { year, month, day, real: isRealDate(year, month, day) };
+  const real = isRealDate(year, month, day);
+  return { year, month, day, real, weekday: weekdayKo(year, month, day) };
 }
 
 /* ---------------- 면적(㎡) 확인용 해석 ---------------- */

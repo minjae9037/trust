@@ -323,7 +323,7 @@ export function DocStep({ docId }: { docId: DocId }) {
                 )}
                 {dateInfo && dateInfo.real && (
                   <div className="loan-hangul" role="status" aria-live="polite">
-                    {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일
+                    {dateInfo.year}년 {dateInfo.month}월 {dateInfo.day}일{dateInfo.weekday && ` (${dateInfo.weekday})`}
                   </div>
                 )}
                 {dateInfo && !dateInfo.real && (

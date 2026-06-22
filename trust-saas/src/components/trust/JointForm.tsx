@@ -6,7 +6,7 @@ import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/e
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
 import { genFreshness } from "@/lib/engine/genStatus";
-import { isValidCorpRegNo, isRealDate } from "@/lib/engine/calc";
+import { isValidCorpRegNo, isRealDate, weekdayKo } from "@/lib/engine/calc";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 
 // stale(입력 변경) 안내 문구 단일 출처 — 시각 span 과 SR 영속 라이브 영역이 같은 문구를
@@ -311,6 +311,8 @@ export function JointForm() {
             <div className="field full">
               <div className="loan-hangul" role="status" aria-live="polite">
                 {Number(agY)}년 {Number(agM)}월 {Number(agD)}일
+                {weekdayKo(Number(agY), Number(agM), Number(agD)) &&
+                  ` (${weekdayKo(Number(agY), Number(agM), Number(agD))})`}
               </div>
             </div>
           )}

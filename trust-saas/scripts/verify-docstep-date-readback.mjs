@@ -48,8 +48,9 @@ const globals = read("src", "app", "globals.css");
 console.log("\n[A] interpretDate 순수 거동 — 인식 조건·실재 판정·free-form 무간섭");
 {
   // 명확한 숫자 날짜꼴 + 실재 날짜
-  ok(JSON.stringify(interpretDate("2025-07-03")) === JSON.stringify({ year: 2025, month: 7, day: 3, real: true }),
-     "2025-07-03 → {2025,7,3, real:true}");
+  // weekday(한글 요일) 필드 동반 — 사건 날짜 요일 교차검증(verify-date-readback-weekday 가 상세 강제).
+  ok(JSON.stringify(interpretDate("2025-07-03")) === JSON.stringify({ year: 2025, month: 7, day: 3, real: true, weekday: "목" }),
+     "2025-07-03 → {2025,7,3, real:true, weekday:'목'}");
   ok(interpretDate("2025.10.12.")?.real === true && interpretDate("2025.10.12.")?.month === 10,
      "2025.10.12.(점·후행점) → 실재 날짜 해석");
   ok(interpretDate("2025년 7월 1일")?.real === true && interpretDate("2025년 7월 1일")?.day === 1,
