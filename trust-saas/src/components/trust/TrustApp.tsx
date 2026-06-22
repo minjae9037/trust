@@ -142,7 +142,10 @@ export function TrustApp() {
             }
           }}
         >
-          <div className="brand-glyph">信託</div>
+          {/* 信託 = 브랜드 장식 글리프(순수 시각). 이 셸은 aria-label="홈으로 — 신탁사 선택"
+              이라 접근명 자체는 이미 깨끗하나, browse/읽기 모드에서 한자 글리프가
+              독립 콘텐츠로 낭독되지 않게 장식 컨벤션(aria-hidden)을 동일 적용. */}
+          <div className="brand-glyph" aria-hidden="true">信託</div>
           <div>
             <div className="brand-name">TrustForm</div>
             <div className="brand-sub">트러스트폼 · 신탁 서류 자동화</div>

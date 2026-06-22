@@ -69,7 +69,7 @@ console.log("\n[C] 무회귀 — onClick·title·cursor·내부 마크업 보존
   ok(/onClick=\{goHome\}/.test(brandSeg), "onClick={goHome} 보존(마우스 동선)");
   ok(/title="홈으로"/.test(brandSeg), 'title="홈으로" 보존');
   ok(/cursor:\s*"pointer"/.test(brandSeg), "cursor:pointer 보존(마우스 affordance)");
-  ok(/<div className="brand-glyph">信託<\/div>/.test(brandSeg), "내부 마크업(信託 글리프) 보존");
+  ok(/<div className="brand-glyph" aria-hidden="true">信託<\/div>/.test(brandSeg), "내부 마크업(信託 글리프) 보존 — 장식 aria-hidden 동반");
   ok(/<div className="brand-name">TrustForm<\/div>/.test(app), "브랜드명(TrustForm) 보존");
   // goHome 정의 자체(미저장 변경 확인 가드 포함)는 불변 — 키보드 경로도 같은 가드 공유.
   ok(/function goHome\(\)/.test(app), "goHome 정의 보존(클릭·키보드 공용 단일 출처)");
