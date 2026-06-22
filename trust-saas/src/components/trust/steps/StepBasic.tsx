@@ -105,7 +105,7 @@ export function StepBasic() {
 
       <div className="field">
         <label className="field-label" htmlFor="basic-priorityLimit">
-          우선수익한도금액 (원) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
+          우선수익한도금액 (원) <span className="badge ready" style={{ marginLeft: 6 }}><span aria-hidden="true">🔒 </span>자동</span>
         </label>
         <div className="field-hint">STEP 02-1 에서 자동 산정.</div>
         <input id="basic-priorityLimit" className="input" readOnly value={limitShowable ? Number(c.priorityLimit).toLocaleString() + " 원" : ""}
@@ -145,7 +145,7 @@ export function StepBasic() {
 
       <div className="field full">
         <label className="field-label" htmlFor="basic-trustFeeRate">
-          신탁보수율 (우선수익한도금액 대비 %) <span className="badge ready" style={{ marginLeft: 6 }}>🔒 자동</span>
+          신탁보수율 (우선수익한도금액 대비 %) <span className="badge ready" style={{ marginLeft: 6 }}><span aria-hidden="true">🔒 </span>자동</span>
         </label>
         <div className="field-hint">신탁보수 ÷ 우선수익한도금액 × 100 자동 산정.</div>
         <input id="basic-trustFeeRate" className="input" readOnly value={limitShowable && c.trustFeeRate ? c.trustFeeRate + " %" : ""}

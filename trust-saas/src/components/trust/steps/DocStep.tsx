@@ -347,14 +347,14 @@ export function DocStep({ docId }: { docId: DocId }) {
         </div>
 
         <div className="panel-footnote" style={{ margin: "18px 0" }}>
-          <strong>📝 양식 안내</strong> 현재 출력은 입력값 검증용 표준(안)입니다. 회사 표준양식(.docx)
+          <strong><span aria-hidden="true">📝 </span>양식 안내</strong> 현재 출력은 입력값 검증용 표준(안)입니다. 회사 표준양식(.docx)
           수급 시 입력값이 양식 변수에 자동 치환됩니다.
         </div>
 
         {/* ── 검증 게이트 안내 (M2-2) ── */}
         {!ok && (
           <div className="validate-box" role="alert">
-            <div className="validate-title">⚠ 생성 전 필수 입력이 누락되었습니다</div>
+            <div className="validate-title"><span aria-hidden="true">⚠ </span>생성 전 필수 입력이 누락되었습니다</div>
             <ul className="validate-list">
               {missing.map((m, i) => (
                 <li key={i}>

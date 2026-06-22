@@ -321,7 +321,7 @@ export function JointForm() {
         {/* ── 검증 게이트 안내 (담보신탁 DocStep 과 동형, joint 적용) ── */}
         {!ok && (
           <div className="validate-box" role="alert" style={{ marginTop: 24 }}>
-            <div className="validate-title">⚠ 생성 전 필수 입력이 누락되었습니다</div>
+            <div className="validate-title"><span aria-hidden="true">⚠ </span>생성 전 필수 입력이 누락되었습니다</div>
             <ul className="validate-list">
               {missing.map((label, i) => (
                 <li key={i}>

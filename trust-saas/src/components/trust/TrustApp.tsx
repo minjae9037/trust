@@ -195,7 +195,7 @@ export function TrustApp() {
           </button>
           <span className="sep" aria-hidden="true">·</span>
           <Link href="/advisor" className="crumb" style={{ textDecoration: "none" }}>
-            💬 상담 →
+            <span aria-hidden="true">💬 </span>상담<span aria-hidden="true"> →</span>
           </Link>
         </nav>
       </header>
@@ -233,7 +233,7 @@ export function TrustApp() {
           onClick={() => setChatOpen(true)}
           title="AI 어시스턴트"
         >
-          💬 AI 어시스턴트
+          <span aria-hidden="true">💬 </span>AI 어시스턴트
         </button>
       )}
       {chatOpen && <ChatPanel onClose={() => setChatOpen(false)} />}

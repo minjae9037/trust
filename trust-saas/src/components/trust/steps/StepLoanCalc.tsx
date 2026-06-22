@@ -199,7 +199,7 @@ export function StepLoanCalc() {
       </div>
 
       <div className="panel-footnote" style={{ marginTop: 18 }}>
-        <strong>📊 산식</strong> 우선수익한도금액 = 대출금액 × {ratioInvalid ? "비율" : `${form.common.priorityRatio}%`} ·{" "}
+        <strong><span aria-hidden="true">📊 </span>산식</strong> 우선수익한도금액 = 대출금액 × {ratioInvalid ? "비율" : `${form.common.priorityRatio}%`} ·{" "}
         {ratioInvalid
           ? "비율이 유효 범위(100~150%)를 벗어나 한도금액 산정이 보류됩니다 — 비율을 고치면 다시 산정됩니다."
           : "산정된 합계는 STEP 04 의 우선수익한도금액에 자동 반영됩니다."}

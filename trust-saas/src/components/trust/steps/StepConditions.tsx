@@ -238,7 +238,7 @@ export function StepConditions() {
 
       {/* ── 계약 프로파일 요약 ── */}
       <div className="panel-footnote" style={{ marginTop: 22 }}>
-        <strong>📋 계약 프로파일 요약</strong>
+        <strong><span aria-hidden="true">📋 </span>계약 프로파일 요약</strong>
         <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
           <li>유형: <strong>{collateralLabel}</strong> · 인허가: {c.includeArt21 === false ? "미포함" : licenseLabel} · 차수: {c.collateralOrder === "additional" ? "추가담보" : "신규담보"}</li>
           <li>우선수익자: {priorityCount}인({isMulti ? "복수" : "단독"}) · 정족수: {isMulti ? majorityLabel : "단독"} · 대리금융기관: {c.agentBankEnabled ? (c.agentBank || "(이름 미입력)") : "미지정"}</li>

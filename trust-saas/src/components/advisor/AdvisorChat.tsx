@@ -355,7 +355,7 @@ export function AdvisorChat() {
                 </div>
                 {body && !busy && m.sources && m.sources.length > 0 && (
                   <div className="advisor-sources">
-                    <span className="advisor-sources-label">📚 참고한 자료</span>
+                    <span className="advisor-sources-label"><span aria-hidden="true">📚 </span>참고한 자료</span>
                     {m.sources.map((s, k) => (
                       <span key={k} className={"src-chip " + s.kind} title={s.kind === "backdata" ? "내부 지식베이스(back-data)" : "기본 지식"}>
                         {s.topic}
