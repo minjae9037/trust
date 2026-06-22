@@ -209,6 +209,20 @@ function docMissing(form: ContractForm, docId: DocId): Missing[] {
       m.push(miss("신탁재산 원본가액 (유효하지 않은 금액)", stepIdxOf("valReport")));
     }
   }
+  // 대리금융기관 (제20조 · 별첨4) — StepConditions(STEP 05)에서 「대리금융기관 지정」을 켜면
+  // (agentBankEnabled=true) 입력한 회사명이 별첨4 제20조 "대리금융기관의 선임" 조항에 자동 기재되고,
+  // 비우면 빈칸 `[              ]`이 박힌다(builders.js resolveAnnex4LineText: {{AGENT_BANK}} →
+  // agentBank || "[ ]"). ★별첨4 는 contract 서류에만 포함되므로(builders.js: docId==="contract" 만
+  // buildAnnex4Children) 여기(contract)에서만 검사한다 — 나머지 6종은 별첨4 미포함이라 과잉 차단 방지.
+  // ⚠️ 지정을 켜지 않은 경우(기본/해제)의 빈칸 `[ ]`은 "대리금융기관 미지정" 표준 양식이라 차단하지
+  // 않는다(무회귀 — 단독 우선수익자 등 대다수 계약이 정상적으로 빈칸 출력). agentBankEnabled===true
+  // (사용자가 "지정"을 명시) 인데 회사명이 비어 있는 경우만 차단한다 — 표명한 의도(지정함)와 산출물
+  // (빈 회사명)이 어긋나는, 금액 "채웠지만 무효"·날짜·번호 패턴과 동일 계열의 정합성 결함.
+  // 자유 텍스트라 형식이 아닌 "존재"만 검사한다(추정 형식 강제 금지). 점프 타깃 = 조건·특약 단계(STEP 05).
+  if (docId === "contract" && c.contract?.agentBankEnabled === true && !hasText(c.contract?.agentBank)) {
+    const condIdx = STEPS.find((s) => s.key === "conditions")?.idx ?? 0;
+    m.push(miss("대리금융기관 회사명 (제20조 — 지정했으나 미입력)", condIdx));
+  }
   return m;
 }
 
