@@ -115,14 +115,60 @@ export function isValidBirthDate(
   const yy = Number(f.slice(0, 2));
   const month = Number(f.slice(2, 4));
   const day = Number(f.slice(4, 6));
+  // 세기는 birthCentury(뒤 7자리 첫 자리) 단일 출처로 해석. 미입력/불명(null)이면 윤년 가능
+  // 연도(2000)로 처리해 정상 입력(예: 000229)을 오탐하지 않는다(기존 동작 보존).
+  const base = birthCentury(back);
+  const fullYear = base == null ? 2000 : base + yy;
+  return isRealDate(fullYear, month, day);
+}
+
+/**
+ * 주민등록번호 뒤 7자리 첫 자리(국가 표준 세기·성별 코드)로 출생 세기를 해석한다.
+ * 1·2·5·6→1900s, 3·4·7·8→2000s, 9·0→1800s. 미입력/불명이면 null(세기 미확정).
+ * isValidBirthDate(윤년 판정)·interpretBirthDate(readback)의 세기 해석 단일 출처.
+ */
+function birthCentury(back?: string | number | null): number | null {
   const b = String(back == null ? "" : back).replace(/\D/g, "");
   const c = b[0];
-  let fullYear: number;
-  if (c === "9" || c === "0") fullYear = 1800 + yy;
-  else if (c === "3" || c === "4" || c === "7" || c === "8") fullYear = 2000 + yy;
-  else if (c === "1" || c === "2" || c === "5" || c === "6") fullYear = 1900 + yy;
-  else fullYear = 2000; // 세기 코드 미입력/불명 → 윤년 가능 연도(2월 29일 정상 입력 오탐 방지)
-  return isRealDate(fullYear, month, day);
+  if (c === "9" || c === "0") return 1800;
+  if (c === "3" || c === "4" || c === "7" || c === "8") return 2000;
+  if (c === "1" || c === "2" || c === "5" || c === "6") return 1900;
+  return null;
+}
+
+/**
+ * 개인 당사자 생년월일(주민등록번호 앞 6자리 YYMMDD) 해석 readback 데이터.
+ * 앞 6자리가 정확히 채워졌고 실재하는 날짜일 때만 {year, month, day} 반환(아니면 null).
+ * 세기 코드(뒤 7자리 첫 자리)가 있으면 year=정수, 없으면 year=null(월·일만 확정).
+ * isValidBirthDate 와 같은 birthCentury 단일 출처 — 표시 전용(산출물·게이트·조문 무접촉).
+ * 두 valid 한 날짜 사이의 월·일 전치 오입력(예: 030915 vs 090315)을 입력 지점에서 확인시킨다.
+ * PII(주민번호)는 사용자가 방금 입력한 로컬 값의 해석일 뿐 전송하지 않는다(기존 원칙 유지).
+ */
+export function interpretBirthDate(
+  front: string | number | null | undefined,
+  back?: string | number | null,
+): { year: number | null; month: number; day: number } | null {
+  const f = String(front == null ? "" : front).replace(/\D/g, "");
+  if (f.length !== 6) return null;
+  if (!isValidBirthDate(front, back)) return null;
+  const yy = Number(f.slice(0, 2));
+  const month = Number(f.slice(2, 4));
+  const day = Number(f.slice(4, 6));
+  const base = birthCentury(back);
+  return { year: base == null ? null : base + yy, month, day };
+}
+
+/**
+ * interpretBirthDate 를 사람이 읽는 문자열로 — 세기 확정 시 "YYYY년 M월 D일생",
+ * 미확정(세기 코드 없음) 시 "M월 D일생"(월·일만). 해석 불가면 빈 문자열.
+ */
+export function formatBirthReadback(
+  front: string | number | null | undefined,
+  back?: string | number | null,
+): string {
+  const r = interpretBirthDate(front, back);
+  if (!r) return "";
+  return r.year == null ? `${r.month}월 ${r.day}일생` : `${r.year}년 ${r.month}월 ${r.day}일생`;
 }
 
 /**

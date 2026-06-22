@@ -5,7 +5,7 @@ import type { Party, PartyType } from "@/lib/engine/model";
 import type { PartyRole } from "@/lib/store/contractStore";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
-import { isValidBizNo, isValidCorpRegNo, isValidBirthDate, partyIdLabel, isPositiveAmount, parseAmount, amountToHangul } from "@/lib/engine/calc";
+import { isValidBizNo, isValidCorpRegNo, isValidBirthDate, formatBirthReadback, partyIdLabel, isPositiveAmount, parseAmount, amountToHangul } from "@/lib/engine/calc";
 
 interface Props {
   role: PartyRole;
@@ -74,6 +74,11 @@ export function PartyCard({
   // isValidBirthDate 단일 출처를 사용하며, 게이트는 부분 입력까지 생성 차단으로 별도 방어한다.
   const birthDigits = String(party.corpRegFront ?? "").replace(/\D/g, "");
   const birthInvalid = party.type === "개인" && birthDigits.length === 6 && !isValidBirthDate(party.corpRegFront, party.corpRegBack);
+  // 생년월일 확인 readback — "개인"이고 앞 6자리가 실재하는 날짜일 때만 "YYYY년 M월 D일생"(세기 코드
+  // 있으면)·"M월 D일생"(없으면)으로 에코한다. 금액·면적·날짜·지분율 readback 과 같은 정량 입력 확인 패리티의
+  // 마지막 항목 — birthInvalid(실재 불가)와 상호배타(valid 일 때만 truthy)이며, 두 valid 한 날짜 사이의 월·일
+  // 전치 오입력(예: 030915 vs 090315)을 입력 지점에서 짚는다. formatBirthReadback 단일 출처·표시 전용.
+  const birthReadback = party.type === "개인" ? formatBirthReadback(party.corpRegFront, party.corpRegBack) : "";
 
   // 대출금액(우선수익자 전용·showLoanFields) readback — 이 카드(STEP 02)에서 입력하는 대출금액은
   // StepLoanCalc(STEP 03) 표와 같은 값인데, 종전엔 STEP 03 에만 한글 금액 readback·무효 안내가 있고
@@ -236,6 +241,9 @@ export function PartyCard({
             <div id={fid("birthErr")} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
               실재하지 않는 생년월일입니다 (YYMMDD 형식 확인)
             </div>
+          )}
+          {birthReadback && (
+            <div className="loan-hangul" role="status" aria-live="polite">{birthReadback}</div>
           )}
         </div>
         <div className="field">
