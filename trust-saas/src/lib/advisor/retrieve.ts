@@ -11,6 +11,37 @@ function tokenize(s: string): string[] {
   return Array.from(new Set(matches));
 }
 
+/**
+ * 한글 조사(josa) 제거 stem — 질의 토큰은 명사 뒤에 조사가 붙어("담보신탁이 / 우선수익권이 /
+ * 관리형토지신탁의") 큐레이션된 태그·본문 표제("담보신탁")보다 길어진다. 종전 매칭은
+ * tagBlob.includes(token)·textBlob.indexOf(token) 이라 "토큰이 태그보다 짧을 때"만 잡고
+ * "토큰이 더 긴"(조사 흡착) 이 방향을 놓쳐, 코퍼스 전체가 담보신탁인데도 "담보신탁이
+ * 무엇인가요?" 같은 핵심 정의 질문이 점수 0으로 미적중(컨텍스트 미주입)했다(gap-report
+ * 2026-06-22: 미적중 최다 질문). 토큰 끝의 조사를 떼어 stem 을 매칭에 *함께* 쓴다.
+ *
+ * ⚠️ 보수적 설계(오탐 최소화):
+ *   ① stem 이 2자 미만이면 버린다("차이"→"차"·"용도"→"용" 차단 — 단음절 stem 의 광범위
+ *      오매칭 방지).
+ *   ② 일반 명사 어미와 충돌하는 모호한 단음절 조사(라/나/야/랑 등)는 제외하고, 충돌 위험이
+ *      낮은 조사만 처리한다.
+ *   ③ 매칭은 raw 토큰 OR stem 으로 *가산만* 한다 — stem 은 기존 매칭을 절대 제거하지 않고
+ *      재현율만 보탠다(후방호환). 조사는 긴 것부터 검사해 "으로"가 "로"보다, "에서"가
+ *      "에"보다 먼저 떨어지게 한다.
+ */
+const JOSA = [
+  "으로서", "으로", "에서", "에게", "한테", "까지", "부터", "이라", "라는", "라고",
+  "은", "는", "이", "가", "을", "를", "과", "와", "의", "에", "도", "만", "로",
+];
+function josaStem(token: string): string | null {
+  for (const j of JOSA) {
+    if (token.length > j.length && token.endsWith(j)) {
+      const stem = token.slice(0, token.length - j.length);
+      if (stem.length >= 2) return stem;
+    }
+  }
+  return null;
+}
+
 export interface Retrieved {
   chunk: KnowledgeChunk;
   score: number;
@@ -23,21 +54,31 @@ export interface Retrieved {
 export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []): Retrieved[] {
   const qTokens = tokenize(query);
   if (qTokens.length === 0) return [];
+  // 각 질의 토큰의 조사 제거 stem(없으면 null)을 미리 계산 — 청크마다 재계산하지 않는다.
+  const qStems = qTokens.map((t) => josaStem(t));
 
   const corpus = extra.length ? [...KNOWLEDGE, ...extra] : KNOWLEDGE;
   const scored: Retrieved[] = corpus.map((chunk) => {
     const tagBlob = chunk.tags.join(" ").toLowerCase();
     const textBlob = (chunk.topic + " " + chunk.text).toLowerCase();
     let score = 0;
-    for (const t of qTokens) {
-      if (tagBlob.includes(t)) score += 3;
-      // 본문 등장 횟수(최대 3회까지만 가산)
-      let idx = textBlob.indexOf(t);
+    for (let i = 0; i < qTokens.length; i++) {
+      const t = qTokens[i];
+      const stem = qStems[i];
+      // 태그 매칭(+3, 토큰당 1회): raw 토큰이 태그의 부분(기존) OR 조사 제거 stem 이
+      // 태그의 부분(신규 — "담보신탁이"→"담보신탁"). OR 라 stem 은 기존 매칭을 못 지운다.
+      if (tagBlob.includes(t) || (stem !== null && tagBlob.includes(stem))) score += 3;
+      // 본문 등장(최대 3회 가산 — raw 토큰과 stem 이 카운터를 공유해 cap 의미 보존).
+      // 조사 흡착으로 본문엔 stem 형태로만 등장하는 경우까지 센다(raw 우선·중복 가산은 cap 으로 제한).
+      const terms = stem !== null && stem !== t ? [t, stem] : [t];
       let hits = 0;
-      while (idx >= 0 && hits < 3) {
-        score += 1;
-        hits++;
-        idx = textBlob.indexOf(t, idx + t.length);
+      for (const term of terms) {
+        let idx = textBlob.indexOf(term);
+        while (idx >= 0 && hits < 3) {
+          score += 1;
+          hits++;
+          idx = textBlob.indexOf(term, idx + term.length);
+        }
       }
     }
     // 사용자가 직접 올린 Q&A 근거(qna-)는 동일 관련도면 우선 반영되도록 소폭 가중.
