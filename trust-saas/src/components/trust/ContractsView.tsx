@@ -396,7 +396,11 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
             <span aria-hidden="true">🗑 </span>
             <strong>{u.title}</strong> 삭제됨
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => onUndoDelete(u)}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => onUndoDelete(u)}
+            aria-label={`${u.title} 삭제 실행취소`}
+          >
             실행취소
           </button>
         </div>
@@ -582,6 +586,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                       className="btn btn-primary btn-sm"
                       onClick={() => generateRowDocs(r)}
                       disabled={batch?.busy}
+                      aria-label={`${r.title} — 준비된 서류 ${readiness.ready}종 생성`}
                       title={`준비된 ${readiness.ready}종 서류를 Word(.docx)로 한 번에 생성합니다 (누락 서류는 제외)`}
                     >
                       {batch?.busy && batch.id === r.id
@@ -594,18 +599,24 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                       className="btn btn-primary btn-sm"
                       onClick={() => generateRowJoint(r)}
                       disabled={batch?.busy}
+                      aria-label={`${r.title} 협약서 생성`}
                       title="공동사업표준협약서를 Word(.docx)로 생성합니다"
                     >
                       {batch?.busy && batch.id === r.id ? "⏳ 생성 중…" : "⬇ 협약서 생성"}
                     </button>
                   )}
-                  <button className="btn btn-ghost btn-sm" onClick={() => onOpen(r)}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => onOpen(r)}
+                    aria-label={`${r.title} 열기`}
+                  >
                     열기
                   </button>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => startRename(r)}
                     disabled={batch?.busy || editId === r.id}
+                    aria-label={`${r.title} 이름변경`}
                     title="이 계약의 이름(제목)을 바꿉니다"
                   >
                     이름변경
@@ -614,6 +625,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                     className="btn btn-ghost btn-sm"
                     onClick={() => onDuplicate(r.id)}
                     disabled={batch?.busy}
+                    aria-label={`${r.title} 복제`}
                     title="이 계약을 입력값 그대로 사본으로 복제하고 바로 편집합니다 (작성중 상태)"
                   >
                     복제
@@ -622,6 +634,7 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                     className="btn btn-ghost btn-sm"
                     onClick={() => onDelete(r)}
                     disabled={batch?.busy}
+                    aria-label={`${r.title} 삭제`}
                   >
                     삭제
                   </button>

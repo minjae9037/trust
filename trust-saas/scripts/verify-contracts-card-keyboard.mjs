@@ -105,8 +105,9 @@ console.log("\n[F] openLabel 구성 — 제목 + 상태 + 준비도");
 
 console.log("\n[G] 무회귀 — 열기 버튼·이름변경 분리·onOpen 배선 보존");
 {
-  // 우측 "열기" 버튼(대체 동선) 보존
-  ok(/<button className="btn btn-ghost btn-sm" onClick=\{\(\) => onOpen\(r\)\}>\s*열기/.test(view),
+  // 우측 "열기" 버튼(대체 동선) 보존 — onClick onOpen + aria-label(계약 제목) + 가시 텍스트 "열기".
+  // (verify-contracts-action-labels 가 카드 액션 버튼 접근명에 제목을 부여하며 멀티라인화 — 동작 보존만 확인)
+  ok(/onClick=\{\(\) => onOpen\(r\)\}\s*\n\s*aria-label=\{`\$\{r\.title\} 열기`\}[\s\S]{0,60}?>\s*열기/.test(view),
     '우측 "열기" 버튼(대체 동선) 보존');
   // 이름변경 인라인 영역 stopPropagation(클릭이 카드 열기로 새지 않게) 보존
   ok(/className="contract-rename" onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(view),
