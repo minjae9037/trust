@@ -38,6 +38,10 @@ interface Msg {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  // 회수 grounding 강도 — 약하게 매칭된 참고자료에 기댄 답변이면 "weak"(사용자에게 "관련도
+  // 낮음" 투명 신호). 응답 헤더 X-Advisor-Grounding 으로 받는다. 강함/미상(캐시 적중·헤더 부재)은
+  // undefined 로 둬 칩을 안 띄운다(없는 신호를 만들지 않음).
+  grounding?: "weak";
   error?: boolean; // 생성 실패 자리표시자(재시도 버튼 노출·피드백/복사 비노출)
 }
 
@@ -204,6 +208,9 @@ export function AdvisorChat() {
         throw new Error(t || "요청 실패");
       }
       const srcs = decodeSources(res.headers.get("X-Advisor-Sources"));
+      // 약한 grounding 신호 — "weak" 일 때만 칩을 띄운다(strong·미상은 무표시).
+      // 캐시 적중 응답엔 이 헤더가 없어 자연히 undefined → 무표시(없는 신호 미생성).
+      const grounding = res.headers.get("X-Advisor-Grounding") === "weak" ? "weak" as const : undefined;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = "";
@@ -213,7 +220,7 @@ export function AdvisorChat() {
         acc += decoder.decode(value, { stream: true });
         setMsgs((m) => {
           const copy = m.slice();
-          copy[copy.length - 1] = { role: "assistant", content: acc, sources: srcs };
+          copy[copy.length - 1] = { role: "assistant", content: acc, sources: srcs, grounding };
           return copy;
         });
         scrollDown();
@@ -372,6 +379,17 @@ export function AdvisorChat() {
                         {s.topic}
                       </span>
                     ))}
+                    {/* 약한 grounding 투명 신호 — 참고자료가 질문과 약하게만 매칭됐음을 사용자에게
+                        알린다(정확성·가드레일: 빈약한 근거에 기댄 답을 확정 사실로 오인 방지). 선두 ⚠
+                        글리프는 장식(aria-hidden)이고 "관련도 낮음"이 의미 라벨, 상세는 title 로. */}
+                    {m.grounding === "weak" && (
+                      <span
+                        className="advisor-grounding-weak"
+                        title="질문과 약하게 매칭된 참고자료입니다 — 답변은 확정 근거가 아니라 일반 실무 원칙 위주의 참고로 활용하세요."
+                      >
+                        <span aria-hidden="true">⚠ </span>관련도 낮음
+                      </span>
+                    )}
                   </div>
                 )}
                 {docId && (

@@ -184,7 +184,13 @@ export async function POST(req: Request) {
       "Cache-Control": "no-cache, no-transform",
       "X-Advisor-Sources": sourcesHeader,
       "X-Advisor-Cache": "miss",
-      "Access-Control-Expose-Headers": "X-Advisor-Sources, X-Advisor-Cache",
+      // ★grounding 강도 투명 신호: LLM 프롬프트(WEAK_GROUNDING_NOTE)뿐 아니라 사용자에게도
+      //   답변이 약하게 매칭된 참고자료에 기댔는지 알린다(클라이언트가 "관련도 낮음" 표시).
+      //   회수 0건(strength 무의미·참고자료 패널 자체 미노출)에도 strength="weak"이나, 칩은
+      //   sources 존재 시에만 렌더되므로 0건엔 안 뜬다. ★캐시 적중 경로는 strength 미계산이라
+      //   이 헤더를 의도적으로 미부착(없는 신호를 날조하지 않음 — CLAUDE.md #1 사실 기반).
+      "X-Advisor-Grounding": strength,
+      "Access-Control-Expose-Headers": "X-Advisor-Sources, X-Advisor-Cache, X-Advisor-Grounding",
     },
   });
 }
