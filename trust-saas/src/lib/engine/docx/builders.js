@@ -1565,7 +1565,7 @@ function buildAppformDocxChildren() {
       ...(i === 0 ? [cell({ text: "위탁자", bold: true, center: true, rowSpan: f.trustors.length * 2, widthDxa: 1134 })] : []),
       cell({ text: "법인명", bold: true, center: true, widthDxa: 1701 }),
       cell({ text: p.name || "", hl: true, center: true, widthDxa: 2835 }),
-      cell({ text: "법인등록번호", bold: true, center: true, widthDxa: 1701 }),
+      cell({ text: p.type === "개인" ? "생년월일" : "법인등록번호", bold: true, center: true, widthDxa: 1701 }),
       cell({ text: corpRegOf(p), hl: true, center: true, widthDxa: 2835 })
     ]}));
     rows2.push(new TableRow({ children: [
@@ -1580,7 +1580,7 @@ function buildAppformDocxChildren() {
       ...(i === 0 ? [cell({ text: "채무자", bold: true, center: true, rowSpan: debtorList.length * 2, widthDxa: 1134 })] : []),
       cell({ text: "법인명", bold: true, center: true, widthDxa: 1701 }),
       cell({ text: p.name || "", hl: true, center: true, widthDxa: 2835 }),
-      cell({ text: "법인등록번호", bold: true, center: true, widthDxa: 1701 }),
+      cell({ text: p.type === "개인" ? "생년월일" : "법인등록번호", bold: true, center: true, widthDxa: 1701 }),
       cell({ text: corpRegOf(p), hl: true, center: true, widthDxa: 2835 })
     ]}));
     rows2.push(new TableRow({ children: [
