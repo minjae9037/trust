@@ -39,6 +39,23 @@ function commonMissing(form: ContractForm): Missing[] {
   if (!form.priorities.some((p) => hasText(p.name))) {
     m.push(miss("우선수익자 (성명/상호)", 2));
   }
+  // 채무자·수익자 (별도 입력 시) — 성명/상호 (STEP 01)
+  // 채무자·수익자는 기본 위탁자와 동일(sameAsTrustor)이라 위탁자 이름 검사로 충분하나,
+  // 「채무자(수익자)가 위탁자와 다름」을 켜면(sameAsTrustor=false) 별도 당사자 배열을 입력하며,
+  // 그 이름이 별첨2(나.수익자·다.채무자 표 valCell(name))·관계사 표(partyGroup)·날인면에
+  // 그대로 박힌다(builders.js). 그런데 종전 게이트는 위탁자·우선수익자 이름만 검사하고
+  // 채무자·수익자 이름은 **분리 입력 시에도 검사하지 않아**, "동일 해제 + 이름 미입력"이면
+  // 별첨2에 빈 성명칸이 박힌 계약서가 생성됐다(모델 기본 debtors=[blankParty()] 라 토글만
+  // 해제하면 곧장 도달). 위탁자·우선수익자 이름 검사와 대칭으로 닫는다(빈칸 박힌 법적 서류 차단).
+  // ⚠️ sameAsTrustor=true(기본)일 땐 검사하지 않는다 — 위탁자 검사로 충분(무회귀, biz/corp/birth
+  // 검사가 이미 동일하게 `!sameAsTrustor` 일 때만 도는 것과 동일 정책). "최소 1인 named" 기준도
+  // 위탁자·우선수익자 검사와 동일(some) — 분리를 선언했으면 이름 있는 당사자가 최소 1인 필요.
+  if (!form.debtorSameAsTrustor && !form.debtors.some((p) => hasText(p.name))) {
+    m.push(miss("채무자 (성명/상호)", 1));
+  }
+  if (!form.beneficiarySameAsTrustor && !form.beneficiaries.some((p) => hasText(p.name))) {
+    m.push(miss("수익자 (성명/상호)", 1));
+  }
   // 대출금액(우선수익한도 산정 근거): 합계 > 0 (STEP 02-1)
   if (!form.priorities.some((p) => parseAmount(p.loanAmount) > 0)) {
     m.push(miss("우선수익자 대출금액", 3));
