@@ -19,6 +19,7 @@ import { validateDoc, validateJoint } from "@/lib/engine/validate";
 import { generateCollateralDoc, generateJointDoc } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
+import { formatRelativeTime } from "@/lib/engine/calc";
 
 /**
  * 계약별 서류 생성 준비도 — 담보신탁(collateral)만 7종 산출 서류가 정의돼 있어
@@ -356,6 +357,10 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
       ? splitStatusGlyph(backupMsg).text
       : "";
 
+  // 카드 "수정 시각" 상대 표기의 기준 시각 — 한 번의 렌더 안 모든 카드가 같은 now 를 쓰게
+  // 렌더 최상단에서 1회 계산(목록 상호작용마다 재렌더되며 갱신, 표시 전용).
+  const nowMs = Date.now();
+
   return (
     <main className="page active">
       <div className="page-header">
@@ -595,7 +600,20 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
                 <div className="field-hint" style={{ marginTop: 5 }}>
                   {docName}
                   {r.category ? ` · ${CATEGORY_LABEL[r.category as Category] || r.category}` : ""} ·{" "}
-                  {new Date(r.updated_at).toLocaleString("ko-KR")}
+                  {/* 수정 시각 = 상대 표기(최근 수정순 정렬 훑기). 정확한 전체 시각은 title(hover)·
+                      sr-only 로 보존해 상대 표기로 잃는 정밀도를 보강한다(표시 전용). 손상 저장본의
+                      비실재 시각은 toISOString 이 throw 하므로 유효할 때만 dateTime 부여(렌더 크래시 방지). */}
+                  {(() => {
+                    const ts = new Date(r.updated_at);
+                    const valid = Number.isFinite(ts.getTime());
+                    const full = ts.toLocaleString("ko-KR");
+                    return (
+                      <time dateTime={valid ? ts.toISOString() : undefined} title={full}>
+                        {formatRelativeTime(r.updated_at, nowMs) || full}
+                        <span className="sr-only"> ({full})</span>
+                      </time>
+                    );
+                  })()}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>

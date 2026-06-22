@@ -546,6 +546,48 @@ export function interpretSharePct(
   return { pct, inRange: pct > 0 && pct <= 100, meetsUbo: pct >= 25 };
 }
 
+/* ---------------- 내 계약 목록 "수정 시각" 상대 표기 ---------------- */
+
+/**
+ * 내 계약 목록 카드의 "수정 시각"을 사람이 빠르게 훑는 상대 시간으로 — 기본 정렬이 "최근
+ * 수정순"이라, 절대 시각("2026. 6. 22. 오후 3:14:05")보다 "방금·N분 전·N시간 전·어제·N일 전"이
+ * 어떤 계약을 가장 최근에 손댔는지 한눈에 식별하게 한다(목록 탐색성). 7일을 넘어가면 상대
+ * 표기의 식별력이 떨어지므로 절대 날짜("YYYY. M. D.")로 떨어뜨린다. 호출부는 이 상대 문구를
+ * 보여 주되 카드 title(hover)에 정확한 전체 시각을 함께 보존해 잃는 정밀도를 보강한다.
+ * ★표시 전용 — 정렬 키(updated_at 원본 문자열)·조문·엔진·산출물 무접촉.
+ *
+ * 순수 함수: 기준 시각 nowMs 를 인자로 받아 Date.now() 부수효과를 분리한다(가드가 고정 now 로
+ * 경계를 단언). 분/시 구간은 경과 시간으로, "어제"/"N일 전"은 로컬 자정 기준 캘린더 일수 차로
+ * 판정한다 — 30시간 전이라도 달력상 어제면 "어제"로 자연스럽게 읽히게(경과-시간만 쓰면 자정을
+ * 갓 넘긴 어제 작업이 "1일 전"으로 어색해지는 것을 방지). 시계 오차로 미래(updated_at > now)면
+ * 빈칸 대신 "방금", 해석 불가 입력은 ""(호출부가 절대 시각으로 폴백).
+ */
+export function formatRelativeTime(
+  iso: string | number | Date | null | undefined,
+  nowMs: number,
+): string {
+  if (iso == null) return "";
+  const t = iso instanceof Date ? iso.getTime() : new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const MIN = 60_000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+  const diff = nowMs - t;
+  if (diff < MIN) return "방금"; // 1분 미만 + 미래(음수) 시계오차 포함
+  if (diff < HOUR) return `${Math.floor(diff / MIN)}분 전`;
+  // 로컬 자정 기준 캘린더 일수 차 — "어제"/"N일 전"을 달력 기준으로 정확히 판정.
+  const startOfDay = (ms: number) => {
+    const d = new Date(ms);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+  const dayDiff = Math.round((startOfDay(nowMs) - startOfDay(t)) / DAY);
+  if (dayDiff <= 0) return `${Math.floor(diff / HOUR)}시간 전`; // 같은 달력 날짜
+  if (dayDiff === 1) return "어제";
+  if (dayDiff < 7) return `${dayDiff}일 전`;
+  const d = new Date(t);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+}
+
 /** HTML 이스케이프 (print 빌더에서 사용) */
 export function escHTML(s: string | number | null | undefined): string {
   return String(s == null ? "" : s)
