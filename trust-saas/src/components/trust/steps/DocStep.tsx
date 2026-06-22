@@ -13,6 +13,24 @@ import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate, interpretSharePct } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
+import { splitStatusGlyph } from "@/lib/ui/status-glyph";
+
+// stale(입력 변경) 안내 문구 단일 출처 — 시각 span 과 SR 영속 라이브 영역이 같은 문구를
+// 쓰도록 모듈 상수로 둔다(낭독은 글리프 ● 를 splitStatusGlyph 로 떼고 본문만). JointForm 동형.
+const STALE_MSG = "● 입력이 변경되었습니다 — 다시 생성하세요";
+
+// 동적 상태 메시지의 선두 장식 글리프(✓/●)를 aria-hidden 으로 감싸 시각만 보존하고
+// 본문은 그대로 두는 시각-전용 렌더(ContractsView·JointForm StatusGlyphText 와 동형). 이
+// span 들은 role=status 를 갖지 않으므로(낭독은 영속 영역 전담) 선형 탐색 시 글리프만 막는다.
+function StatusGlyphText({ msg }: { msg: string }) {
+  const { glyph, text } = splitStatusGlyph(msg);
+  return (
+    <>
+      {glyph && <span aria-hidden="true">{glyph} </span>}
+      {text}
+    </>
+  );
+}
 
 // 입력 중에는 값 반영을 잠깐 미뤄(미리보기 한정) 매 키 입력마다
 // 무거운 완성 문서 HTML(계약서 본문 37KB+) 재생성·iframe srcDoc 재파싱을 막는다.
@@ -73,6 +91,19 @@ export function DocStep({ docId }: { docId: DocId }) {
   const formSnap = useMemo(() => JSON.stringify(form), [form]);
   // 생성 후 입력이 바뀌었는지: none(미생성)·fresh(무변경)·stale(변경됨).
   const freshness = genFreshness(formSnap, genSnap);
+
+  // 생성 상태(진행·완료·오류·stale)의 SR 영속 라이브 영역 단일 낭독 출처(JointForm 14:55·
+  // ContractsView 14:05 선례). 종전엔 상태 span 이 `{freshness==="stale" ? … : (msg && …)}`
+  // 로 **메시지가 생길 때 비로소 마운트**돼 라이브 영역이 콘텐츠 변경 '전'에 DOM 부재 →
+  // 첫 메시지("Word 파일 생성 중…")가 미고지였다(DocStep=주력 계약 생성 동선인데 누락된 잔여).
+  // stale 이면 변경 안내를, 아니면 생성 msg 를 — 장식 글리프(✓/●)는 떼고 본문만 고지한다.
+  // 하단 시각 span 은 낭독 책임 없음(role=status 미부착=중복 낭독 0).
+  const genLiveStatus =
+    freshness === "stale"
+      ? splitStatusGlyph(STALE_MSG).text
+      : msg
+        ? splitStatusGlyph(msg).text
+        : "";
 
   // 서류 전환 시 직전 서류의 생성 확인·메시지 초기화.
   useEffect(() => {
@@ -150,6 +181,12 @@ export function DocStep({ docId }: { docId: DocId }) {
 
   return (
     <div className="doc-split">
+      {/* SR 영속 라이브 영역(WCAG 4.1.3) — 생성 진행·완료·오류·stale 상태를 항상-렌더
+          단일 영역으로 고지(조건부 마운트 시 첫 메시지 미고지 결함 차단). 하단 시각 span
+          은 낭독 책임 없음(role=status 미부착=중복 낭독 0). 시각 무변경(.sr-only). */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {genLiveStatus}
+      </div>
       {/* ── 좌: 입력 ── */}
       <div className="doc-split-input">
         <p className="field-hint" style={{ marginBottom: 16 }}>
@@ -353,24 +390,16 @@ export function DocStep({ docId }: { docId: DocId }) {
           >
             🖨 PDF 생성
           </button>
+          {/* 시각 표시 전용 — 낭독은 상단 영속 라이브 영역(genLiveStatus)이 담당(role=status
+              미부착=중복 낭독 0). 글리프(✓/●)는 StatusGlyphText 로 aria-hidden(시각 보존). */}
           {freshness === "stale" ? (
-            <span
-              className="field-hint"
-              role="status"
-              aria-live="polite"
-              style={{ color: "var(--c-danger)" }}
-            >
-              ● 입력이 변경되었습니다 — 다시 생성하세요
+            <span className="field-hint" style={{ color: "var(--c-danger)" }}>
+              <StatusGlyphText msg={STALE_MSG} />
             </span>
           ) : (
             msg && (
-              <span
-                className="field-hint"
-                role="status"
-                aria-live="polite"
-                style={{ color: "var(--c-blue-deep)" }}
-              >
-                {msg}
+              <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}>
+                <StatusGlyphText msg={msg} />
               </span>
             )
           )}
