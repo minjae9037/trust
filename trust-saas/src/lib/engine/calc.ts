@@ -345,6 +345,37 @@ export function formatAreaReadback(raw: string | number | null | undefined): str
   return `${sqm}㎡ · 약 ${pyeong}평`;
 }
 
+/* ---------------- 지분율(%) 확인용 해석 ---------------- */
+
+/**
+ * 지분율(%) 입력의 "확인용 해석" — 실제소유자확인서(ubo)의 지분율(uboShare)은 특정금융정보법
+ * (특금법)상 실제소유자(25% 이상 지분 보유 자연인)를 식별하는 법적 정량값으로, 산출물 고유정보
+ * 표에 raw 그대로 박힌다(builders.js docRows: kvRow("지분율 (%)", raw)). 금액·면적 readback 과
+ * 같은 철학으로, 입력이 숫자꼴이면 0~100 범위 여부·실제소유자 기준(25% 이상) 충족 여부를 함께
+ * 돌려줘 입력 지점에서 자릿수·규모를 눈으로 확인하게 한다(예: "5"↔"50" 한 자리 오입력 구별).
+ * ★표시 전용·비차단 — 게이트(validateDoc)·빌더·조문 무접촉. 숫자꼴이 아니면 null(무간섭 =
+ * 자유 텍스트 형식 강제 금지, interpretDate 와 동일한 보수적 인식 = 임의 메모 오탐 차단).
+ *
+ * 인식 조건(오탐 차단): 문자열이 **숫자 + 소수점·콤마·`%`·공백** 으로만 이뤄질 때만 해석한다
+ * (parseAmount 단일 출처로 콤마·공백 허용·`%` 제거). 따라서 "25"·"25%"·"33.3" 은 해석하고
+ * "해당 없음"·"미정" 같은 free-form 은 null(무간섭).
+ *
+ * @returns 숫자꼴이면 { pct, inRange, meetsUbo }, 아니면 null.
+ *   pct      = 해석한 백분율 값
+ *   inRange  = 0 < pct ≤ 100 (유효 지분율 범위)
+ *   meetsUbo = pct ≥ 25 (특금법 실제소유자 기준)
+ */
+export function interpretSharePct(
+  raw: string | number | null | undefined,
+): { pct: number; inRange: boolean; meetsUbo: boolean } | null {
+  const s = String(raw == null ? "" : raw).trim();
+  if (s === "") return null;
+  // 숫자꼴(%·콤마·소수·공백)만 — free-form 텍스트(임의 메모 등)는 무간섭(추정 형식 강제 금지)
+  if (!/^[\d.,%\s]+$/.test(s)) return null;
+  const pct = parseAmount(s.replace(/%/g, ""));
+  return { pct, inRange: pct > 0 && pct <= 100, meetsUbo: pct >= 25 };
+}
+
 /** HTML 이스케이프 (print 빌더에서 사용) */
 export function escHTML(s: string | number | null | undefined): string {
   return String(s == null ? "" : s)

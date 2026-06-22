@@ -163,6 +163,12 @@ export interface DocField {
    * 비차단 주의를 띄운다(interpretDate, 표시만 — 형식 강제·게이트 차단 없음).
    */
   date?: boolean;
+  /**
+   * 지분율(%) 필드(실제소유자확인서 uboShare 등) — 입력이 숫자꼴이면 0~100 범위·실제소유자
+   * 기준(25% 이상) 충족 여부를 에코해 자릿수 오입력("5"↔"50")을 확인하게 하고, 범위 밖(0 이하·
+   * 100 초과)이면 비차단 주의를 띄운다(interpretSharePct, 표시만 — 형식 강제·게이트 차단 없음).
+   */
+  pct?: boolean;
 }
 
 export const DOC_FIELDS: Record<DocId, DocField[]> = {
@@ -203,7 +209,7 @@ export const DOC_FIELDS: Record<DocId, DocField[]> = {
   ],
   ubo: [
     { key: "uboName", type: "text", label: "실제 소유자 성명", placeholder: "25% 이상 지분 보유 자연인" },
-    { key: "uboShare", type: "text", label: "지분율 (%)", placeholder: "예) 100" },
+    { key: "uboShare", type: "text", pct: true, label: "지분율 (%)", placeholder: "예) 100" },
     { key: "sameAsTrustor", type: "radio", label: "위탁자와 동일 여부", options: [{ v: "yes", l: "동일" }, { v: "no", l: "다름" }] },
     { key: "notes", type: "textarea", label: "특이사항 / 메모", placeholder: "" },
   ],

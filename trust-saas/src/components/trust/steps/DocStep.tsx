@@ -10,7 +10,7 @@ import {
   previewDocHTML,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
-import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate } from "@/lib/engine/calc";
+import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate, interpretSharePct } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 
@@ -253,6 +253,12 @@ export function DocStep({ docId }: { docId: DocId }) {
             // 달력에 없는 날짜(2025-02-30)면 비차단 주의를 띄운다(계약 체결일 daysInMonth 클램프와
             // 같은 isRealDate 단일 출처). 날짜꼴이 아닌 free-form 은 null → 무간섭(형식 강제 없음).
             const dateInfo = f.date ? interpretDate(val as string) : null;
+            // 지분율(%)은 실제소유자확인서(ubo)의 법적 정량값(특금법 실제소유자=25% 이상 지분)으로
+            // 산출물 표에 raw 그대로 박힌다. 숫자꼴이면 0~100 범위·25% 기준 충족 여부를 에코해
+            // 자릿수 오입력("5"↔"50")을 입력 지점에서 확인하게 하고, 범위 밖(0 이하·100 초과)이면
+            // 비차단 주의를 띄운다(면적·날짜 readback 과 같은 isPositiveAmount/interpretDate 계열의
+            // 표시 전용 확인 — 게이트·빌더·조문 무접촉, 자유 텍스트라 형식 강제·차단 없음).
+            const pctInfo = f.pct ? interpretSharePct(val as string) : null;
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -286,6 +292,16 @@ export function DocStep({ docId }: { docId: DocId }) {
                 {dateInfo && !dateInfo.real && (
                   <div className="field-hint" role="status" style={{ color: "var(--c-danger)" }}>
                     달력에 없는 날짜일 수 있습니다 — 연·월·일을 확인해 주세요.
+                  </div>
+                )}
+                {pctInfo && pctInfo.inRange && (
+                  <div className="loan-hangul" role="status" aria-live="polite">
+                    지분율 {pctInfo.pct}% · 실제소유자 기준(25% 이상) {pctInfo.meetsUbo ? "충족" : "미만"}
+                  </div>
+                )}
+                {pctInfo && !pctInfo.inRange && (
+                  <div className="field-hint" role="status" style={{ color: "var(--c-danger)" }}>
+                    지분율은 0 초과 100 이하의 숫자로 확인해 주세요 (현재 {pctInfo.pct}).
                   </div>
                 )}
               </div>
