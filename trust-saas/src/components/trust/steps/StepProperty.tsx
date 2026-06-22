@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { OCR } from "@/lib/engine/ocr";
-import { isValidRegNo, isPositiveAmount, formatAreaReadback } from "@/lib/engine/calc";
+import { isValidRegNo, isPositiveAmount, formatAreaReadback, formatRegNoReadback } from "@/lib/engine/calc";
 import { useFocusAfterRemove } from "@/lib/ui/use-focus-after-remove";
 
 export function StepProperty() {
@@ -124,6 +124,15 @@ export function StepProperty() {
                 <div id={`prop-${i}-regNo-err`} className="field-hint" role="alert" style={{ marginTop: 4, color: "var(--c-danger)" }}>
                   등기 고유번호는 숫자 14자리입니다 (현재 {p.regNo.replace(/\D/g, "").length}자리)
                 </div>
+              )}
+              {/* 등기 고유번호 확인용 readback — 정확히 14자리일 때 등기사항증명서 표기와 동일한
+                  4-4-6 묶음("NNNN-NNNN-NNNNNN")으로 되읽어, 14자리 숫자열의 전치·누락을 입력 지점에서
+                  등기부등본과 눈으로 대조하게 한다(금액 한글·면적 평환산 readback 동일 철학). 빌더는
+                  raw 값을 박으므로(builders.js tc(p.regNo)) 묶음은 입력 확인 표시 전용(조문·게이트 무접촉).
+                  formatRegNoReadback 은 14자리일 때만 문구를 돌려주므로 위 무효 안내와 상호배타 —
+                  loan-hangul 기존 클래스 재사용(새 CSS 0). */}
+              {formatRegNoReadback(p.regNo) && (
+                <div className="loan-hangul" role="status" aria-live="polite">{formatRegNoReadback(p.regNo)}</div>
               )}
             </div>
           </div>

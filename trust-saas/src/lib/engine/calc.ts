@@ -90,6 +90,24 @@ export function isValidRegNo(v: string | number | null | undefined): boolean {
 }
 
 /**
+ * 부동산 등기 고유번호 확인용 readback 문구 — 숫자만 추출해 정확히 14자리일 때, 등기사항증명서
+ * 표기와 동일한 **4-4-6 하이픈 묶음**("NNNN-NNNN-NNNNNN")으로 되읽어 준다. 등기 고유번호는
+ * 신탁부동산 표(신청서 partyTable·계약서 별지)에 그대로 박히는 14자리 법적 식별자라(builders.js
+ * tc(p.regNo)) 한 자리 전치·누락이 치명적인데, 금액 한글·면적 평환산·생년월일·날짜 요일처럼
+ * 입력 지점에서 묶음으로 되읽어 사용자가 등기부등본과 눈으로 대조하게 한다. 4-4-6 묶음은 OCR
+ * `parsePropertyRegistry`/`extractIdentifiers` 정규식 `\d{4}-\d{4}-\d{6}`·isValidRegNo(14자리)와
+ * **동일 출처**라 추정 형식이 아니다(각 묶음의 의미는 주장하지 않음 — 표기 형식만 재현).
+ * ⚠️ 정확히 14자리일 때만 묶음 문자열을 돌려주고, 그 외(빈 값·자릿수 불일치)는 ""(미표시) —
+ *    isValidRegNo 인라인 오류와 정확히 상호배타(readback ⟺ isValidRegNo true). 표시 전용·게이트·
+ *    빌더·조문 무접촉. 입력에 하이픈이 섞여 있어도 숫자만 추출해 표준 묶음으로 정규화한다.
+ */
+export function formatRegNoReadback(v: string | number | null | undefined): string {
+  const digits = String(v == null ? "" : v).replace(/\D/g, "");
+  if (digits.length !== 14) return "";
+  return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 14)}`;
+}
+
+/**
  * 개인 당사자 식별번호 칸은 산출물에 "생년월일"로 렌더된다(builders.js: type==="개인"→"생년월일").
  * 그 값은 주민등록번호 구조(앞 6자리=생년월일 YYMMDD, 뒤 7자리: 첫 자리=성별·세기 코드)이므로,
  * 게이트가 법인=법인등록번호 체크섬만 검사하고 개인 식별번호는 전혀 검사하지 않아 "991332"·"000000"
