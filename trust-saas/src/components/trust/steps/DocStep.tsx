@@ -419,6 +419,20 @@ export function DocStep({ docId }: { docId: DocId }) {
               f.key === "uboName" &&
               form.docContents.ubo?.sameAsTrustor === "no" &&
               (typeof val !== "string" || val.trim().length === 0);
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — 위 uboDistinctNameMissing(성명)의 동형
+            // 보완 갈래로, 실제소유자=위탁자 "다름"(no)인데 지분율(uboShare)을 비워 두면 산출물
+            // (실제소유자확인서) 고유정보 표의 "지분율 (%)" 칸이 빈칸으로 박힌다(builders.js docRows:
+            // kvRow("지분율 (%)", raw)). 지분율은 특정금융정보법 §5의2상 실제소유자(그 법인 지분 25%
+            // 이상 보유 자연인)를 식별하는 법적 정량값이라 별도 자연인을 지정했으면 그 보유 지분도
+            // 식별해 기재해야 한다. 값이 채워지면 같은 필드의 pctInfo readback(충족/미만)이 대신
+            // 뜨므로(interpretSharePct: 빈 문자열이면 null) 둘은 상호배타다. 두 기존 입력
+            // (ubo.sameAsTrustor·uboShare) 파생이라 새 상태/모델/엔진/조문 무접촉이고, 막지 않는다
+            // (작성 중 임시 빈칸 등 사용자 선택 보존 — 표시뿐).
+            const uboShareDistinctMissing =
+              docId === "ubo" &&
+              f.key === "uboShare" &&
+              form.docContents.ubo?.sameAsTrustor === "no" &&
+              (typeof val !== "string" || val.trim().length === 0);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -510,6 +524,19 @@ export function DocStep({ docId }: { docId: DocId }) {
                   <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
                     <span aria-hidden="true">⚠ </span>
                     실제소유자가 위탁자와 다르다고 표기했으나 실제 소유자 성명이 비어 있습니다 — 특정금융정보법상 법인의 실제소유자(그 법인 지분 25% 이상 보유 자연인)의 성명을 입력하세요.
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 실제소유자=위탁자 "다름"인데 지분율이
+                    비어 있으면 "별도 자연인을 지정했으면 그 보유 지분도 식별해야 한다"를 부드럽게
+                    되짚는다(uboDistinctNameMissing 성명 advisory 의 동형 보완 갈래 — 거기는 성명 빈칸,
+                    여기는 지분율 빈칸). 값이 채워지면 아래 pctInfo readback 이 대신 뜨므로 상호배타.
+                    ubo.sameAsTrustor·uboShare 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·
+                    aria-live=polite(동적 출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 =
+                    var(--c-brown)(차단 적색 아님 — 검토 신호). */}
+                {uboShareDistinctMissing && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    실제소유자가 위탁자와 다르다고 표기했으나 지분율(%)이 비어 있습니다 — 산출물 실제소유자확인서의 지분율 칸이 빈칸으로 출력됩니다. 특정금융정보법상 실제소유자(그 법인 지분 25% 이상 보유 자연인)의 지분율을 입력하세요.
                   </div>
                 )}
                 {pctInfo && pctInfo.inRange && (
