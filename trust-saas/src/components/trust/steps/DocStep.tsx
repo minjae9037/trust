@@ -382,6 +382,27 @@ export function DocStep({ docId }: { docId: DocId }) {
               typeof form.common.day === "number" &&
               Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day) >
                 Date.UTC(form.common.year, form.common.month - 1, form.common.day);
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — Doc 05(이사회 의사록·boardMin)는
+            // 스키마상 "위탁자(법인) 이사회의 담보신탁 결의" 서류다(이사회=법인의 의사결정
+            // 기관). 그런데 위탁자가 모두 개인(자연인)이면 이사회 자체가 존재하지 않아 이
+            // 서류의 작성 전제가 성립하지 않는다. 위탁자 유형(STEP 02 PartyCard 의 법인/개인)과
+            // 이사회 의사록 입력(Doc 05 자유 텍스트)이 서로 다른 화면에서 입력돼, 위탁자가
+            // 모두 개인인데도 이사회 의사록이 조용히 채워질 수 있었다(법인 위탁자 폼을 개인으로
+            // 바꾸고 Doc 05 를 손대지 않은 경우, 또는 개인 위탁자인데 서류를 잘못 고른 경우).
+            // ubo=위탁자 동일·전원 법인 advisory(c75053c)의 대칭(역) 형태로, 거기는 every(법인)
+            // 일 때 표출하고 여기는 every(개인)일 때 표출한다. ★false-positive 방지: 위탁자 중
+            // 한 명이라도 법인이면 그 법인의 이사회 결의로 정당하므로 미표출 — every(개인)일
+            // 때만 이사회 부재가 확실해 표출한다. 회의 일자(meetingDate)가 채워졌을 때만(이
+            // 서류를 실제 작성 중이라는 신호) 띄우고, 날짜 실재 여부와 무관하다(구조 부정합은
+            // 날짜 유효성과 별개). 기존 입력(form.trustors[].type · meetingDate) 파생이라 새
+            // 상태/모델/엔진/조문 무접촉이고, 막지 않는다(드물게 정당한 작성 의도 보존).
+            const boardMinIndividualTrustor =
+              docId === "boardMin" &&
+              f.key === "meetingDate" &&
+              typeof val === "string" &&
+              val.trim().length > 0 &&
+              form.trustors.length > 0 &&
+              form.trustors.every((t) => t.type === "개인");
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -449,6 +470,18 @@ export function DocStep({ docId }: { docId: DocId }) {
                   <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
                     <span aria-hidden="true">⚠ </span>
                     이사회 회의 일자({dateInfo!.year}년 {dateInfo!.month}월 {dateInfo!.day}일)가 계약 체결일({form.common.year}년 {form.common.month}월 {form.common.day}일)보다 뒤입니다 — 통상 위탁자 이사회의 담보신탁 결의는 계약 체결 이전 또는 당일에 이뤄집니다. 확인하세요.
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 이사회 의사록(Doc 05)을 작성 중인데
+                    위탁자가 모두 개인이면 "이사회는 법인의 기관 — 개인 위탁자는 이사회가 없다"를
+                    부드럽게 되짚는다(ubo=위탁자 동일·전원 법인 advisory 의 대칭 형태). form.trustors[].type·
+                    meetingDate 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite(동적
+                    출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색
+                    아님 — 검토 신호). */}
+                {boardMinIndividualTrustor && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    이사회 의사록은 위탁자(법인) 이사회의 담보신탁 결의 서류인데 현재 위탁자가 모두 개인입니다 — 개인(자연인) 위탁자는 이사회가 없습니다. 위탁자 유형 또는 이 서류 작성 여부를 확인하세요.
                   </div>
                 )}
                 {pctInfo && pctInfo.inRange && (
