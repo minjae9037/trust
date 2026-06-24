@@ -120,7 +120,15 @@ const SORT_LABEL: Record<SortKey, string> = {
 /** 완료 status 판정 — 그 외(draft/빈값/구버전)는 모두 "작성중"으로 묶는다. */
 const isCompleted = (r: ContractRow) => r.status === "completed";
 
-export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }) {
+export function ContractsView({
+  onOpen,
+  onStart,
+}: {
+  onOpen: (row: ContractRow) => void;
+  // 계약이 0건일 때(첫 진입·캐시 삭제) 빈 화면에서 바로 새 계약 작성으로 보내는 내비게이션 콜백.
+  // 표시·이동 전용 — 조문·엔진·산출물 무관. 미전달이면 CTA 버튼을 렌더하지 않는다(후방호환).
+  onStart?: () => void;
+}) {
   const [rows, setRows] = useState<ContractRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -531,8 +539,19 @@ export function ContractsView({ onOpen }: { onOpen: (row: ContractRow) => void }
 
       {loading && <p className="field-hint">불러오는 중…</p>}
       {err && <p className="field-hint" style={{ color: "var(--c-danger)" }}>오류: {err}</p>}
+      {/* 첫 진입(계약 0건)은 종전엔 안내 문구뿐인 막다른 빈 화면이라, 사용자가 여기서 바로
+          작성을 시작할 길이 없었다(상단 breadcrumb 로 되돌아가야 했음). 안내 문구에 더해
+          "새 계약 작성하기" 1차 CTA 를 둬 첫 사용 흐름을 연결한다(onStart=서류/신탁사 선택으로 이동).
+          순수 내비게이션 — 조문·엔진·검증·산출물 무접촉(이동 콜백만 호출). */}
       {!loading && !err && rows.length === 0 && (
-        <p className="field-hint">아직 저장된 계약이 없습니다. 서류를 작성하고 저장해 보세요.</p>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12 }}>
+          <p className="field-hint">아직 저장된 계약이 없습니다. 서류를 작성하고 저장하면 여기에 모입니다.</p>
+          {onStart && (
+            <button className="btn btn-primary btn-sm" onClick={onStart}>
+              <span aria-hidden="true">+ </span>새 계약 작성하기
+            </button>
+          )}
+        </div>
       )}
       {!loading && !err && rows.length > 0 && visible.length === 0 && (
         <p className="field-hint">조건에 맞는 계약이 없습니다 — 검색어나 상태 필터를 바꿔 보세요.</p>

@@ -226,7 +226,14 @@ export function TrustApp() {
           <Wizard docTypeId={docType.id} docName={docType.name} category={category} />
         </>
       )}
-      {view === "contracts" && <ContractsView onOpen={openContract} />}
+      {view === "contracts" && (
+        <ContractsView
+          onOpen={openContract}
+          // 계약 0건 빈 화면의 "새 계약 작성하기" CTA — goBack 의 contracts 분기와 동일 의미로
+          // 신탁사가 정해졌으면 서류 선택(home), 아니면 신탁사 선택(company)으로 보낸다.
+          onStart={() => setView(company ? "home" : "company")}
+        />
+      )}
 
       {!chatOpen && (
         <button
