@@ -234,6 +234,25 @@ export function DocStep({ docId }: { docId: DocId }) {
               );
             }
             if (f.type === "radio") {
+              // 입력 지점 교차검증(표시 전용·게이트 아님) — 실제소유자확인서(ubo)의 "위탁자와
+              // 동일 여부"(sameAsTrustor)를 "동일"로 표기했는데 위탁자가 모두 법인이면 부드럽게
+              // 되짚는다. 특정금융정보법(§5의2)·시행령상 법인 고객의 실제소유자는 그 법인의
+              // 지분을 25% 이상 보유한 자연인(없으면 대표자 등)으로, 법인 자신은 자신의
+              // 실제소유자가 될 수 없다. 그런데 실제소유자 정보(ubo 블록)와 위탁자 유형(STEP 02
+              // PartyCard 의 법인/개인)이 서로 다른 화면에서 입력돼, 위탁자가 법인인데도 "실제
+              // 소유자 = 위탁자와 동일"이 조용히 성립할 수 있었다(개인 위탁자 폼을 법인으로
+              // 바꾸고 ubo 를 손대지 않은 경우 등). ★false-positive 방지: 위탁자 중 한 명이라도
+              // 개인이면 "동일"이 그 개인을 가리킬 수 있어 미표출 — 모든 위탁자가 법인일 때만
+              // "동일"이 반드시 법인을 가리키므로 표출한다. 기존 입력(form.trustors[].type·ubo
+              // sameAsTrustor) 파생이라 새 상태/모델/엔진/조문 무접촉이고, 막지 않는다(드물게
+              // 1인 법인의 대표자=실제소유자를 "동일"로 본 사용자 의도 등 보존). 날짜·금액·
+              // 당사자 동일주체 advisory 패밀리와 동형의 "차단 아닌 되짚음".
+              const uboSameAsCorpTrustor =
+                docId === "ubo" &&
+                f.key === "sameAsTrustor" &&
+                (val as string) === "yes" &&
+                form.trustors.length > 0 &&
+                form.trustors.every((t) => t.type === "법인");
               // 라디오 그룹: 개별 옵션은 감싼 <label> 로 이름이 붙으나, 그룹 전체
               // 라벨은 role=radiogroup + aria-labelledby 로 연결(htmlFor 는 단일
               // 컨트롤 전용이라 그룹엔 부적합).
@@ -254,6 +273,18 @@ export function DocStep({ docId }: { docId: DocId }) {
                       </label>
                     ))}
                   </div>
+                  {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 실제소유자=위탁자 동일인데 위탁자가
+                      모두 법인이면 "법인은 자신의 실제소유자가 될 수 없다"를 부드럽게 되짚는다(당사자
+                      동일주체 advisory 패밀리와 동형의 "차단 아닌 되짚음"). form.trustors[].type·ubo
+                      sameAsTrustor 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite
+                      (동적 출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)
+                      (차단 적색 아님 — 검토 신호). */}
+                  {uboSameAsCorpTrustor && (
+                    <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 8, color: "var(--c-brown)", fontWeight: 600 }}>
+                      <span aria-hidden="true">⚠ </span>
+                      실제소유자가 위탁자와 동일로 표기됐으나 위탁자가 법인입니다 — 법인의 실제소유자는 그 법인의 지분을 25% 이상 보유한 자연인이어야 합니다(법인 자신은 실제소유자가 될 수 없음). 확인하세요.
+                    </div>
+                  )}
                 </div>
               );
             }

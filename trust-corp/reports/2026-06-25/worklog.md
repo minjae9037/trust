@@ -1,0 +1,9 @@
+# 24시간 연속 개발 워크로그 — 2026-06-25
+
+> 형식: `- HH:MM [팀] 작업 / 검증결과 / 다음스텝`. 연속 워커가 iteration마다 append.
+
+- 08:06 [개발] **실제소유자(ubo)=위탁자 동일인데 위탁자가 모두 법인 입력 지점 교차검증 advisory 마감(검증 가드 신설) — 표시 전용·게이트 아님.**
+  - 배경/상태: 직전 세션이 `DocStep.tsx` 에 해당 advisory(uboSameAsCorpTrustor) 를 구현했으나 **미커밋·전용 회귀 가드 부재** 상태로 dangling 되어 있었다(다음 워커 iteration 과 충돌·유실 위험). 입력 지점 교차검증 advisory 패밀리(평가기준일/이사회 회의일/우선수익자 동일주체/신탁보수>한도 등)는 **각 advisory가 전용 `verify-*-advisory.mjs` 가드와 함께 출하**하는 것이 확립된 컨벤션인데 이 건만 가드가 없었다 → 이번 iteration 에서 가드를 신설해 완결 deliverable 로 마감 후 커밋.
+  - 작업(2파일): ①`DocStep.tsx`(in-flight 검수·확정) — 실제소유자확인서(docId="ubo")의 "위탁자와 동일 여부"(sameAsTrustor) 라디오를 "동일"(yes)로 표기했는데 위탁자(STEP 02 PartyCard)가 **모두 법인**이면 부드럽게 되짚는다. 근거 = 특정금융정보법 §5의2·시행령: 법인 고객의 실제소유자는 그 법인 지분 25% 이상 자연인(법인 자신은 자신의 실제소유자가 될 수 없음). ★false-positive 방지 = `form.trustors.every(t=>t.type==="법인")` — 위탁자 중 한 명이라도 개인이면 "동일"이 그 개인을 가리킬 수 있어 미표출. 기존 입력(`form.trustors[].type`·ubo `sameAsTrustor`) 파생이라 **새 상태/모델/엔진/조문 무접촉**, 막지 않음(차단 아님·사용자 선택 보존). role=status·aria-live=polite + 선두 ⚠ aria-hidden, 색 var(--c-brown)(차단 적색 아님), field-hint 재사용(새 CSS 0). ②`scripts/verify-ubo-sameastrustor-corp-advisory.mjs` 신규 가드.
+  - 검증결과: 신규 가드 **21/21 PASS**([A]DocStep 배선=조건 5종·문구·role=status·⚠ aria-hidden·field-hint·brown·차단 적색 미사용 [B]단일출처/모델 계약=PartyType·model.ubo.sameAsTrustor·schema 라디오 옵션 [C]무회귀=radiogroup·setField 배선·advisory 패밀리 공존 [D]무접촉=validate/builders 문구 미혼입·globals 새 클래스 0). `npm run verify`(verify-all) **165/165·단언 4376 PASS / 0 FAIL**(직전 164/4355 → +1 가드·+21 단언) 회귀無. `npx tsc --noEmit` **EXIT 0** / `npx next build` **EXIT 0**(전 10라우트). ※브라우저 스모크(ubo 단계 진입+위탁자 법인+동일 표기 트리거)는 이번 iteration 미실행 — 정적 가드가 조건식·렌더 마크업을 verbatim 단언하고 tsc 가 스코프·타입을 보장하나 런타임 트리거 실증은 잔여(다음 iteration 후보).
+  - 다음스텝: (개발 후보) ubo advisory 브라우저 스모크 실증 / 입력 지점 교차검증 advisory 추가 갈래 발굴(예: 채무자 유형 vs 우선수익자 구조) / 모바일 stepper. (★사업) M1 자체판정 공식 추인 + 추가 정본 교차(출시 게이트 핵심·대표님 1차 출시 선언 전제). (마케팅) 상표·도메인 정식 조회(M4) 미착수.
