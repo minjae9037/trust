@@ -87,6 +87,20 @@ export function PartyCard({
   const loanFilled = String(party.loanAmount ?? "").trim().length > 0;
   const loanInvalid = loanFilled && !isPositiveAmount(party.loanAmount);
 
+  // 입력 지점 교차검증(표시 전용·게이트 아님) — 우선수익자에 대출금액을 입력했으면 그 우선수익자는
+  // 별첨2 가.우선수익자 표에 기재되는 활성 당사자다(builders.js 본문 제1조 정의: "피담보채권"="별첨2에
+  // 적힌 것", "채무자"="별첨2에 적힌 자"). 그런데 피담보채권 채무자(claimDebtor)·피담보채권 문구
+  // (securedClaim)는 게이트(validateDoc)가 검사하지 않아, 대출금액만 채우고 두 칸을 비워 두면 별첨2
+  // 가.우선수익자 표의 채무자·피담보채권 칸이 빈칸으로 출력된다(builders.js HTML 별첨2 muted 플레이스홀더·
+  // DOCX 빈 셀). 신탁이 담보하는 채권을 특정하는 법적 핵심 항목이라 입력 지점에서 부드럽게 되짚는다.
+  // ★나그·오탐 방지: loanActive(isPositiveAmount(loanAmount))일 때만 — 대출금액 미입력·무효(loanInvalid
+  // 별도 안내)인 작성 전/미사용 행은 미표출. 기존 입력(loanAmount·claimDebtor·securedClaim) 파생이라 새
+  // 상태/모델/엔진/조문 무접촉이고, 막지 않는다(작성 중 임시 빈칸 등 사용자 선택 보존 — 표시뿐).
+  // DocStep uboDistinctNameMissing(다름인데 성명 빈칸) 완결성 advisory 와 동형의 "차단 아닌 되짚음".
+  const loanActive = isPositiveAmount(party.loanAmount);
+  const claimDebtorMissing = loanActive && String(party.claimDebtor ?? "").trim().length === 0;
+  const securedClaimMissing = loanActive && String(party.securedClaim ?? "").trim().length === 0;
+
   // 법인 전용 입력 affordance — 자연인(개인)에겐 존재하지 않는 개념이라 개인일 때 숨긴다.
   //   · 대표이사/사내이사 = 이사회 직위(법인 전용). 사업자등록번호는 개인사업자도 보유하므로 제외(계속 노출).
   //   · 법인등기부 PDF(OCR) = 법인 등기 추출이라 개인엔 무의미.
@@ -318,11 +332,32 @@ export function PartyCard({
               <label className="field-label" htmlFor={fid("claimDebtor")}>피담보채권 채무자</label>
               <input id={fid("claimDebtor")} className="input" value={party.claimDebtor}
                 onChange={(e) => set({ claimDebtor: e.target.value })} />
+              {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 대출금액을 입력한 우선수익자인데 피담보채권
+                  채무자가 비어 있으면 별첨2 가.우선수익자 표 채무자 칸이 빈칸으로 출력됨을 부드럽게 되짚는다
+                  (uboDistinctNameMissing 완결성 advisory 와 동형). loanAmount·claimDebtor 파생이라 새 상태/
+                  모델/엔진/조문 무접촉. role=status·aria-live=polite(동적 출현 SR 고지) + 선두 ⚠ aria-hidden
+                  (장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색 아님 — 검토 신호). */}
+              {claimDebtorMissing && (
+                <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 4, color: "var(--c-brown)", fontWeight: 600 }}>
+                  <span aria-hidden="true">⚠ </span>
+                  대출금액을 입력한 우선수익자인데 피담보채권 채무자가 비어 있습니다 — 별첨2 가.우선수익자 표의 채무자 칸이 빈칸으로 출력됩니다. 이 우선수익자의 피담보채권에 관한 채무자를 입력하세요.
+                </div>
+              )}
             </div>
             <div className="field full">
               <label className="field-label" htmlFor={fid("securedClaim")}>피담보채권 문구 (별첨2)</label>
               <input id={fid("securedClaim")} className="input" value={party.securedClaim}
                 onChange={(e) => set({ securedClaim: e.target.value })} />
+              {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 대출금액을 입력한 우선수익자인데 피담보채권
+                  문구가 비어 있으면 별첨2 가.우선수익자 표 피담보채권 칸이 빈칸으로 출력됨을 부드럽게 되짚는다.
+                  loanAmount·securedClaim 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite
+                  (동적 출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)(차단 적색 아님). */}
+              {securedClaimMissing && (
+                <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 4, color: "var(--c-brown)", fontWeight: 600 }}>
+                  <span aria-hidden="true">⚠ </span>
+                  대출금액을 입력한 우선수익자인데 피담보채권 문구가 비어 있습니다 — 별첨2 가.우선수익자 표의 피담보채권 칸이 빈칸으로 출력됩니다. 신탁이 담보하는 채권을 특정해 입력하세요.
+                </div>
+              )}
             </div>
           </>
         )}
