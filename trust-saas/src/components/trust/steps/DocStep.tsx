@@ -403,6 +403,22 @@ export function DocStep({ docId }: { docId: DocId }) {
               val.trim().length > 0 &&
               form.trustors.length > 0 &&
               form.trustors.every((t) => t.type === "개인");
+            // 입력 지점 교차검증(표시 전용·게이트 아님) — 실제소유자확인서(ubo)에서 "위탁자와
+            // 동일 여부"(sameAsTrustor)를 "다름"(no)으로 표기하면, 실제소유자는 위탁자 본인이
+            // 아닌 별도 자연인이므로 그 성명(uboName)을 반드시 식별해 기재해야 한다(특정금융
+            // 정보법 §5의2·시행령: 법인 고객의 실제소유자 = 그 법인 지분 25% 이상 보유 자연인).
+            // 그런데 "다름" 라디오와 성명 텍스트가 같은 서류 안의 서로 다른 입력이라, "다름"을
+            // 고른 뒤 성명을 비워 둔 채(또는 "동일"→"다름"으로 바꾸고 성명을 안 채운 채) 조용히
+            // 진행될 수 있었다 → 산출물(실제소유자확인서)에 실소유자 성명칸이 빈칸으로 박힌다.
+            // ubo=위탁자 동일·전원 법인 advisory(c75053c)의 보완 갈래로, 거기는 "동일"인데 법인일
+            // 때(법인은 자기 실소유자가 될 수 없음) 표출하고, 여기는 "다름"인데 그 별도 자연인을
+            // 안 적었을 때 표출한다. 두 기존 입력(ubo.sameAsTrustor·uboName) 파생이라 새 상태/모델/
+            // 엔진/조문 무접촉이고, 막지 않는다(작성 중 임시 빈칸 등 사용자 선택 보존 — 표시뿐).
+            const uboDistinctNameMissing =
+              docId === "ubo" &&
+              f.key === "uboName" &&
+              form.docContents.ubo?.sameAsTrustor === "no" &&
+              (typeof val !== "string" || val.trim().length === 0);
             return (
               <div className="field full" key={f.key}>
                 <label className="field-label" htmlFor={fid}>{f.label}</label>
@@ -482,6 +498,18 @@ export function DocStep({ docId }: { docId: DocId }) {
                   <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
                     <span aria-hidden="true">⚠ </span>
                     이사회 의사록은 위탁자(법인) 이사회의 담보신탁 결의 서류인데 현재 위탁자가 모두 개인입니다 — 개인(자연인) 위탁자는 이사회가 없습니다. 위탁자 유형 또는 이 서류 작성 여부를 확인하세요.
+                  </div>
+                )}
+                {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 실제소유자=위탁자 "다름"인데 실제
+                    소유자 성명이 비어 있으면 "별도 자연인을 지정했으면 그 성명을 식별해야 한다"를
+                    부드럽게 되짚는다(ubo=위탁자 동일·전원 법인 advisory 의 보완 갈래). ubo.sameAsTrustor·
+                    uboName 파생이라 새 상태/모델/엔진/조문 무접촉. role=status·aria-live=polite(동적
+                    출현 SR 고지) + 선두 ⚠ aria-hidden(장식 접근명 오염 0). 색 = var(--c-brown)(차단
+                    적색 아님 — 검토 신호). */}
+                {uboDistinctNameMissing && (
+                  <div className="field-hint" role="status" aria-live="polite" style={{ color: "var(--c-brown)", fontWeight: 600 }}>
+                    <span aria-hidden="true">⚠ </span>
+                    실제소유자가 위탁자와 다르다고 표기했으나 실제 소유자 성명이 비어 있습니다 — 특정금융정보법상 법인의 실제소유자(그 법인 지분 25% 이상 보유 자연인)의 성명을 입력하세요.
                   </div>
                 )}
                 {pctInfo && pctInfo.inRange && (
