@@ -100,8 +100,11 @@ console.log("\n[D] 무접촉 — onStart 내비게이션 전용·globals 새 클
   // onStart 는 setView 콜백일 뿐 — ContractsView 의 엔진/검증/산출물 import 는 무변경
   ok(/import \{ validateDoc, validateJoint \} from "@\/lib\/engine\/validate";/.test(view),
      "validate import 무변경(CTA 는 검증 게이트 무접촉)");
-  ok(/import \{ generateCollateralDoc, generateJointDoc \} from "@\/lib\/engine\/docx";/.test(view),
-     "docx 생성기 import 무변경(CTA 는 산출물 빌더 무접촉)");
+  // CTA 의 무접촉 의도 = 산출물 '생성기' 가 그대로라는 것(import 줄 바이트 동일성이 아님).
+  // 무관 기능이 같은 docx 모듈에서 표시용 함수(previewDocHTML 등)를 추가 import 해도
+  // 내성 있게 — 두 생성기 동시 존재만 단언한다(09:09 react import 완화와 동형).
+  ok(/import \{[^}]*\bgenerateCollateralDoc\b[^}]*\bgenerateJointDoc\b[^}]*\} from "@\/lib\/engine\/docx";/.test(view),
+     "docx 생성기(generateCollateralDoc·generateJointDoc) import 보존 — CTA 는 산출물 빌더 무접촉");
   // 새 CSS 클래스 0 — 빈 화면 CTA 는 기존 btn-primary/btn-sm + 인라인 style 만 사용
   ok(!/\.contracts-empty\b/.test(globals),
      "globals 에 신규 빈 화면 전용 클래스(.contracts-empty 등) 미추가 — 기존 클래스+인라인만");

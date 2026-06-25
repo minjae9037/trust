@@ -16,8 +16,9 @@ import {
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 import { validateDoc, validateJoint } from "@/lib/engine/validate";
-import { generateCollateralDoc, generateJointDoc } from "@/lib/engine/docx";
+import { generateCollateralDoc, generateJointDoc, previewDocHTML } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
+import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import { highlightSegments } from "@/lib/ui/highlight";
 import { formatRelativeTime } from "@/lib/engine/calc";
@@ -311,6 +312,42 @@ export function ContractsView({
     } catch (e) {
       setBatch({ id: row.id, msg: "오류: " + (e instanceof Error ? e.message : String(e)), busy: false });
     }
+  }
+
+  // ── 목록에서 바로 준비된 N종 "통합 검수 미리보기" — 계약을 열지 않고도 준비된 서류 전부를
+  //    한 새 창에서 정독(읽기 전용·인쇄 대화상자 없음). 목록 일괄 생성(generateRowDocs)의 검수 짝
+  //    — 동일 readyDocIds 집합을 대상으로 하되 다운로드가 아닌 통합 검수 창을 연다(내려받기 전 정독).
+  //    Wizard 헤더 previewAllReady 와 동일 패턴 — 저장된 계약 측 패리티(그간 목록에선 열어야 검수 가능).
+  //    각 서류 미리보기(previewDocHTML)는 변형 없이 격리 iframe 에 그대로 들어간다 —
+  //    조문·엔진·빌더·검증·산출물 무접촉(읽기 전용). 진행 메시지는 일괄 생성과 동일한 per-row
+  //    영역(batch.msg)에 싣고, 동기 작업이라 busy=false(진행 중 일괄 생성을 중단시키지 않게 가드).
+  function previewRowDocs(row: ContractRow) {
+    if (batch?.busy) return;
+    const ids = readyDocIds(row);
+    if (!ids || ids.length === 0) return;
+    // ids 가 non-null = collateral 행만 도달 → form_data 는 ContractForm.
+    const form = row.form_data as ContractForm;
+    const docs = ids.map((id) => ({
+      name: COLLATERAL_OUTPUT_DOCS.find((d) => d.id === id)?.name ?? id,
+      html: previewDocHTML(form, id),
+    }));
+    // 입력 미완으로 이 검수에서 빠진 서류 이름 — 통합 창 부분집합 고지로 명시해, 준비된 N종을
+    // 전체 세트로 오인한 채 미완 서류 누락을 못 보고 출하하는 것을 막는다(정확성 최우선·표시 전용).
+    const readySet = new Set<DocId>(ids);
+    const excluded = COLLATERAL_OUTPUT_DOCS.filter((d) => !readySet.has(d.id)).map((d) => d.name);
+    const r = openMultiDocPreviewWindow(
+      docs,
+      () => window.open("", "_blank", "width=1040,height=1000"),
+      { excluded },
+    );
+    setBatch({
+      id: row.id,
+      msg:
+        r === "blocked"
+          ? "새 창을 열 수 없습니다 — 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요."
+          : `✓ 준비된 ${ids.length}종을 새 창에서 정독 검수하실 수 있습니다(읽기 전용).`,
+      busy: false,
+    });
   }
 
   // ── 목록에서 바로 공동사업표준협약서(joint) 생성(.docx) — 계약을 열지 않고도 협약서 내려받기.
@@ -717,6 +754,20 @@ export function ContractsView({
                       {batch?.busy && batch.id === r.id
                         ? "⏳ 생성 중…"
                         : `⬇ 서류 ${readiness.ready}종 생성`}
+                    </button>
+                  )}
+                  {/* 준비된 N종 통합 검수 미리보기 — 일괄 생성의 검수 짝(내려받기 전 정독).
+                      열지 않고도 준비된 서류 전부를 한 새 창에 모아 읽기 전용으로 검수한다.
+                      Wizard 헤더 previewAllReady 의 목록 패리티. 동일 readiness.ready>0 조건. */}
+                  {readiness && readiness.ready > 0 && (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => previewRowDocs(r)}
+                      disabled={batch?.busy}
+                      aria-label={`${r.title} — 준비된 서류 ${readiness.ready}종 검수 미리보기`}
+                      title={`준비된 ${readiness.ready}종 서류를 한 새 창에 모아 정독합니다(읽기 전용 · 인쇄 대화상자 없음)`}
+                    >
+                      <span aria-hidden="true">🔍 </span>검수 미리보기
                     </button>
                   )}
                   {jointReady === true && (
