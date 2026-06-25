@@ -6,6 +6,8 @@
    ================================================================ */
 import * as docx from "docx";
 import { COLLATERAL_OUTPUT_DOCS, DOC_FIELDS } from "../schema";
+// 처분신탁 본문 23조 — clauses/disposalBody.ts(5종 교차검증 verbatim)를 단일 출처로 import(중복 방지)
+import { DISPOSAL_BODY } from "../clauses/disposalBody";
 
 // 모듈 전역 상태 (참조 HTML 의 전역 state 대체)
 const state = { form: null, jointForm: null };
@@ -2249,6 +2251,211 @@ window.addEventListener('load', function(){
 </body></html>`;
 }
 
+/* ================================================================
+   처분신탁 계약서 (disposal) — 전용 전체 HTML 빌더 (C-2 MVP, 2026-06-22)
+   본문=DISPOSAL_BODY(23조, 한투 5종 교차검증 verbatim). 별첨1~3 처분용, 별첨4=별도협의.
+   담보 경로(buildContractFullHTML) 무접촉 — 회귀 위험 0. 헬퍼(escHTML/splitDefBoldHTML/
+   getContractDateText/getAnnex1Data/getAnnex2Data/CIRCLED_NUMS/HO_HANGUL)는 공유.
+   ================================================================ */
+const DISPOSAL_PREAMBLE_TPL =
+  "위탁자 {trustors}는 아래 정의된 신탁부동산의 처분을 위하여 신탁부동산을 수탁자 한국투자부동산신탁 주식회사(이하 “수탁자”라 한다)에 신탁하고 수탁자는 이를 인수함에 있어서, 위탁자, 수탁자 및 수익자의 권리의무를 정하기 위하여 다음과 같이 부동산처분신탁계약(이하 “이 신탁계약”이라 한다)을 체결한다.";
+
+function buildDisposalContractFullHTML() {
+  const f = state.form;
+  const names = f.trustors.map(t => t.name).filter(Boolean);
+  const trustorLine = names.length ? names.join(", ") : "[위탁자]";
+  const dateText = getContractDateText();
+
+  // 표지
+  const coverHTML = `
+    <section class="cover">
+      <div class="cover-title">부동산처분신탁계약서</div>
+      <div class="cover-date"><span class="hl">${escHTML(dateText)}</span></div>
+      <div class="cover-party"> 위 탁 자 :&nbsp;&nbsp;<span class="hl">${escHTML(trustorLine)}</span></div>
+      <div class="cover-party"> 수 탁 자 :&nbsp;&nbsp;한국투자부동산신탁 주식회사</div>
+    </section>`;
+
+  // 전문
+  const splitIdx = DISPOSAL_PREAMBLE_TPL.indexOf("{trustors}");
+  const preBefore = DISPOSAL_PREAMBLE_TPL.slice(0, splitIdx);
+  const preAfter = DISPOSAL_PREAMBLE_TPL.slice(splitIdx + "{trustors}".length);
+  const preambleHTML = `<p class="preamble">${escHTML(preBefore)}<span class="hl">${escHTML(trustorLine)}</span>${splitDefBoldHTML(preAfter)}</p>`;
+
+  // 본문 23조 (제목 + 항/호/목)
+  const renderBody = () => DISPOSAL_BODY.map(art => {
+    const hangCount = art.c.filter(x => x.l === 0 && !x.p).length;
+    const numberHang = hangCount >= 2;
+    let hangIdx = 0, hoIdx = 0, mokIdx = 0;
+    const lines = art.c.map(line => {
+      if (line.l === 0) {
+        hoIdx = 0; mokIdx = 0;
+        let prefix = "";
+        if (!line.p && numberHang) { prefix = CIRCLED_NUMS[hangIdx] + " "; hangIdx++; }
+        const cls = line.p ? "" : "indent-1";
+        return `<p class="${cls}">${splitDefBoldHTML(prefix + line.t)}</p>`;
+      } else if (line.l === 1) {
+        mokIdx = 0; hoIdx++;
+        return `<p class="indent-2">${splitDefBoldHTML(`${hoIdx}. ${line.t}`)}</p>`;
+      } else if (line.l === 2) {
+        const html = `<p class="indent-3">${splitDefBoldHTML(`${HO_HANGUL[mokIdx]}. ${line.t}`)}</p>`;
+        mokIdx++; return html;
+      }
+      return "";
+    }).join("");
+    return `<h2 class="art-title">제${art.n}조 (${escHTML(art.t)})</h2>${lines}`;
+  }).join("");
+  const bodyHTML = `
+    <section class="body">
+      <div class="page2-header">부동산처분신탁계약서</div>
+      <h1 class="section-h1">신탁본문</h1>
+      ${preambleHTML}
+      ${renderBody()}
+    </section>`;
+
+  // 서명란 (위탁자 입력 + 수탁자 고정)
+  const renderSignature = () => {
+    const trustorsHTML = f.trustors.map(t => {
+      const corpReg = [t.corpRegFront, t.corpRegBack].filter(Boolean).join("-");
+      const isInsider = !t.representativeDirector && t.insideDirector;
+      const repLabel = isInsider ? "사내이사" : "대표이사";
+      const repVal = isInsider ? t.insideDirector : (t.representativeDirector || "");
+      const hl = (v) => `<span class="hl">${escHTML(v || "")}</span>`;
+      return `
+        <p>상&nbsp;&nbsp;&nbsp;호 : ${hl(t.name)}</p>
+        <p>주&nbsp;&nbsp;&nbsp;소 : ${hl(t.address)}</p>
+        <p>${repLabel} : ${hl(repVal)}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(인)</p>
+        <p style="margin-bottom:14pt;">법인등록번호 : ${hl(corpReg)}</p>`;
+    }).join("");
+    return `
+      <section class="signature">
+        <p class="sig-stmt">이 신탁계약을 증명하기 위해 계약서를 3부 작성하여 위탁자와 수탁자가 각각 1부씩 보관하며, 1부는 신탁등기에 사용한다.</p>
+        <p class="sig-date"><span class="hl">${escHTML(dateText)}</span></p>
+        <p class="sig-role">위탁자</p>
+        ${trustorsHTML}
+        <p class="sig-role">수탁자</p>
+        <p>상&nbsp;&nbsp;&nbsp;호 : 한국투자부동산신탁(주)</p>
+        <p>주&nbsp;&nbsp;&nbsp;소 : 서울특별시 강남구 테헤란로 518, 섬유센터 7층(대치동)</p>
+        <p>대표이사 : 이 국 형&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(인)</p>
+        <p>법인등록번호 : 110111-7125720</p>
+      </section>`;
+  };
+  const signatureHTML = renderSignature();
+
+  // 별첨 1 — 신탁부동산 목록 및 처분예정가격
+  const annex1Rows = getAnnex1Data();
+  const annex1HTML = `
+    <section class="annex page-break">
+      <h2 class="annex-label">[별첨 1]</h2>
+      <p>&nbsp;</p>
+      <div class="annex-subtitle">신탁부동산 목록 및 처분예정가격</div>
+      <table><colgroup><col style="width:8%"><col style="width:46%"><col style="width:16%"><col style="width:30%"></colgroup>
+        <tr><td class="key" style="text-align:center;">번호</td><td class="key" style="text-align:center;">소 재 지</td><td class="key" style="text-align:center;">면적(㎡)</td><td class="key" style="text-align:center;">처분예정가격(원)</td></tr>
+        ${annex1Rows.length === 0
+          ? `<tr><td colspan="4" style="color:#888;text-align:center;">(신탁부동산이 입력되지 않았습니다)</td></tr>`
+          : annex1Rows.map((r, i) => `<tr><td style="text-align:center;">${i + 1}</td><td class="hl">${escHTML(r.address)}${r.category ? " (" + escHTML(r.category) + ")" : ""}</td><td class="hl" style="text-align:center;">${escHTML(r.area)}</td><td style="text-align:center;color:#888;">[              ]</td></tr>`).join("")}
+      </table>
+      <p style="margin-top:6pt;font-size:9pt;color:#666;">※ 처분예정가격은 당사자 협의로 기재합니다.</p>
+    </section>`;
+
+  // 별첨 2 — 수익자의 표시
+  const a2 = getAnnex2Data();
+  const beneList = a2.beneficiaries && a2.beneficiaries.length ? a2.beneficiaries : [];
+  const renderPersonTable = (list, kind) => {
+    if (!list.length) return `<table><tr><td>(${escHTML(kind)} 미입력)</td></tr></table>`;
+    let rows = "";
+    list.forEach(b => {
+      rows += `<tr><td class="key">성 명(상 호)</td><td class="val hl">${escHTML(b.name)}</td></tr>`;
+      rows += `<tr><td class="key">${b.type === "개인" ? "생년월일" : "법인등록번호"}</td><td class="val hl">${escHTML(b.corpReg)}</td></tr>`;
+      rows += `<tr><td class="key">주소</td><td class="val hl">${escHTML(b.address)}</td></tr>`;
+    });
+    return `<table><colgroup><col style="width:28%"><col style="width:72%"></colgroup>${rows}</table>`;
+  };
+  const annex2HTML = `
+    <section class="annex page-break">
+      <h2 class="annex-label">[별첨 2]</h2>
+      <p>&nbsp;</p>
+      <div class="annex-subtitle">수익자의 표시</div>
+      ${renderPersonTable(beneList, "수익자")}
+    </section>`;
+
+  // 별첨 3 — 신탁보수 (처분보수·관리보수·매매계약사무보수)
+  const annex3HTML = `
+    <section class="annex page-break">
+      <h2 class="annex-label">[별첨 3]</h2>
+      <p>&nbsp;</p>
+      <div class="annex-subtitle">신 탁 보 수</div>
+      <p class="bold" style="margin-top:10pt;">1. 처분보수</p>
+      <p style="padding-left:0.6cm;">- 신탁부동산 처분 시 처분가격을 기준으로 아래 산식에 따라 산정한다.</p>
+      <table><colgroup><col style="width:50%"><col style="width:50%"></colgroup>
+        <tr><td class="key" style="text-align:center;">처분가격</td><td class="key" style="text-align:center;">보수율</td></tr>
+        ${ANNEX3_DISPOSAL_FEE_ROWS.map(r => `<tr><td style="text-align:center;">${escHTML(r[0])}</td><td style="text-align:center;">${escHTML(r[1])}</td></tr>`).join("")}
+      </table>
+      <p class="bold" style="margin-top:12pt;">2. 관리보수</p>
+      <p style="padding-left:0.6cm;">- 별도 약정에 따라 매 1년 단위로 산정·지급한다. (1년 미만은 일할 계산)</p>
+      <p class="bold" style="margin-top:12pt;">3. 매매계약사무보수</p>
+      <p style="padding-left:0.6cm;">- 매매계약 무효·취소·해제로 계약보증금을 위약금으로 귀속시킨 경우 당해 처분보수액의 10%.</p>
+    </section>`;
+
+  // 별첨 4 — 신탁특약 (MVP: 별도 협의 첨부)
+  const annex4HTML = `
+    <section class="annex page-break">
+      <h2 class="annex-label">[별첨 4]</h2>
+      <p>&nbsp;</p>
+      <h1 class="section-h1 annex-subtitle">신 탁 특 약</h1>
+      <p class="preamble">본 건 신탁특약은 당사자 간 별도 협의하여 첨부한다. (처분조건·처분가격·처분방법·절차 등 신탁본문 제9조에서 정하지 않은 사항을 정한다.)</p>
+    </section>`;
+
+  const CSS = `
+    @page { size: A4; margin: 2cm; }
+    * { box-sizing: border-box; }
+    body { font-family: '바탕체','바탕',Batang,'Malgun Gothic',serif; font-size: 10pt; line-height: 1.15; color: #000; margin: 0; padding: 0; }
+    .cover { page-break-after: always; padding-top: 5cm; text-align: center; }
+    .cover-title { font-size: 24pt; font-weight: bold; margin-bottom: 5cm; }
+    .cover-date { font-size: 20pt; font-weight: bold; margin-bottom: 5cm; }
+    .cover-party { font-size: 20pt; font-weight: bold; text-align: left; padding-left: 0; }
+    .page2-header { font-size: 11pt; font-weight: bold; text-align: center; margin: 0 0 6pt 0; }
+    .section-h1 { font-size: 11pt; font-weight: bold; text-align: center; margin: 4pt 0 14pt 0; }
+    .annex-label { font-size: 11pt; font-weight: bold; margin: 0 0 4pt 0; }
+    .annex-subtitle { font-size: 12pt; font-weight: bold; text-decoration: underline; text-align: center; margin: 10pt 0 14pt 0; }
+    .art-title { font-size: 10pt; font-weight: bold; margin: 10pt 0 4pt 0; }
+    .preamble { margin: 0 0 10pt 0; text-align: justify; }
+    p { margin: 3pt 0; text-align: justify; }
+    .indent-1 { padding-left: 0.6cm; }
+    .indent-2 { padding-left: 1.2cm; }
+    .indent-3 { padding-left: 1.8cm; }
+    .hl { background-color: #FFFDE7; }
+    .bold { font-weight: bold; }
+    .page-break { page-break-before: always; }
+    table { border-collapse: collapse; width: 100%; margin: 4pt 0; }
+    td { border: 1px solid #999; padding: 3pt 5pt; vertical-align: top; font-size: 9pt; }
+    td.key { font-weight: bold; }
+    td.rank { font-weight: bold; text-align: center; vertical-align: middle; }
+    .signature { margin-top: 22pt; }
+    .sig-stmt { margin-bottom: 12pt; }
+    .sig-date { text-align: center; font-size: 11pt; margin: 16pt 0 20pt 0; }
+    .sig-role { font-weight: bold; margin-top: 12pt; margin-bottom: 4pt; }
+    @media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; } }
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>처분신탁계약서 (PDF)</title>
+<style>${CSS}</style></head>
+<body>
+${coverHTML}
+${bodyHTML}
+${signatureHTML}
+${annex1HTML}
+${annex2HTML}
+${annex3HTML}
+${annex4HTML}
+<script>
+window.addEventListener('load', function(){
+  setTimeout(function(){ window.focus(); window.print(); }, 400);
+});
+<\/script>
+</body></html>`;
+}
+
 /* 비-contract 문서용 — 미리보기 컨텐츠 그대로 PDF 변환 */
 function buildGenericDocFullHTML(docId, meta) {
   const f = state.form;
@@ -2787,6 +2994,26 @@ export function previewDocHTML(form, docId) {
              : docId === "appform"  ? buildAppformFullHTML()
              : (meta ? buildGenericDocFullHTML(docId, meta) : "");
   return stripAutoPrint(html);
+}
+
+/* ---- 처분신탁(disposal) 전용 파사드 (C-2 MVP) — 담보 경로 무접촉 ----
+   MVP 출력: 계약서(contract) 미리보기 + PDF(인쇄→PDF 저장). .docx 는 후속.
+   docId 는 "contract" 만 지원(처분 서류세트 = 계약서). */
+export function previewDisposalDocHTML(form, docId) {
+  state.form = form;
+  if (docId !== "contract") return "";
+  return stripAutoPrint(buildDisposalContractFullHTML());
+}
+export function generateDisposalPDF(form, docId) {
+  state.form = form;
+  if (docId !== "contract") { alert("처분신탁은 현재 계약서만 지원합니다."); return false; }
+  const html = buildDisposalContractFullHTML();
+  const w = window.open("", "_blank", "width=900,height=1000");
+  if (!w) { alert("새 창을 열 수 없습니다. 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요."); return false; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  return true;
 }
 
 /** 공동사업표준협약서 완성 미리보기 HTML(읽기 전용·새 창 "크게 보기"용) — 실제
