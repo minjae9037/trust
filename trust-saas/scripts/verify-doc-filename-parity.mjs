@@ -1,0 +1,190 @@
+/* ============================================================
+   회귀 가드 — 산출 파일명 단일 출처(.docx 다운로드명 ↔ PDF 인쇄 제목)
+
+   배경: .docx 다운로드명은 `{서류종류}_{위탁자}_{체결일}.docx` 로 계약마다
+   구별됐는데, PDF 인쇄창의 <title>(= "PDF로 저장" 시 브라우저가 제안하는
+   파일명)은 서류종류명만 담아(예: "담보신탁계약서 (PDF)") **모든 고객·모든
+   계약의 PDF 가 같은 이름으로 저장돼 섞일 수 있었다**. 또 appform PDF 제목은
+   "...수익권증서..."로 schema 정본명("...우선수익권증서...")·.docx 명과도
+   어긋나 있었다. builders.js 의 docFileBase/pdfDocTitle 단일 출처로 통일.
+
+   핵심 불변식:
+     PDF 인쇄 제목 === .docx 파일명(확장자 제외) + " (PDF)"
+     → 두 산출 경로의 파일명이 절대 어긋나지 않는다(위탁자·체결일 포함).
+
+   단언:
+     (A) contract .docx 명 = `{meta.name}_{위탁자}_{YYYYMMDD}.docx`
+     (B) contract PDF 제목 = `{meta.name}_{위탁자}_{YYYYMMDD} (PDF)` (= 파리티)
+     (C) appform .docx/PDF 가 schema 정본명("우선수익권") 사용·서로 파리티
+     (D) generic 서류(ubo) .docx/PDF 가 위탁자·날짜 포함·파리티
+     (E) joint .docx 명 = `공동사업표준협약서_{갑}.docx`, PDF 제목 = 동 base+" (PDF)"
+     (F) 폴백: 일(日) 미정 → 날짜 토큰 YYYYMM, 위탁자명 공백 → "위탁자"
+     (G) 회귀: PDF 제목에 종류명만 담던 옛 문구("담보신탁계약서 (PDF)" 등) 미출현
+
+   실행:
+     cd trust-saas
+     node --experimental-strip-types --loader ./scripts/ts-ext-loader.mjs scripts/verify-doc-filename-parity.mjs
+   ============================================================ */
+import { blankContractForm, blankJointForm } from "../src/lib/engine/model.ts";
+import { COLLATERAL_OUTPUT_DOCS } from "../src/lib/engine/schema.ts";
+
+/* ---- 브라우저 글로벌 폴리필 (verify-multiparty.mjs 와 동일 방식) ---- */
+let pendingName = null;       // a[download] 로 잡힌 .docx 파일명
+let lastWrittenHTML = "";     // window.open → document.write 로 잡힌 PDF HTML
+globalThis.alert = (m) => { throw new Error("ALERT(엔진 내부 에러): " + m); };
+globalThis.URL = globalThis.URL || {};
+globalThis.URL.createObjectURL = () => "blob:fake";
+globalThis.URL.revokeObjectURL = () => {};
+globalThis.setTimeout = globalThis.setTimeout || ((fn) => { try { fn(); } catch {} return 0; });
+const fakeDoc = {
+  body: { appendChild() {}, removeChild() {} },
+  createElement() {
+    const a = {};
+    Object.defineProperty(a, "download", { set(v) { pendingName = v; }, get() { return pendingName; } });
+    a.click = () => {};
+    return a;
+  },
+};
+globalThis.document = fakeDoc;
+globalThis.window = {
+  navigator: {}, // msSaveOrOpenBlob 미정의 → 표준 a[download] 경로 사용
+  URL: globalThis.URL,
+  // PDF 인쇄창 — document.write 로 받은 HTML 을 캡처. setTimeout/window.print 은 무해 폴리필.
+  open() {
+    lastWrittenHTML = "";
+    return {
+      document: {
+        open() {},
+        write(html) { lastWrittenHTML += html; },
+        close() {},
+      },
+      focus() {},
+      print() {},
+      addEventListener() {},
+    };
+  },
+};
+
+/* docx Packer.toBlob 후킹 → 실제 docx 직렬화 없이 가짜 Blob 반환(파일명만 검증) */
+const docx = await import("docx");
+docx.Packer.toBlob = async () => ({ size: 0, type: "" });
+globalThis.Blob = globalThis.Blob || class { constructor() { this.size = 0; } };
+
+const B = await import("../src/lib/engine/docx/builders.js");
+
+let pass = 0;
+let fail = 0;
+const ok = (cond, label) => {
+  if (cond) { pass++; console.log("  PASS  " + label); }
+  else { fail++; console.log("  FAIL  " + label); }
+};
+
+const titleOf = (html) => {
+  const m = /<title>([\s\S]*?)<\/title>/.exec(html);
+  return m ? m[1] : "(제목 없음)";
+};
+const metaName = (id) => COLLATERAL_OUTPUT_DOCS.find((d) => d.id === id).name;
+
+/* 결정적 폼: 위탁자 "여주개발 주식회사" · 체결일 2026-03-01 → 토큰 20260301 */
+function formFixture() {
+  const f = blankContractForm();
+  f.trustors[0].name = "여주개발 주식회사";
+  f.common.year = 2026;
+  f.common.month = 3;
+  f.common.day = 1;
+  // appform·valReport 완성도와 무관 — 파일명/제목은 위탁자·날짜만 사용한다.
+  return f;
+}
+const TRUSTOR = "여주개발 주식회사";
+const TOKEN = "20260301";
+
+async function docxNameOf(form, docId) {
+  pendingName = null;
+  await B.generateCollateralDoc(form, docId);
+  return pendingName;
+}
+function pdfTitleOf(form, docId) {
+  lastWrittenHTML = "";
+  const opened = B.generateCollateralPDF(form, docId);
+  if (!opened) throw new Error("PDF 창 미개시");
+  return titleOf(lastWrittenHTML);
+}
+
+console.log("\n[A][B] contract — .docx 명 ↔ PDF 제목 파리티");
+{
+  const f = formFixture();
+  const expectBase = `${metaName("contract")}_${TRUSTOR}_${TOKEN}`;
+  const dn = await docxNameOf(f, "contract");
+  const pt = pdfTitleOf(f, "contract");
+  ok(dn === `${expectBase}.docx`, `contract .docx 명 = ${expectBase}.docx (실제 ${dn})`);
+  ok(pt === `${expectBase} (PDF)`, `contract PDF 제목 = ${expectBase} (PDF) (실제 ${pt})`);
+  ok(pt === dn.replace(/\.docx$/, "") + " (PDF)", "contract 파리티(제목 = 파일명베이스 + (PDF))");
+}
+
+console.log("\n[C] appform — schema 정본명(우선수익권) 사용·파리티");
+{
+  const f = formFixture();
+  const expectBase = `${metaName("appform")}_${TRUSTOR}_${TOKEN}`;
+  const dn = await docxNameOf(f, "appform");
+  const pt = pdfTitleOf(f, "appform");
+  ok(metaName("appform").includes("우선수익권"), "schema appform 명에 '우선수익권' 포함(정본)");
+  ok(dn === `${expectBase}.docx`, `appform .docx 명 = 정본 base (실제 ${dn})`);
+  ok(pt === `${expectBase} (PDF)`, `appform PDF 제목 = 정본 base + (PDF) (실제 ${pt})`);
+  ok(!pt.includes("및 수익권증서"), "PDF 제목이 옛 비정본 '및 수익권증서' 미사용");
+}
+
+console.log("\n[D] generic 서류(ubo) — 위탁자·날짜 포함·파리티");
+{
+  const f = formFixture();
+  const expectBase = `${metaName("ubo")}_${TRUSTOR}_${TOKEN}`;
+  const dn = await docxNameOf(f, "ubo");
+  const pt = pdfTitleOf(f, "ubo");
+  ok(dn === `${expectBase}.docx`, `ubo .docx 명 = base (실제 ${dn})`);
+  ok(pt === `${expectBase} (PDF)`, `ubo PDF 제목 = base + (PDF) (실제 ${pt})`);
+  ok(pt.includes(TRUSTOR) && pt.includes(TOKEN), "ubo PDF 제목에 위탁자·체결일 포함");
+}
+
+console.log("\n[E] joint — .docx 명 ↔ PDF 제목 파리티(갑 회사명)");
+{
+  const jf = blankJointForm();
+  jf.gap.name = "한빛개발 주식회사";
+  pendingName = null;
+  await B.generateJointDoc(jf);
+  const dn = pendingName;
+  lastWrittenHTML = "";
+  const opened = B.generateJointPDFDoc(jf);
+  const pt = titleOf(lastWrittenHTML);
+  ok(dn === "공동사업표준협약서_한빛개발 주식회사.docx", `joint .docx 명 (실제 ${dn})`);
+  ok(opened === true, "joint PDF 창 개시");
+  ok(pt === "공동사업표준협약서_한빛개발 주식회사 (PDF)", `joint PDF 제목 (실제 ${pt})`);
+  ok(pt === dn.replace(/\.docx$/, "") + " (PDF)", "joint 파리티(제목 = 파일명베이스 + (PDF))");
+}
+
+console.log("\n[F] 폴백 — 일(日) 미정→YYYYMM, 위탁자명 공백→'위탁자'");
+{
+  const f = formFixture();
+  f.common.day = ""; // 일 미정
+  const dnMonth = await docxNameOf(f, "contract");
+  ok(dnMonth === `${metaName("contract")}_${TRUSTOR}_202603.docx`, `일 미정 → YYYYMM 토큰 (실제 ${dnMonth})`);
+
+  const f2 = formFixture();
+  f2.trustors[0].name = ""; // 위탁자명 공백
+  const dnNoName = await docxNameOf(f2, "contract");
+  ok(dnNoName === `${metaName("contract")}_위탁자_${TOKEN}.docx`, `위탁자명 공백 → '위탁자' 폴백 (실제 ${dnNoName})`);
+  const ptNoName = pdfTitleOf(f2, "contract");
+  ok(ptNoName === `${metaName("contract")}_위탁자_${TOKEN} (PDF)`, "위탁자 폴백 시에도 PDF 제목 파리티");
+}
+
+console.log("\n[G] 회귀 — 종류명만 담던 옛 PDF 제목 미출현(계약별 구별 보장)");
+{
+  const f = formFixture();
+  const ptContract = pdfTitleOf(f, "contract");
+  const ptAppform = pdfTitleOf(f, "appform");
+  const ptUbo = pdfTitleOf(f, "ubo");
+  ok(ptContract !== "담보신탁계약서 (PDF)", "contract 제목이 종류명-단독 아님");
+  ok(ptAppform !== "담보신탁 신청 및 수익권증서 발급의뢰서", "appform 제목이 옛 비정본-단독 아님");
+  ok(ptUbo !== `${metaName("ubo")} (PDF)`, "ubo 제목이 종류명-단독 아님");
+}
+
+console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
+process.exit(fail === 0 ? 0 : 1);

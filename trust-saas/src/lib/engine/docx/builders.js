@@ -1120,6 +1120,26 @@ function renderAnnexPreviewHTML() {
 /* ================================================================
    GENERATE — docx.js 기반 진짜 .docx 파일 생성
    ================================================================ */
+
+/* ── 산출 파일명 단일 출처 ───────────────────────────────────────────
+   .docx 다운로드명과 PDF 인쇄 제목(= "PDF로 저장" 시 브라우저가 제안하는 파일명)을
+   한 곳에서 만들어 두 경로가 어긋나지 않게 한다. 위탁자·체결일을 포함해 계약마다
+   파일명이 구별되도록 한다 — 종전 PDF 인쇄 제목은 서류종류명만 담아(예: "담보신탁
+   계약서 (PDF)") 모든 고객·모든 계약의 PDF가 같은 이름으로 저장돼 섞일 수 있었다. */
+function docFileDateToken(c) {
+  c = c || {};
+  return c.day
+    ? `${c.year}${String(c.month).padStart(2, "0")}${String(c.day).padStart(2, "0")}`
+    : `${c.year}${String(c.month).padStart(2, "0")}`;
+}
+function docFileBase(metaName, f) {
+  const trustor = (f && f.trustors && f.trustors[0] && f.trustors[0].name) || "위탁자";
+  return `${metaName}_${trustor}_${docFileDateToken(f && f.common)}`;
+}
+function pdfDocTitle(metaName, f) {
+  return `${docFileBase(metaName, f)} (PDF)`;
+}
+
 async function generateDoc(docId) {
   if (!docx) {
     alert("docx 라이브러리가 로드되지 않았습니다. lib/docx/ 폴더를 확인하세요.");
@@ -1386,10 +1406,7 @@ async function generateDoc(docId) {
     return;
   }
 
-  const dateForFname = c.day
-    ? `${c.year}${String(c.month).padStart(2, "0")}${String(c.day).padStart(2, "0")}`
-    : `${c.year}${String(c.month).padStart(2, "0")}`;
-  const fname = `${meta.name}_${(f.trustors[0] && f.trustors[0].name) || "위탁자"}_${dateForFname}.docx`;
+  const fname = `${docFileBase(meta.name, f)}.docx`;
 
   // IE / Edge(IE 모드): download 속성을 무시하므로 전용 API 사용 — 확장자(.docx) 보존
   if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
@@ -1751,6 +1768,7 @@ function buildAppformFullHTML() {
   const f = state.form;
   const cn = (f.docContents && f.docContents.appform) || {};
   const dateText = getContractDateText();
+  const pdfTitle = pdfDocTitle((COLLATERAL_OUTPUT_DOCS.find(d => d.id === "appform") || {}).name || "담보신탁 신청 및 우선수익권증서 발급의뢰서", f);
   const isInclude = cn.researchReport === "include";
   const checkMark = isInclude ? "■ 포함&nbsp;&nbsp;&nbsp;&nbsp;□ 생략" : "□ 포함&nbsp;&nbsp;&nbsp;&nbsp;■ 생략";
   const corpRegOf = (p) => [p.corpRegFront, p.corpRegBack].filter(Boolean).join("-");
@@ -1876,7 +1894,7 @@ function buildAppformFullHTML() {
   `;
 
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-<title>담보신탁 신청 및 수익권증서 발급의뢰서</title><style>${CSS}</style></head><body>
+<title>${escHTML(pdfTitle)}</title><style>${CSS}</style></head><body>
 
 <table class="title-table">
   <tr>
@@ -1986,6 +2004,7 @@ function buildContractFullHTML() {
   const names = f.trustors.map(t => (t.name || "").trim()).filter(Boolean);
   const trustorLine = names.length ? names.join(", ") : "[위탁자]";
   const dateText = getContractDateText();
+  const pdfTitle = pdfDocTitle((COLLATERAL_OUTPUT_DOCS.find(d => d.id === "contract") || {}).name || "담보신탁계약서", f);
 
   // -------- 표지 --------
   const coverHTML = `
@@ -2233,7 +2252,7 @@ function buildContractFullHTML() {
   `;
 
   return `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8"><title>담보신탁계약서 (PDF)</title>
+<html lang="ko"><head><meta charset="UTF-8"><title>${escHTML(pdfTitle)}</title>
 <style>${CSS}</style></head>
 <body>
 ${coverHTML}
@@ -2495,7 +2514,7 @@ function buildGenericDocFullHTML(docId, meta) {
   `;
   const dateText = c.day ? `${c.year}년 ${c.month}월 ${c.day}일` : `${c.year}년 ${c.month}월`;
   return `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8"><title>${escHTML(meta.name)} (PDF)</title><style>${CSS}</style></head>
+<html lang="ko"><head><meta charset="UTF-8"><title>${escHTML(pdfDocTitle(meta.name, f))}</title><style>${CSS}</style></head>
 <body>
   <div class="doc-title">${escHTML(meta.name)}</div>
   <div class="meta">${escHTML(dateText)} · 한국투자부동산신탁(주)</div>
@@ -2931,8 +2950,10 @@ function buildJointFullHTML() {
     .page-break { page-break-before: always; }
     @media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
   `;
+  const gName = (g.name || "갑").trim();
+  const pdfTitle = `공동사업표준협약서_${gName} (PDF)`;
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
-<title>공동사업표준협약서</title><style>${CSS}</style></head><body>
+<title>${escHTML(pdfTitle)}</title><style>${CSS}</style></head><body>
 <div class="title">공동사업표준협약서 [분담수행방식]</div>
 ${articles}
 <script>window.addEventListener('load',function(){ setTimeout(function(){ window.focus(); window.print(); },400); });<\/script>
