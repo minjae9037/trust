@@ -22,6 +22,9 @@
      (G) 회귀: PDF 제목에 종류명만 담던 옛 문구("담보신탁계약서 (PDF)" 등) 미출현
      (H) 물건 식별 토큰: 같은 위탁자·같은 날 서로 다른 담보물건 → 파일명 구별,
          소재지 금칙문자 안전화·길이 제한, 소재지 공백이면 토큰 없음(무회귀)
+     (I) 복수 물건 "외N" 토큰: 첫 소재지가 같아도 물건 수가 다르면 파일명 구별
+         (단일물건 vs 같은물건+추가물건), 빈 물건 행은 외N 부풀리지 않음,
+         단일 물건이면 종전과 byte-identical(무회귀)·외N 포함 시에도 PDF 파리티
 
    실행:
      cd trust-saas
@@ -229,6 +232,53 @@ console.log("\n[H] 물건 식별 토큰 — 같은 위탁자·같은 날 서로 
   const dnEmpty = await docxNameOf(fEmpty, "contract");
   ok(dnEmpty === `${metaName("contract")}_${TRUSTOR}_${TOKEN}.docx`,
     `소재지 공백 → 종전 base 그대로(무회귀) (실제 ${dnEmpty})`);
+}
+
+console.log("\n[I] 복수 물건 '외N' 토큰 — 첫 소재지 같아도 물건 수 다르면 구별");
+{
+  const ADDR = "서울특별시 강남구 테헤란로 152";
+  const ADDR_TOK = "서울특별시 강남구 테헤란로 152"; // ≤20자라 slice 영향 없음
+
+  // 단일 물건(종전 동작) vs 같은 첫 물건 + 추가 물건 1건
+  const fSingle = formFixture();
+  fSingle.properties[0].address = ADDR;
+  const f2props = formFixture();
+  f2props.properties[0].address = ADDR;
+  f2props.properties.push({ address: "부산광역시 해운대구 센텀로 99", category: "", area: "", regNo: "" });
+
+  const dnSingle = await docxNameOf(fSingle, "contract");
+  const dnMulti = await docxNameOf(f2props, "contract");
+
+  // 단일 물건 = 종전 base(외N 없음) → 무회귀 byte-identical
+  ok(dnSingle === `${metaName("contract")}_${TRUSTOR}_${TOKEN}_${ADDR_TOK}.docx`,
+    `단일 물건은 외N 없이 종전 토큰(무회귀) (실제 ${dnSingle})`);
+  // 복수 물건 = 첫 소재지 + " 외1" → 같은 첫 물건이라도 단일물건과 구별
+  ok(dnMulti === `${metaName("contract")}_${TRUSTOR}_${TOKEN}_${ADDR_TOK} 외1.docx`,
+    `복수 물건은 '외1' 토큰 부착 (실제 ${dnMulti})`);
+  ok(dnSingle !== dnMulti, `첫 소재지가 같아도 물건 수 다르면 .docx 명 구별 (실제 ${dnSingle} / ${dnMulti})`);
+
+  // 외N 포함 시에도 PDF 인쇄 제목 파리티(제목 = 파일명베이스 + " (PDF)")
+  const ptMulti = pdfTitleOf(f2props, "contract");
+  ok(ptMulti === dnMulti.replace(/\.docx$/, "") + " (PDF)", "외N 토큰 포함 시에도 PDF 제목 파리티");
+
+  // 빈 물건 행(소재지 공백)은 외N 을 부풀리지 않는다(채워진 물건만 카운트)
+  const fBlankRow = formFixture();
+  fBlankRow.properties[0].address = ADDR;
+  fBlankRow.properties.push({ address: "   ", category: "", area: "", regNo: "" });
+  const dnBlankRow = await docxNameOf(fBlankRow, "contract");
+  ok(dnBlankRow === dnSingle, `빈 물건 행은 외N 미부착(채워진 물건만 카운트) (실제 ${dnBlankRow})`);
+
+  // 추가 물건 2건이면 "외2"
+  const f3props = formFixture();
+  f3props.properties[0].address = ADDR;
+  f3props.properties.push({ address: "대구광역시 수성구 동대구로 1", category: "", area: "", regNo: "" });
+  f3props.properties.push({ address: "인천광역시 연수구 송도과학로 9", category: "", area: "", regNo: "" });
+  const dn3 = await docxNameOf(f3props, "contract");
+  ok(dn3.endsWith(` 외2.docx`), `추가 물건 2건 → '외2' (실제 ${dn3})`);
+
+  // 모든 서류 종류에 일관 적용(ubo 서류도 동일 외N 토큰)
+  const dnUboMulti = await docxNameOf(f2props, "ubo");
+  ok(dnUboMulti.includes(`${ADDR_TOK} 외1`), `ubo 서류도 동일 외N 토큰 적용 (실제 ${dnUboMulti})`);
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);

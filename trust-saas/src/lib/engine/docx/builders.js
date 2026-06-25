@@ -1128,7 +1128,9 @@ function renderAnnexPreviewHTML() {
    계약서 (PDF)") 모든 고객·모든 계약의 PDF가 같은 이름으로 저장돼 섞일 수 있었다.
    추가로, 같은 위탁자가 같은 날 여러 건(서로 다른 담보물건)을 작성하면 `{종류}_{위탁자}_
    {날짜}` 까지 동일해 파일이 또 섞이므로, 첫 담보물건 소재지를 식별 토큰으로 덧붙여
-   계약끼리 구별한다(예: …_20260301_서울 강남구 테헤란로 152). */
+   계약끼리 구별한다(예: …_20260301_서울 강남구 테헤란로 152). 첫 소재지가 같아도 물건
+   구성이 다르면(단일물건 vs 같은 물건+추가물건) 섞이지 않게 복수 물건이면 " 외N"(추가
+   물건 수)을 덧붙인다(예: …_서울 강남구 테헤란로 152 외1). */
 function docFileDateToken(c) {
   c = c || {};
   return c.day
@@ -1136,15 +1138,21 @@ function docFileDateToken(c) {
     : `${c.year}${String(c.month).padStart(2, "0")}`;
 }
 /** 첫 담보물건 소재지를 파일명-안전 식별 토큰으로 — 금칙문자 제거·공백 정리·길이 제한.
- *  소재지 미입력이거나 joint 폼(properties 없음)이면 "" 반환 → 종전 base 와 동일(무회귀). */
+ *  소재지 미입력이거나 joint 폼(properties 없음)이면 "" 반환 → 종전 base 와 동일(무회귀).
+ *  담보물건이 복수면 첫 소재지 뒤에 " 외N"(=추가 물건 수)을 덧붙여, 첫 물건 소재지가 같아도
+ *  물건 구성이 다른(예: 단일물건 vs 같은 물건+추가물건) 계약끼리 파일이 섞이지 않게 한다. */
 function docFilePropToken(f) {
-  const raw = ((f && f.properties && f.properties[0] && f.properties[0].address) || "").trim();
+  const props = (f && f.properties) || [];
+  const raw = ((props[0] && props[0].address) || "").trim();
   if (!raw) return "";
-  return raw
+  const addr = raw
     .replace(/[\\/:*?"<>|]/g, " ") // 파일명 금칙문자(경로 구분자 등) → 공백
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 20);
+  // 소재지가 실제로 채워진 물건만 센다(빈 행 추가는 "외N"을 부풀리지 않음).
+  const filled = props.filter((p) => p && (p.address || "").trim()).length;
+  return filled > 1 ? `${addr} 외${filled - 1}` : addr;
 }
 function docFileBase(metaName, f) {
   const trustor = (f && f.trustors && f.trustors[0] && f.trustors[0].name) || "위탁자";
