@@ -73,3 +73,10 @@ export function contractFileKey(form: ContractForm): string {
 export function collateralDocFileName(form: ContractForm, docId: DocId): string {
   return B.collateralDocFileName(form, docId);
 }
+
+/** 공동사업표준협약서의 실제 .docx 다운로드 파일명 — generateJointDoc 이 저장하는 이름과 단일
+ *  출처(`공동사업표준협약서_{갑 상호}.docx`). joint 폼이 다운로드 직전에 "받게 될 파일명"을 미리
+ *  보여 줄 때 쓴다(표시 전용 — 파일명 산출 동작 무변경). 담보신탁 collateralDocFileName 의 joint 패리티. */
+export function jointDocFileName(jointForm: JointForm): string {
+  return B.jointDocFileName(jointForm);
+}

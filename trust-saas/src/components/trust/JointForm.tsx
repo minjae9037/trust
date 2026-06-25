@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
-import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/engine/docx";
+import { generateJointDoc, generateJointPDFDoc, previewJointHTML, jointDocFileName } from "@/lib/engine/docx";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
 import { genFreshness } from "@/lib/engine/genStatus";
@@ -74,6 +74,12 @@ export function JointForm() {
   // ── 검증 게이트 (담보신탁 DocStep 과 동형) — 필수 입력 충족 시에만 생성 활성화.
   //    미리보기와 달리 라이브 jointForm 을 직접 읽어 즉시 반영(디바운스 영향 없음).
   const { ok, missing } = useMemo(() => validateJoint(jointForm), [jointForm]);
+
+  // 다운로드 직전 "받게 될 파일명" 미리보기 (담보신탁 DocStep 과 동형) — generateJointDoc 이
+  // 실제 저장하는 .docx 이름(jointDocFileName → jointFileBase: 공동사업표준협약서_{갑 상호})과
+  // 단일 출처라 미리보기와 실제 다운로드명이 어긋나지 않는다(드리프트 0). 표시 전용 — 조문/
+  // 엔진/검증 게이트(validateJoint)/산출물 동작 무접촉.
+  const docxFileName = useMemo(() => jointDocFileName(jointForm), [jointForm]);
 
   // ── 인라인 검증 피드백 (담보신탁 PartyCard/StepBasic 패리티) — 게이트(validateJoint)는
   //    하단 .validate-box 에 누락을 모아 알려 주지만, "그 필드 옆"에서 입력 즉시 오류를
@@ -372,6 +378,18 @@ export function JointForm() {
             msg && <span className="field-hint" style={{ color: "var(--c-blue-deep)" }}><StatusGlyphText msg={msg} /></span>
           )}
         </div>
+
+        {/* 다운로드 직전 "받게 될 파일명" 미리보기 (담보신탁 DocStep 과 동형) — 실제 .docx
+            저장명과 단일 출처(jointDocFileName). 필수 입력 충족(ok)일 때만 표출(미완 임시
+            파일명 미표시). 표시 전용 — 낭독은 가시 텍스트가 전달(글리프만 aria-hidden),
+            role=status 미부착(생성 상태 낭독은 상단 영속 라이브 영역 전담 → 중복 낭독 0).
+            새 CSS 0(기존 field-hint). */}
+        {ok && docxFileName && (
+          <p className="field-hint" style={{ marginTop: 8 }}>
+            <span aria-hidden="true">💾 </span>
+            저장 파일명: <strong style={{ wordBreak: "break-all" }}>{docxFileName}</strong>
+          </p>
+        )}
       </section>
         </div>
 

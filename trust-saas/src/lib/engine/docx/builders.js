@@ -1179,6 +1179,20 @@ export function collateralDocFileName(f, docId) {
   if (!meta) return "";
   return `${docFileBase(meta.name, f)}.docx`;
 }
+/** 산출 파일명의 base(확장자 제외) — 공동사업표준협약서. 갑(시행사) 상호로만 식별
+ *  (`공동사업표준협약서_${갑 상호}`). 상호 미입력이면 "갑". generateJointDocx 의 fname 과
+ *  jointDocFileName 미리보기가 같은 식을 쓰게 하는 단일 출처(드리프트 0). */
+function jointFileBase(jointForm) {
+  const gName = ((jointForm && jointForm.gap && jointForm.gap.name) || "갑").trim();
+  return `공동사업표준협약서_${gName}`;
+}
+/** 산출 .docx 다운로드 파일명(공동사업표준협약서) — generateJointDocx 가 실제 저장하는
+ *  fname(`${jointFileBase}.docx`)과 동일 단일 출처. joint 폼 위저드가 "다운로드 직전"에 받게 될
+ *  파일명을 미리 보여 줄 때 쓴다(표시 전용 — 산출 동작 무변경). 담보신탁 collateralDocFileName 의
+ *  joint 패리티. */
+export function jointDocFileName(jointForm) {
+  return `${jointFileBase(jointForm)}.docx`;
+}
 
 async function generateDoc(docId) {
   if (!docx) {
@@ -2851,8 +2865,8 @@ async function generateJointDocx() {
     console.error(e);
     return;
   }
-  const gName = (state.jointForm.gap.name || "갑").trim();
-  const fname = `공동사업표준협약서_${gName}.docx`;
+  // 다운로드 직전 위저드 미리보기(jointDocFileName)와 동일 식 — 단일 출처(드리프트 0).
+  const fname = jointDocFileName(state.jointForm);
   if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
     window.navigator.msSaveOrOpenBlob(blob, fname);
     return;
