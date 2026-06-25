@@ -30,6 +30,23 @@ import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 // 쓰도록 모듈 상수로 둔다(낭독은 글리프 ● 를 splitStatusGlyph 로 떼고 본문만). JointForm 동형.
 const STALE_MSG = "● 입력이 변경되었습니다 — 다시 생성하세요";
 
+// 다운로드 파일명 충돌 경고 → "식별값 입력으로" 1-클릭 점프 대상. 파일명 식별 키
+// (contractFileKey/downloadKeyOf)를 이루는 위탁자·담보물건 소재지·계약 체결일 세 값으로,
+// 충돌 경고가 "값이 실제로 다르면 정확히 입력해 구분"하라고만 안내하던 것을 그 입력 필드까지
+// 데려가는 동선으로 잇는다. fieldId·stepIdx 는 검증 게이트 누락 항목 점프(validate.ts
+// Missing.fieldId)와 동일한 DOM id·goToStep 규약을 그대로 재사용한다(死점프 0 — DOM 에서
+// 못 찾으면 단계 이동까지만). where 는 STEPS 단일 출처에서 파생(드리프트 0).
+// ★표시·내비 전용 — 조문/엔진/검증 판정(validateDoc)/산출물(docx) 무접촉.
+const FILENAME_KEY_FIELDS: { label: string; stepIdx: number; fieldId: string }[] = [
+  { label: "위탁자", stepIdx: 1, fieldId: "party-trustors-0-name" },
+  { label: "담보물건 소재지", stepIdx: 4, fieldId: "prop-0-address" },
+  { label: "계약 체결일", stepIdx: 5, fieldId: "basic-contractDate" },
+];
+function stepWhere(idx: number): string {
+  const s = STEPS.find((x) => x.idx === idx);
+  return s ? `${s.label} ${s.title}` : "";
+}
+
 // 동적 상태 메시지의 선두 장식 글리프(✓/●)를 aria-hidden 으로 감싸 시각만 보존하고
 // 본문은 그대로 두는 시각-전용 렌더(ContractsView·JointForm StatusGlyphText 와 동형). 이
 // span 들은 role=status 를 갖지 않으므로(낭독은 영속 영역 전담) 선형 탐색 시 글리프만 막는다.
@@ -702,17 +719,42 @@ export function DocStep({ docId }: { docId: DocId }) {
             하므로(downloadKeyOf/contractFileKey), 이름변경이 아니라 식별값 구분·파일명 직접 변경을
             실제 해소책으로 안내한다(내 계약 목록 충돌 경고와 동일 문구·출처). */}
         {ok && filenameCollision && (
-          <p
-            className="field-hint"
-            role="status"
-            aria-live="polite"
-            style={{ marginTop: 6, color: "var(--c-brown)" }}
-          >
-            <span aria-hidden="true">⚠ </span>
-            다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
-            위탁자·체결일·담보물건 소재지로 정해집니다(계약 제목과 무관). 값이 실제로 다르면 정확히
-            입력해 구분하시고, 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
-          </p>
+          <>
+            <p
+              className="field-hint"
+              role="status"
+              aria-live="polite"
+              style={{ marginTop: 6, color: "var(--c-brown)" }}
+            >
+              <span aria-hidden="true">⚠ </span>
+              다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
+              위탁자·체결일·담보물건 소재지로 정해집니다(계약 제목과 무관). 값이 실제로 다르면 정확히
+              입력해 구분하시고, 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
+            </p>
+            {/* "값이 실제로 다르면 정확히 입력해 구분" 을 그 입력 필드까지 잇는 1-클릭 점프 —
+                파일명 식별 키(위탁자·소재지·체결일) 세 값으로, 검증 게이트 누락 항목 점프와 동일한
+                goToStep(stepIdx, fieldId)·validate-jump 마크업을 재사용한다(새 CSS 0). 표시·내비
+                전용 — 산출/검증/조문 무접촉. role=status 영속 영역(위 <p>)에 들지 않는 별도 ul 이라
+                중복 낭독 0(점프 버튼은 라이브 갱신이 아닌 조작 컨트롤). */}
+            <ul className="validate-list" style={{ marginTop: 4 }}>
+              {FILENAME_KEY_FIELDS.map((k) => {
+                const where = stepWhere(k.stepIdx);
+                return (
+                  <li key={k.fieldId}>
+                    <button
+                      type="button"
+                      className="validate-jump"
+                      onClick={() => goToStep(k.stepIdx, k.fieldId)}
+                      title={`${where}(으)로 이동`}
+                    >
+                      <strong>{k.label} 확인하러 가기</strong>
+                      <span className="validate-where"> — {where} ›</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </div>
 

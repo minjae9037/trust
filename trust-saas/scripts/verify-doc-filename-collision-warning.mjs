@@ -144,5 +144,34 @@ console.log("\n[C] 무접촉 — brown·role=status·⚠ aria-hidden·차단 적
      "globals.css 에 신규 충돌 전용 클래스 0");
 }
 
+console.log("\n[D] 충돌 경고 → 식별값 입력 1-클릭 점프(위탁자·소재지·체결일) — 검증 게이트 점프 규약 재사용");
+{
+  // 식별 키 세 값(contractFileKey 구성)으로의 점프 대상 — validate.ts Missing.fieldId 와 동일 DOM id
+  ok(/const FILENAME_KEY_FIELDS:/.test(docstep),
+     "FILENAME_KEY_FIELDS 모듈 상수(식별 키 세 값 점프 대상)");
+  ok(/label: "위탁자", stepIdx: 1, fieldId: "party-trustors-0-name"/.test(docstep),
+     "위탁자 → STEP 01 party-trustors-0-name(validate.ts 누락 항목 fieldId 와 동일)");
+  ok(/label: "담보물건 소재지", stepIdx: 4, fieldId: "prop-0-address"/.test(docstep),
+     "담보물건 소재지 → STEP 03 prop-0-address(동일 fieldId)");
+  ok(/label: "계약 체결일", stepIdx: 5, fieldId: "basic-contractDate"/.test(docstep),
+     "계약 체결일 → STEP 04 basic-contractDate(동일 fieldId)");
+  // 점프 버튼은 충돌 경고 블록 안에서 검증 게이트와 동일한 goToStep·validate-jump 마크업 재사용
+  const at = docstep.indexOf("{ok && filenameCollision && (");
+  const block = docstep.slice(at, at + 1600);
+  ok(/FILENAME_KEY_FIELDS\.map\(/.test(block),
+     "충돌 경고 블록 안에서 FILENAME_KEY_FIELDS 를 점프 버튼으로 렌더");
+  ok(/onClick=\{\(\) => goToStep\(k\.stepIdx, k\.fieldId\)\}/.test(block),
+     "점프 = goToStep(stepIdx, fieldId)(검증 게이트 누락 항목 점프와 동일 규약)");
+  ok(/className="validate-jump"/.test(block) && /className="validate-list"/.test(block),
+     "기존 validate-jump·validate-list 마크업 재사용(새 CSS 0)");
+  ok(/stepWhere\(k\.stepIdx\)/.test(block) &&
+     /function stepWhere\(idx: number\): string/.test(docstep) &&
+     /STEPS\.find\(\(x\) => x\.idx === idx\)/.test(docstep),
+     "where 는 STEPS 단일 출처에서 파생(드리프트 0)");
+  // 死점프 0 — goToStep 은 매칭 실패(DOM 부재)면 단계 이동까지만(wizard-focus consumeFieldFocus 폴백)
+  ok(/requestFieldFocus, consumeFieldFocus \} from "@\/lib\/ui\/wizard-focus"/.test(docstep),
+     "wizard-focus 핸드오프 재사용(死점프 0 — 매칭 실패는 제목 포커스 폴백)");
+}
+
 console.log(`\n${fail === 0 ? "✅" : "❌"} doc-filename-collision-warning: ${pass} PASS / ${fail} FAIL`);
 process.exit(fail === 0 ? 0 : 1);
