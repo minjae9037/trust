@@ -21,6 +21,7 @@ import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/mode
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import { highlightSegments } from "@/lib/ui/highlight";
 import { formatRelativeTime } from "@/lib/engine/calc";
+import { loadSortKey, saveSortKey, type SortKey } from "@/lib/store/listPref";
 
 /**
  * 계약별 서류 생성 준비도 — 담보신탁(collateral)만 7종 산출 서류가 정의돼 있어
@@ -108,7 +109,7 @@ function jointReadiness(row: ContractRow): boolean | null {
 }
 
 type StatusFilter = "all" | "draft" | "completed";
-type SortKey = "recent" | "title" | "trustor" | "readiness";
+// SortKey 는 영속 경계(listPref)가 단일 출처 — 저장 가능한 정렬 키 집합과 일치 보장.
 
 const SORT_LABEL: Record<SortKey, string> = {
   recent: "최근 수정순",
@@ -149,6 +150,14 @@ export function ContractsView({
   }
   useEffect(() => {
     load();
+  }, []);
+
+  // 저장된 정렬 선호 반영(마운트 1회) — SSR/하이드레이션 안전: 초기값은 기본 "recent"
+  // 로 렌더(localStorage 는 서버에 없음)하고 마운트 후 저장 선호를 읽어 반영한다
+  // (previewPref·draft 복원과 동형). 저장은 사용자 변경에서만(아래 select onChange)
+  // 일어나 적재 경로가 저장값을 자기 자신으로 덮어쓰지 않는다(클로버 차단).
+  useEffect(() => {
+    setSort(loadSortKey());
   }, []);
 
   // 삭제 — 즉시 삭제하되 일정 시간 "실행취소"를 제공한다(실수 삭제의 영구 유실 방지).
@@ -522,7 +531,11 @@ export function ContractsView({
             className="input"
             aria-label="정렬"
             value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            onChange={(e) => {
+              const k = e.target.value as SortKey;
+              setSort(k);
+              saveSortKey(k); // 사용자 명시 변경에서만 영속(재진입·새로고침 후 유지)
+            }}
             style={{ maxWidth: 180 }}
           >
             {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
