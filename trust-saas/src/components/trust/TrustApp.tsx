@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useContractStore, isFormDirty } from "@/lib/store/contractStore";
 import {
@@ -10,7 +10,12 @@ import {
   TRUST_COMPANIES,
 } from "@/lib/engine/schema";
 import type { Category } from "@/lib/engine/model";
-import { saveContract, type ContractRow } from "@/lib/contractRepo";
+import {
+  saveContract,
+  subscribeContracts,
+  contractCount,
+  type ContractRow,
+} from "@/lib/contractRepo";
 import { Wizard } from "./Wizard";
 import { ChatPanel } from "./ChatPanel";
 import { ContractsView } from "./ContractsView";
@@ -46,6 +51,12 @@ export function TrustApp() {
   } = store;
 
   const docType = DOCUMENT_TYPES.find((d) => d.id === docTypeId) || null;
+
+  // 저장된 계약 수 — 브레드크럼 "내 계약 N" 배지(돌아온 사용자가 저장된 작업이 있음을 한눈에).
+  // 저장소 변경(저장·삭제·복원·가져오기)에 구독해 항상 최신을 유지한다(useSyncExternalStore).
+  // SSR 스냅샷은 0(서버엔 localStorage 부재) → 하이드레이션 후 클라이언트 실제 수로 갱신.
+  // 순수 표시 — 조문·엔진·산출물·검증 무접촉(이동 콜백·카운트만).
+  const savedCount = useSyncExternalStore(subscribeContracts, contractCount, () => 0);
 
   // 상담 코파일럿에서 넘어온 ?doc=ID → 신탁사 자동선택 후 단계 선택으로 진입
   useEffect(() => {
@@ -193,8 +204,24 @@ export function TrustApp() {
             </>
           )}
           <span className="sep" aria-hidden="true">·</span>
-          <button type="button" className="crumb" onClick={() => setView("contracts")}>
+          {/* 내 계약 = 저장된 작업 진입점. 이 뷰가 활성일 때 현재 위치를 표시한다
+              (다른 crumb 들과 달리 종전엔 active/aria-current 가 없어 contracts 뷰에선
+              브레드크럼에 현재 위치 표시가 전무했음 — WCAG 2.4.8 Location 일관성). 저장
+              계약이 있으면 건수 배지를 덧붙여 돌아온 사용자가 작업이 있음을 한눈에 안다.
+              시각 "(N)" 은 장식(aria-hidden), 의미는 sr-only ", 저장 N건" 으로 고지. */}
+          <button
+            type="button"
+            className={"crumb" + (view === "contracts" ? " active" : "")}
+            aria-current={view === "contracts" ? "page" : undefined}
+            onClick={() => setView("contracts")}
+          >
             내 계약
+            {savedCount > 0 && (
+              <>
+                <span aria-hidden="true"> ({savedCount})</span>
+                <span className="sr-only">, 저장 {savedCount}건</span>
+              </>
+            )}
           </button>
           <span className="sep" aria-hidden="true">·</span>
           <Link href="/advisor" className="crumb" style={{ textDecoration: "none" }}>

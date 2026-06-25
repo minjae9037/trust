@@ -131,6 +131,43 @@ function writeAll(rows: ContractRow[]) {
     const quota = isQuotaExceeded(e);
     throw new StorageWriteError(storageWriteErrorMessage(quota), quota);
   }
+  // 쓰기 성공 후에만 구독자에게 변경을 알린다(실패=무손상이므로 미통지). 저장·삭제·
+  // 복원·이름변경·복제·가져오기 등 모든 변형이 writeAll 단일 경로를 지나므로, 여기 한
+  // 곳에서 통지하면 카운트 구독자(브레드크럼 "내 계약 N")가 항상 저장소와 일치한다.
+  emitContractsChanged();
+}
+
+/* ----------------------------------------------------------------
+   저장 건수 구독(표시 전용) — 브레드크럼 "내 계약 N" 배지가 저장소 변경에 따라
+   살아 있게 한다. 같은 탭의 변형은 writeAll 통지로, 다른 탭의 변형은 window "storage"
+   이벤트로 반영한다(useSyncExternalStore 표준 패턴). 조문·엔진·산출물·검증 무접촉 —
+   저장된 행 수를 읽어 표시에 쓸 뿐이다(순수 카운트, 회귀 가드에서 직접 단언).
+   ---------------------------------------------------------------- */
+const contractListeners = new Set<() => void>();
+function emitContractsChanged() {
+  for (const l of contractListeners) l();
+}
+
+/** 현재 저장된 계약 수(localStorage). getSnapshot=원시 number 라 참조 안정성 불요. */
+export function contractCount(): number {
+  return readAll().length;
+}
+
+/**
+ * 저장 건수 변경 구독(useSyncExternalStore subscribe 계약) — 콜백 등록 + 다른 탭의
+ * 저장소 변경(storage 이벤트, 우리 KEY 한정) 연결. 정리 함수에서 둘 다 해제한다.
+ */
+export function subscribeContracts(cb: () => void): () => void {
+  contractListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    // 다른 탭의 localStorage 변경만 전달된다. 우리 키(또는 전체 clear=key null)일 때만 통지.
+    if (e.key === null || e.key === KEY) cb();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+  return () => {
+    contractListeners.delete(cb);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
 }
 function uuid(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
