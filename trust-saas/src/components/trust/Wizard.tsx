@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc, type Missing } from "@/lib/engine/validate";
-import { generateCollateralDoc } from "@/lib/engine/docx";
+import { generateCollateralDoc, previewDocHTML } from "@/lib/engine/docx";
+import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import type { Category, DocId } from "@/lib/engine/model";
@@ -126,6 +127,9 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   //    조문·엔진·생성 로직(generateCollateralDoc) 무손상 — 기존 단건 생성기를 ready 집합에 순차 호출할 뿐.
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchMsg, setBatchMsg] = useState("");
+  // 준비된 N종 통합 검수 미리보기 결과 안내(차단/성공). 일괄 생성과 같은 ready 집합을
+  // 대상으로 하되 다운로드가 아닌 읽기 전용 통합 창을 연다(내려받기 전 정독 짝).
+  const [previewMsg, setPreviewMsg] = useState("");
   // 마지막 일괄 생성 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료" 확인이
   // 내려받은 구버전을 최신으로 오인시키므로(법적 서류=정확성) stale 로 전환한다.
   // DocStep 단건 생성의 신선도 신호를 헤더 일괄 생성에 동일하게 확장.
@@ -138,6 +142,8 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   // (생성 자체는 form을 바꾸지 않으므로 "✓ 완료" 직후엔 살아 있고, 첫 편집에 사라진다).
   useEffect(() => {
     setBatchMsg("");
+    // 입력이 바뀌면 직전 통합 검수 안내도 무효(검수한 미리보기는 이전 입력 기준).
+    setPreviewMsg("");
   }, [formSnap]);
 
   async function generateAllReady() {
@@ -160,6 +166,30 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
     } finally {
       setBatchBusy(false);
     }
+  }
+
+  // ── 준비된 N종 통합 검수 미리보기 — 필수 입력을 충족한 서류를 한 새 창에 모아 정독.
+  //    각 DocStep "크게 보기"를 7번 따로 열던 수고 없이, 일괄 다운로드 직전에 준비된
+  //    서류 전부를 한 창에서 검수한다(법적 서류=정확성 — 내려받기 전 정독 흐름).
+  //    각 서류 미리보기(previewDocHTML)는 변형 없이 격리 iframe 에 그대로 들어간다 —
+  //    조문·엔진·빌더·검증·산출물 무접촉(읽기 전용·인쇄 대화상자 없음).
+  function previewAllReady() {
+    const ready = docSteps.filter((s) => docReady[s.idx]);
+    if (!ready.length) return;
+    const docs = ready.map((s) => ({
+      name: s.title,
+      html: previewDocHTML(form, s.docId as DocId),
+    }));
+    const r = openMultiDocPreviewWindow(docs, () =>
+      window.open("", "_blank", "width=1040,height=1000"),
+    );
+    setPreviewMsg(
+      r === "blocked"
+        ? "새 창을 열 수 없습니다 — 브라우저의 팝업 차단을 해제하신 뒤 다시 시도해주세요."
+        : r === "empty"
+          ? ""
+          : `✓ 준비된 ${ready.length}종을 새 창에서 정독 검수하실 수 있습니다(읽기 전용).`,
+    );
   }
 
   return (
@@ -209,6 +239,18 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               ) : (
                 <><span aria-hidden="true">⬇ </span>{`준비된 ${readyCount}종 일괄 생성(.docx)`}</>
               )}
+            </button>
+          )}
+          {/* 준비된 N종 통합 검수 미리보기 — 일괄 다운로드 직전에 준비된 서류 전부를
+              한 창에서 정독(읽기 전용·인쇄 대화상자 없음). 일괄 생성 버튼과 동일 ready
+              집합 대상, 동일 .doc-progress-batch 스타일(새 CSS 0). */}
+          {readyCount > 0 && (
+            <button
+              className="doc-progress-batch"
+              onClick={previewAllReady}
+              title={`필수 입력을 충족한 ${readyCount}종 서류를 한 새 창에 모아 정독합니다(읽기 전용 · 인쇄 대화상자 없음)`}
+            >
+              <span aria-hidden="true">🔍 </span>{`준비된 ${readyCount}종 검수용 미리보기`}
             </button>
           )}
         </div>
@@ -262,6 +304,21 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
               })()}
             </div>
           )
+        )}
+        {/* 통합 검수 미리보기 안내(차단/성공) — 일괄 생성 메시지와 독립. 선두 장식
+            글리프(✓)만 aria-hidden(의미는 본문이 전달). */}
+        {previewMsg && (
+          <div className="doc-progress-msg" role="status" aria-live="polite">
+            {(() => {
+              const { glyph, text } = splitStatusGlyph(previewMsg);
+              return (
+                <>
+                  {glyph && <span aria-hidden="true">{glyph} </span>}
+                  {text}
+                </>
+              );
+            })()}
+          </div>
         )}
       </div>
 
