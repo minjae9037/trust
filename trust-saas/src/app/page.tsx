@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HomeResumeGroup } from "@/components/home/HomeResumeGroup";
+import { COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 
 export default function Home() {
   return (
@@ -46,6 +47,70 @@ export default function Home() {
           cta="상담 시작 →"
         />
       </div>
+
+      {/* 생성되는 서류 — PILLAR 1(서류 자동화)의 산출물을 구체적으로 제시.
+          종전 랜딩은 "담보신탁·공동사업협약 등 표준 서류"라고만 안내해, 처음 온
+          실무자가 "입력하면 실제로 무엇을 받는지"를 알 수 없었다(첫 사용 가치 제안
+          공백). 1차 출시 범위(담보신탁 신규)의 산출 N종을 엔진 단일 출처
+          (COLLATERAL_OUTPUT_DOCS)에서 그대로 읽어 이름으로 보여 준다 — 서류가
+          추가/변경되면 랜딩이 자동 반영(드리프트 0·개수도 .length 파생). 표시 전용 —
+          조문·엔진·검증(validate)·산출물(docx) 생성 로직 무접촉(상수 라벨만 읽음)·새 CSS 0. */}
+      <section
+        aria-labelledby="home-output-docs-heading"
+        style={{
+          marginTop: 28,
+          padding: "22px 24px",
+          border: "1px solid var(--c-line)",
+          borderRadius: "var(--r-lg)",
+          background: "var(--c-paper)",
+        }}
+      >
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", color: "var(--c-brown)" }}>
+          담보신탁 신규 · 1차 출시 범위
+        </div>
+        <h2
+          id="home-output-docs-heading"
+          style={{ fontSize: 18, fontWeight: 700, margin: "8px 0 4px", color: "var(--c-ink)", letterSpacing: "-0.01em" }}
+        >
+          입력 한 번으로 <span style={{ color: "var(--c-blue-deep)" }}>{COLLATERAL_OUTPUT_DOCS.length}종</span> 서류를 한 번에 생성
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--c-ink-soft)", margin: "0 0 16px", maxWidth: 640 }}>
+          관계사·담보물·계약 조건을 한 번 입력하면 아래 표준 서류가 Word(.docx)로 일괄 생성됩니다.
+        </p>
+        <ul
+          style={{
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            gap: 8,
+          }}
+        >
+          {COLLATERAL_OUTPUT_DOCS.map((d, i) => (
+            <li
+              key={d.id}
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 8,
+                fontSize: 13.5,
+                color: "var(--c-ink)",
+                padding: "6px 0",
+              }}
+            >
+              {/* 번호는 장식(순서 식별 보조) — 의미는 서류명이 전달하므로 aria-hidden. */}
+              <span
+                aria-hidden="true"
+                style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--c-brown)", minWidth: 20 }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span>{d.name}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }
