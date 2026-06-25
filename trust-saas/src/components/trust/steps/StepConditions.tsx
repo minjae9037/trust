@@ -61,6 +61,19 @@ export function StepConditions() {
   const priorityCount = form.priorities.filter((p) => (p.name || "").trim()).length;
   const isMulti = priorityCount >= 2;
 
+  // 입력 지점 교차검증(표시 전용·게이트 아님) — 대리금융기관(제20조) 지정을 켰는데(agentBankEnabled)
+  // 회사명(agentBank)을 비워 두면, 별첨4 제20조 "대리금융기관의 선임" 조문의 {{AGENT_BANK}} 자리가
+  // builders.js·annex.ts 에서 "[              ]"(빈 괄호) 로 치환돼 산출물 조문에 빈칸이 박힌다. 제20조는
+  // 대리금융기관에게 "우선수익자로서의 일체의 권한"을 위임하는 조항이라(권한을 위임받는 주체가 공란이면
+  // 조문 자체가 결함이 된다), 이 항목은 "조문 자동반영"(EngineBadge)으로 입력값이 그대로 별첨4 조문에
+  // 흘러든다. 게이트(validateDoc)는 지정 여부만 보고 회사명 채움은 검사하지 않아(섹션 hint 도 "빈 값이면
+  // 빈칸 출력" 명시), 지정만 켜고 이름을 비운 채 조용히 진행될 수 있었다. ubo "다름"인데 성명 빈칸·
+  // 우선수익자 대출 있는데 채무자 빈칸 advisory 와 동형의 "활성 항목인데 식별 필드 빈칸 → 산출물 빈칸"
+  // 완결성 갈래로, 기존 단독+지정(구조 불일치) advisory 와는 직교한다. 막지 않고(작성 중 임시 빈칸 등
+  // 사용자 선택 보존) 입력 지점에서 부드럽게 되짚는다. agentBankEnabled·agentBank 파생이라 새 상태/모델/
+  // 엔진/조문 무접촉. 한 글자라도 채우면(작성 완료 간주) 미표출.
+  const agentBankNameMissing = !!c.agentBankEnabled && (c.agentBank || "").trim().length === 0;
+
   const collateralLabel = COLLATERAL_TYPES.find((t) => t.v === (c.collateralType || "land"))?.l;
   const licenseLabel = LICENSE_TYPES.find((t) => t.v === (c.licenseType || "building"))?.l;
   const majorityLabel = MAJORITY.find((m) => m.v === (c.majorityCriteria || "twothird"))?.l;
@@ -121,6 +134,18 @@ export function StepConditions() {
               aria-label="대리금융기관 회사명"
               value={c.agentBank || ""} onChange={(e) => set({ agentBank: e.target.value })} />
             <div className="field-hint">입력한 회사명이 별첨4 제20조에 자동 기재됩니다(빈 값이면 빈칸 출력).</div>
+            {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 지정을 켰는데 회사명이 빈칸이면 별첨4
+                제20조(대리금융기관의 선임) {{AGENT_BANK}} 자리가 "[              ]"로 출력돼 권한을
+                위임받는 주체가 공란인 결함 조문이 된다. ubo 성명 빈칸·우선수익자 채무자 빈칸 advisory 와
+                동형의 완결성 되짚음 — 막지 않고(사용자 선택 보존) 입력 직하에서 부드럽게 안내한다.
+                동적 출현이라 role=status·aria-live=polite + 선두 ⚠ aria-hidden(접근명 오염 0), 색 =
+                var(--c-brown)(검토 신호 — 차단 적색 아님), field-hint 재사용(새 CSS 0). */}
+            {agentBankNameMissing && (
+              <div className="field-hint" role="status" aria-live="polite" style={{ marginTop: 6, color: "var(--c-brown)", fontWeight: 600 }}>
+                <span aria-hidden="true">⚠ </span>
+                대리금융기관 지정을 켰는데 회사명이 비어 있습니다 — 별첨4 제20조(대리금융기관의 선임)에 회사명이 빈칸으로 출력됩니다. 대리금융기관명을 입력하거나 지정을 해제하세요.
+              </div>
+            )}
           </div>
         )}
         {/* 입력 지점 교차검증(표시 전용·게이트 아님) — 대리금융기관(제20조)은 STEP 02 우선수익자 수로
