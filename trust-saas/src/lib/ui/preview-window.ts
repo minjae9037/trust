@@ -82,14 +82,30 @@ export function buildMultiDocShell(docs: PreviewDoc[]): string {
     .map((d, i) => {
       const label = `${i + 1}. ${d.name}`;
       const sep = i > 0 ? ' style="page-break-before:always"' : "";
+      // ★서류마다 고정 id(doc-N) — 목차(TOC) 앵커 점프 대상. scroll-margin-top 으로
+      //   sticky 머리말+목차가 제목을 가리지 않게 한다(CSS).
       return (
-        `<section class="doc"${sep}>` +
+        `<section class="doc" id="doc-${i + 1}"${sep}>` +
         `<h2 class="doc-title">${escText(label)}</h2>` +
         `<iframe class="doc-frame" sandbox="" title="${escapeForSrcdoc(d.name)} 미리보기" srcdoc="${escapeForSrcdoc(d.html)}"></iframe>` +
         `</section>`
       );
     })
     .join("\n");
+  // 목차(TOC) — 서류 2종 이상일 때만 표출(단건은 점프 불필요). 순수 HTML 앵커(#doc-N)
+  // 로 서류 간 이동 — 스크립트 0(읽기 전용 불변식 유지). 브라우저 기본 동작이라
+  // sandbox 격리(iframe)·셸 script 0 을 깨지 않는다.
+  const toc =
+    count > 1
+      ? `<nav class="toc" aria-label="서류 바로가기"><span class="toc-label">바로가기</span>` +
+        docs
+          .map(
+            (d, i) =>
+              `<a class="toc-link" href="#doc-${i + 1}">${escText(`${i + 1}. ${d.name}`)}</a>`,
+          )
+          .join("") +
+        `</nav>`
+      : "";
   return (
     `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">` +
     `<title>준비된 ${count}종 서류 통합 검수 미리보기</title>` +
@@ -97,14 +113,21 @@ export function buildMultiDocShell(docs: PreviewDoc[]): string {
     `*{box-sizing:border-box}` +
     `body{margin:0;background:#f4f1ea;color:#2b2620;` +
     `font-family:system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif}` +
-    `header.bar{position:sticky;top:0;z-index:2;background:#2b2620;color:#f4f1ea;padding:12px 20px;font-size:14px;font-weight:700}` +
+    `header.bar{position:sticky;top:0;z-index:3;background:#2b2620;color:#f4f1ea;padding:12px 20px;font-size:14px;font-weight:700}` +
     `header.bar .sub{margin-left:8px;font-weight:400;font-size:12px;opacity:.82}` +
-    `.doc{max-width:900px;margin:22px auto;padding:0 16px}` +
+    `nav.toc{position:sticky;top:41px;z-index:2;display:flex;flex-wrap:wrap;gap:6px;align-items:center;` +
+    `background:#efe9dc;border-bottom:1px solid #cdbf9e;padding:8px 20px}` +
+    `nav.toc .toc-label{font-size:12px;font-weight:700;color:#6b5d45;margin-right:2px}` +
+    `nav.toc .toc-link{font-size:12px;color:#2b2620;text-decoration:none;background:#fff;` +
+    `border:1px solid #d8d2c4;border-radius:999px;padding:3px 10px}` +
+    `nav.toc .toc-link:hover{border-color:#cdbf9e;background:#f4f1ea}` +
+    `.doc{max-width:900px;margin:22px auto;padding:0 16px;scroll-margin-top:96px}` +
     `.doc-title{margin:0 0 8px;padding-bottom:6px;font-size:15px;font-weight:700;border-bottom:2px solid #cdbf9e}` +
     `.doc-frame{width:100%;height:78vh;border:1px solid #d8d2c4;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}` +
     `</style></head><body>` +
     `<header class="bar">준비된 서류 통합 검수 미리보기` +
     `<span class="sub">${count}종 · 읽기 전용(인쇄 대화상자 없음) · 내려받기 전 정독용</span></header>` +
+    toc +
     sections +
     `</body></html>`
   );

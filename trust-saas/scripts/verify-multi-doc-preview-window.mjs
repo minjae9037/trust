@@ -163,6 +163,33 @@ console.log("\n[G] 셸 구조 — sandbox 격리·page-break·읽기전용·실 
   ok(/읽기 전용/.test(shell) && /통합 검수/.test(shell), "머리말: 통합 검수·읽기 전용 안내");
 }
 
+console.log("\n[I] 목차(TOC) — 2종 이상일 때 순수 HTML 앵커 점프(스크립트 0 유지)");
+{
+  // 2종 이상 → nav.toc + 서류 수만큼 앵커 링크(#doc-N) + 섹션 id(doc-N).
+  const docs3 = [
+    { name: "담보신탁계약서", html: "<body>가</body>" },
+    { name: '위임장 "을"', html: "<body>나</body>" },
+    { name: "이사회 의사록", html: "<body>다</body>" },
+  ];
+  const shell3 = buildMultiDocShell(docs3);
+  ok(/<nav class="toc" aria-label="서류 바로가기">/.test(shell3), "2종↑: nav.toc(aria-label) 표출");
+  ok((shell3.match(/class="toc-link" href="#doc-\d+"/g) || []).length === 3, "TOC 앵커 링크 = 서류 수(3)");
+  for (let i = 1; i <= 3; i++) {
+    ok(shell3.includes(`<section class="doc" id="doc-${i}"`), `섹션 id=doc-${i}(앵커 대상)`);
+    ok(shell3.includes(`href="#doc-${i}"`), `TOC 링크 href=#doc-${i}`);
+  }
+  // TOC 라벨 = 번호+서류명(escText: &·<·> 만 이스케이프, 큰따옴표는 텍스트라 그대로).
+  ok(shell3.includes('2. 위임장 "을"'), "TOC 링크 라벨: 번호+서류명(큰따옴표 verbatim)");
+  // TOC 도 스크립트 0(순수 앵커 — 읽기 전용 불변식 유지).
+  ok(!/<script\b/i.test(shell3), "TOC 포함 셸에도 <script> 0(순수 HTML 앵커)");
+  // 앵커 점프 시 sticky 머리말·목차가 제목을 가리지 않도록 scroll-margin-top.
+  ok(/\.doc\{[^}]*scroll-margin-top/.test(shell3), ".doc scroll-margin-top(sticky 가림 방지)");
+  // 단건(1종) → 목차 미표출(점프 불필요).
+  const shell1 = buildMultiDocShell([{ name: "계약서", html: "<body>가</body>" }]);
+  ok(!/<nav class="toc"/.test(shell1), "1종: 목차(nav.toc) 미표출(점프 불필요)");
+  ok(shell1.includes('<section class="doc" id="doc-1"'), "1종도 섹션 id=doc-1 부여(일관)");
+}
+
 console.log("\n[H] 배선 — Wizard previewAllReady + 일괄 생성 보존 + 새 CSS 0");
 {
   const wiz = src("src/components/trust/Wizard.tsx");
