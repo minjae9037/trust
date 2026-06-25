@@ -58,7 +58,11 @@ export function TrustApp() {
   // 순수 표시 — 조문·엔진·산출물·검증 무접촉(이동 콜백·카운트만).
   const savedCount = useSyncExternalStore(subscribeContracts, contractCount, () => 0);
 
-  // 상담 코파일럿에서 넘어온 ?doc=ID → 신탁사 자동선택 후 단계 선택으로 진입
+  // 진입 딥링크 처리(마운트 1회):
+  //  ① 상담 코파일럿에서 넘어온 ?doc=ID → 신탁사 자동선택 후 단계 선택으로 진입.
+  //  ② 홈 재개 진입점(HomeResumeEntry)에서 넘어온 ?view=contracts → 내 계약(저장 목록)으로 직행
+  //     — 돌아온 사용자가 홈에서 한 번에 저장된 작업으로 가는 동선(브레드크럼 "내 계약" 클릭과
+  //     동일 내비게이션 의미·표시/이동 전용). 둘 다 처리 후 주소창을 깨끗한 /app 으로 정리한다.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const doc = params.get("doc");
@@ -66,6 +70,11 @@ export function TrustApp() {
       setCompany(ACTIVE_COMPANY);
       setDocType(doc);
       setView("category");
+      window.history.replaceState({}, "", "/app");
+      return;
+    }
+    if (params.get("view") === "contracts") {
+      setView("contracts");
       window.history.replaceState({}, "", "/app");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

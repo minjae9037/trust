@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeResumeEntry } from "@/components/home/HomeResumeEntry";
 
 export default function Home() {
   return (
@@ -23,6 +24,10 @@ export default function Home() {
         신탁사·시행사·시공사·증권사 실무자를 위한 도구. 토글 또는 자연어 대화로 표준 서류를
         자동 생성하고, 대체투자 전문 AI에게 PF·신탁·딜 구조화를 상담하세요.
       </p>
+
+      {/* 재방문 재개 진입점 — 저장된 계약이 있는 사용자에게만 클라이언트에서 렌더(첫 방문 0건은
+          null → 화면 무변경). 홈에서 한 번에 내 계약으로 보낸다. 표시·내비게이션 전용. */}
+      <HomeResumeEntry />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 40 }}>
         <Pillar
