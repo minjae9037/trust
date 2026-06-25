@@ -338,7 +338,16 @@ export function TrustApp() {
         />
       )}
       {view === "home" && <HomePage company={company} onPick={pickDoc} />}
-      {view === "category" && docType && <CategoryPage docName={docType.name} onPick={pickCategory} />}
+      {view === "category" && docType && (
+        <CategoryPage
+          docName={docType.name}
+          onPick={pickCategory}
+          // 상담 doc-action(?doc=) 딥링크로 단계 선택에 직행했을 때도 진행 중(미저장) 초안을
+          // 되살릴 수 있게 첫 화면(CompanyPage)과 동일한 복원 진입점을 전달한다(비파괴 표면화).
+          draft={restorableDraft}
+          onResumeDraft={resumeDraft}
+        />
+      )}
       {view === "wizard" && docType && category && (
         <>
           <SaveBar />
@@ -595,7 +604,21 @@ function HomePage({ company, onPick }: { company: string | null; onPick: (id: st
   );
 }
 
-function CategoryPage({ docName, onPick }: { docName: string; onPick: (c: Category) => void }) {
+function CategoryPage({
+  docName,
+  onPick,
+  draft,
+  onResumeDraft,
+}: {
+  docName: string;
+  onPick: (c: Category) => void;
+  draft?: ContractDraft | null;
+  onResumeDraft?: () => void;
+}) {
+  // 작성 중이던(미저장) 서류 이름 — CompanyPage 진입점과 동일 출처(초안 docTypeId → 서류명).
+  const draftDocName = draft
+    ? DOCUMENT_TYPES.find((d) => d.id === draft.docTypeId)?.name || "서류"
+    : null;
   return (
     <main className="page active">
       <div className="page-header">
@@ -606,6 +629,34 @@ function CategoryPage({ docName, onPick }: { docName: string; onPick: (c: Catego
           <strong>정산</strong>(해지) 3단계로 구분됩니다.
         </p>
       </div>
+      {/* 상담 doc-action(?doc= 딥링크)으로 단계 선택에 바로 도착했을 때도 작성 중이던(미저장)
+          서류 초안을 "이어서 작성하기"로 되살릴 수 있게 한다 — 종전엔 이 복원 진입점이 첫
+          화면(CompanyPage)에만 있어, 딥링크로 단계 선택에 직행한 사용자는 진행 중 초안을 보지
+          못한 채 빈 양식에서 다시 시작하다 첫 입력 순간 단일 초안이 덮어써졌다(비파괴 충돌
+          표면화 — 다중 초안 보관은 별개 정책 사안). CompanyPage 진입점과 동일 마크업·동작.
+          onResumeDraft 미전달·초안 부재면 미렌더(후방호환). 표시·재개 전용 — 조문·엔진·검증·
+          산출물 무접촉, 새 CSS 0(기존 토큰 + 인라인 style). */}
+      {onResumeDraft && draft && (
+        <div
+          role="region"
+          aria-label="작성 중이던 서류 이어서 작성하기"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: 18,
+          }}
+        >
+          <span className="field-hint">
+            작성 중이던 <strong>{draftDocName}</strong> 서류가 있습니다.
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={onResumeDraft}>
+            이어서 작성하기<span aria-hidden="true"> →</span>
+          </button>
+        </div>
+      )}
       <div className="cat-grid">
         {CATEGORIES.map((c) => (
           <button key={c.id} className="cat-card" disabled={!c.ready} onClick={() => c.ready && onPick(c.id)}>
