@@ -107,7 +107,7 @@ console.log("\n[D] 무회귀 — 배선·role=alert·클래스·title 보존(표
   ok(/<div className="validate-box" role="alert" style=\{\{ marginTop: 24 \}\}>/.test(joint),
     "JointForm validate-box role=alert 보존");
   // TrustApp 크럼 링크·FAB 배선 보존
-  ok(/<Link href="\/advisor" className="crumb"/.test(app), "상담 크럼 href=/advisor·class=crumb 보존");
+  ok(/<Link href="\/advisor\?resume=1" className="crumb"/.test(app), "상담 크럼 href=/advisor?resume=1·class=crumb 보존");
   ok(/className="chat-fab"/.test(app) && /ref=\{fabRef\}/.test(app) &&
      /onClick=\{\(\) => setChatOpen\(true\)\}/.test(app) && /title="AI 어시스턴트"/.test(app),
     "AI 어시스턴트 FAB className·ref·onClick·title 보존");

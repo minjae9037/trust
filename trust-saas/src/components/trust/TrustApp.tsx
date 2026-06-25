@@ -292,7 +292,10 @@ export function TrustApp() {
             )}
           </button>
           <span className="sep" aria-hidden="true">·</span>
-          <Link href="/advisor" className="crumb" style={{ textDecoration: "none" }}>
+          {/* 서류↔상담 왕복 복귀 — ?resume=1 로 보내 상담 화면이 직전 대화를 즉시 복원하게 한다
+              (doc-action 으로 상담→서류 갔다가 이어가는 동선의 마지막 끊김 마감). 저장본이 없으면
+              상담 화면에서 무동작(빈 상태)이라 후방호환. 표시·내비게이션 전용. */}
+          <Link href="/advisor?resume=1" className="crumb" style={{ textDecoration: "none" }}>
             <span aria-hidden="true">💬 </span>상담<span aria-hidden="true"> →</span>
           </Link>
         </nav>

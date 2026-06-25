@@ -110,9 +110,10 @@ console.log("\n[C] AdvisorChat 배선 — 적재·자동 저장·복원·새 대
      "AdvisorChat 가 sessionRepo 의 clearSession·loadSession·saveSession import");
   ok(/const \[savedSession, setSavedSession\] = useState<Msg\[\] \| null>\(null\);/.test(chat),
      "savedSession 상태(SSR 스냅샷 null — 하이드레이션 일치)");
-  // 마운트 적재
-  ok(/const saved = loadSession\(\);\s*\n\s*if \(saved\.length > 0\) setSavedSession\(saved\);/.test(chat),
-     "마운트 useEffect 가 loadSession → 저장본 있으면 savedSession 세팅");
+  // 마운트 적재 — 직접 방문(파라미터 없음) 경로는 종전대로 savedSession 세팅(빈 상태 진입점).
+  // (?resume=1 즉시 복원 분기는 별도 가드 verify-advisor-cross-resume.mjs 가 단언)
+  ok(/const saved = loadSession\(\);/.test(chat) && /setSavedSession\(saved\);/.test(chat),
+     "마운트 useEffect 가 loadSession → (직접 방문) 저장본 있으면 savedSession 세팅");
   // 자동 저장(busy 아님 + 대화 있음)
   ok(/if \(!busy && msgs\.length > 0\) saveSession\(msgs\);/.test(chat),
      "msgs/busy 변경 useEffect 가 생성 중 아니고 대화 있을 때만 saveSession");

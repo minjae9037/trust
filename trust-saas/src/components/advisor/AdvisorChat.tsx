@@ -90,9 +90,25 @@ export function AdvisorChat() {
 
   // 마운트 시 저장된 상담 세션 적재(클라이언트 전용) — 저장본이 있으면 빈 상태에 복원
   // 진입점을 노출한다(진행 중 대화 위에 끼어들지 않음 — 빈 상태에서만 보임).
+  // ★서류↔상담 왕복 복귀(?resume=1): 서류 화면 브레드크럼 "💬 상담 →"로 돌아오면 doc-action
+  //   으로 상담→서류 갔다가 이어가려는 의도이므로, 빈 상태 "이어서 대화하기"를 한 번 더 누르게
+  //   하지 않고 직전 대화를 바로 복원한다(상담↔서류 왕복의 마지막 끊김 마감). 직접 /advisor
+  //   방문(파라미터 없음)은 종전대로 빈 상태 진입점만 노출. 파라미터는 세션 유무와 무관하게
+  //   정리(replaceState)해 새로고침·공유 시 잔류하지 않게 한다. 표시·재개 전용(엔진 무접촉).
   useEffect(() => {
     const saved = loadSession();
-    if (saved.length > 0) setSavedSession(saved);
+    const wantResume = new URLSearchParams(window.location.search).get("resume") === "1";
+    if (wantResume) window.history.replaceState({}, "", "/advisor"); // 파라미터 정리(세션 유무 무관)
+    if (saved.length === 0) return;
+    if (wantResume) {
+      // 즉시 복원(빈 상태 추가 클릭 생략) — resumeSession 과 동일 효과(이력 적재·피드백/복사 초기화)
+      setMsgs(saved);
+      setFeedbackSent({});
+      setCopied(null);
+      scrollDown();
+    } else {
+      setSavedSession(saved); // 직접 방문 — 빈 상태 "이어서 대화하기" 진입점
+    }
   }, []);
 
   // 완료된 대화를 자동 저장(영속) — 생성 중(busy)이 아니고 대화가 있을 때만 쓴다. 빈

@@ -120,8 +120,8 @@ console.log("\n[C] 무회귀 — 다른 crumb active/aria-current·상담 링크
      "신탁사명 crumb aria-current 보존(home)");
   ok(/aria-current=\{view === "category" \? "page" : undefined\}/.test(app),
      "서류명 crumb aria-current 보존(category)");
-  ok(/<Link href="\/advisor" className="crumb"/.test(app),
-     "상담(/advisor) 링크 crumb 보존");
+  ok(/<Link href="\/advisor\?resume=1" className="crumb"/.test(app),
+     "상담(/advisor?resume=1) 링크 crumb 보존(왕복 복귀 딥링크)");
   ok(/onStart=\{\(\) => setView\(company \? "home" : "company"\)\}/.test(app),
      "내 계약 0건 빈 화면 CTA(onStart) 배선 보존(직전 iteration 산출)");
   ok(/<ContractsView\s+onOpen=\{openContract\}/.test(app),

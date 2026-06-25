@@ -116,8 +116,8 @@ ok(
 // ──────────────────────────────────────────────
 console.log("\n[<Link> crumb 보존(전환 대상 아님)]");
 ok(
-  /<Link href="\/advisor" className="crumb"/.test(nav),
-  "(D1) 상담 <Link> crumb 보존(버튼 미전환)",
+  /<Link href="\/advisor\?resume=1" className="crumb"/.test(nav),
+  "(D1) 상담 <Link> crumb 보존(버튼 미전환·?resume=1 왕복 복귀 딥링크)",
 );
 
 // ──────────────────────────────────────────────
