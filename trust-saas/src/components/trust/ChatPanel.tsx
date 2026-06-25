@@ -198,11 +198,30 @@ export function ChatPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="chat-body" ref={scrollRef}>
-        {msgs.map((m, i) => (
-          <div key={i} className={"chat-msg " + (m.kind ?? m.role)}>
-            {m.display}
-          </div>
-        ))}
+        {msgs.map((m, i) => {
+          // 대화 턴 발화자 라벨 — 스크린리더로 선형 읽기·탐색 시 발화자(나/AI)와 위치(몇
+          // 번째 질문)를 고지한다. 시각 사용자는 좌/우 정렬·색으로 발화자를 구분하지만 SR
+          // 사용자는 평문만 듣던 갭을 메운다(공개 상담 AdvisorChat 턴 랜드마크의 인앱 패리티).
+          // turn = 이 메시지까지의 사용자 발화 수 — 질문과 그에 대한 답변·반영 알림이 같은
+          // 번호를 갖는다. 첫 인사(api="")는 사용자 발화 전이라 turn 0 → 번호 없는 "AI 어시스턴트".
+          const turn = msgs.slice(0, i + 1).filter((x) => x.role === "user").length;
+          const speaker =
+            m.role === "user"
+              ? `내 질문 ${turn}`
+              : m.kind === "note"
+                ? "AI 어시스턴트 반영 알림"
+                : turn > 0
+                  ? `AI 어시스턴트 ${turn}`
+                  : "AI 어시스턴트";
+          return (
+            // 턴 <article>=답변 단위 SR 탐색(NVDA/JAWS article quicknav). aria-label 은
+            // className '앞'에 둬 변형 없이 탐색 이름만 부여한다. 상세: verify-chat-turn-landmarks.
+            <article key={i} aria-label={speaker} className={"chat-msg " + (m.kind ?? m.role)}>
+              <span className="sr-only">{speaker}. </span>
+              {m.display}
+            </article>
+          );
+        })}
         {busy && <div className="chat-msg assistant">…작성 중</div>}
         {err && (
           <div className="chat-msg assistant" role="alert">
