@@ -28,7 +28,6 @@ export function HomeResumeEntry() {
         display: "inline-flex",
         alignItems: "center",
         gap: 9,
-        marginTop: 28,
         padding: "11px 16px",
         textDecoration: "none",
         background: "var(--c-paper)",

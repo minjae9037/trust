@@ -82,7 +82,9 @@ export function saveSession(msgs: ReadonlyArray<AdvisorMsg & { error?: boolean }
     localStorage.setItem(KEY, JSON.stringify(clean));
   } catch {
     /* 용량 초과(QuotaExceeded)·시크릿 모드(SecurityError) 등 — 조용히 무시(현재 대화 무영향) */
+    return; // 쓰기 실패=무손상이므로 구독자에게 통지하지 않는다(상태 불변).
   }
+  emitSessionChanged(); // 쓰기 성공 후에만 통지(홈 "이어서 대화하기" 진입점이 저장소와 일치).
 }
 
 /** 저장된 상담 세션을 비운다("새 대화" 전용 — 저장본 삭제의 단일 경로). SSR 안전. */
@@ -92,5 +94,41 @@ export function clearSession(): void {
     localStorage.removeItem(KEY);
   } catch {
     /* 접근 불가 시 무시 */
+    return;
   }
+  emitSessionChanged(); // 삭제도 동일 단일 경로로 통지(진입점 라이브 소거).
+}
+
+/* ----------------------------------------------------------------
+   저장 세션 존재 구독(표시 전용) — 홈 랜딩(/) "진행 중이던 상담 — 이어서 대화하기"
+   진입점이 저장소 변경에 따라 살아 있게 한다. 같은 탭의 변형은 saveSession/clearSession
+   통지로, 다른 탭의 변형은 window "storage" 이벤트로 반영한다(useSyncExternalStore
+   표준 패턴 — contractRepo 의 subscribeContracts 와 동형). 페르소나·검색·로깅·산출물
+   무접촉 — 저장본 유무를 읽어 표시에 쓸 뿐이다(순수 boolean, 회귀 가드에서 직접 단언).
+   ---------------------------------------------------------------- */
+const sessionListeners = new Set<() => void>();
+function emitSessionChanged() {
+  for (const l of sessionListeners) l();
+}
+
+/** 저장된 상담 세션 존재 여부(localStorage). getSnapshot=원시 boolean 이라 참조 안정성 불요. */
+export function hasSavedSession(): boolean {
+  return loadSession().length > 0;
+}
+
+/**
+ * 저장 세션 변경 구독(useSyncExternalStore subscribe 계약) — 콜백 등록 + 다른 탭의
+ * 저장소 변경(storage 이벤트, 우리 KEY 한정) 연결. 정리 함수에서 둘 다 해제한다.
+ */
+export function subscribeSession(cb: () => void): () => void {
+  sessionListeners.add(cb);
+  const onStorage = (e: StorageEvent) => {
+    // 다른 탭의 localStorage 변경만 전달된다. 우리 키(또는 전체 clear=key null)일 때만 통지.
+    if (e.key === null || e.key === KEY) cb();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+  return () => {
+    sessionListeners.delete(cb);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
 }

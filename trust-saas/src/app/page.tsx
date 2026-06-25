@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HomeResumeEntry } from "@/components/home/HomeResumeEntry";
+import { HomeAdvisorResumeEntry } from "@/components/home/HomeAdvisorResumeEntry";
 
 export default function Home() {
   return (
@@ -25,9 +26,13 @@ export default function Home() {
         자동 생성하고, 대체투자 전문 AI에게 PF·신탁·딜 구조화를 상담하세요.
       </p>
 
-      {/* 재방문 재개 진입점 — 저장된 계약이 있는 사용자에게만 클라이언트에서 렌더(첫 방문 0건은
-          null → 화면 무변경). 홈에서 한 번에 내 계약으로 보낸다. 표시·내비게이션 전용. */}
-      <HomeResumeEntry />
+      {/* 재방문 재개 진입점(서류·상담 두 축) — 각 island 가 저장된 작업이 있는 사용자에게만
+          클라이언트에서 렌더(첫 방문엔 둘 다 null → 화면 무변경). 계약은 내 계약 목록으로,
+          진행 중이던 상담은 직전 대화로 한 번에 보낸다. 표시·내비게이션 전용. */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, marginTop: 28 }}>
+        <HomeResumeEntry />
+        <HomeAdvisorResumeEntry />
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 40 }}>
         <Pillar
