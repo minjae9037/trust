@@ -140,6 +140,30 @@ function jointReadiness(row: ContractRow): boolean | null {
   }
 }
 
+/**
+ * 공동사업표준협약서(joint) 계약의 "남은 필수 입력" 라벨 목록 — collateral 의 rowMissing
+ * 패리티(joint 단일 산출물 버전). 그간 collateral 카드는 미준비 시 *무엇이* 남았는지 한 줄로
+ * 보여 줬는데(rowMissing), joint 카드는 "필수 입력 누락" 칩만 있어 무엇을 채울지는 계약을
+ * 열어야 알 수 있었다(목록 패리티 갭). 검증 게이트와 동일한 `validateJoint(form).missing`
+ * 을 그대로 쓴다(별도 판정 로직 없음 — 이미 산출된 누락 라벨을 목록 수준에서 보여 줄 뿐).
+ * joint 의 missing 은 이미 라벨 단위로 유일하므로(collateral 처럼 7종 반복이 아님) 중복
+ * 제거가 필요 없다. joint 외 종류·손상 저장본은 빈 배열(요약 미표시·렌더 크래시 방지).
+ * ※ 조문·엔진·검증 판정 무접촉.
+ */
+function rowJointMissing(row: ContractRow): string[] {
+  if (row.doc_type !== "joint") return [];
+  // doc_type==="joint" 가드로 form_data 는 JointForm 임이 보장된다.
+  const form = row.form_data as JointForm;
+  // null/비객체(손상 저장본)는 빈 배열 — collateral rowMissing(validateDoc throw→[]) 패리티.
+  // (validateJoint 는 null 을 관대히 처리해 throw 하지 않으므로 명시 가드로 손상본 노이즈 차단.)
+  if (!form || typeof form !== "object") return [];
+  try {
+    return validateJoint(form).missing;
+  } catch {
+    return [];
+  }
+}
+
 type StatusFilter = "all" | "draft" | "completed";
 // SortKey 는 영속 경계(listPref)가 단일 출처 — 저장 가능한 정렬 키 집합과 일치 보장.
 
@@ -643,13 +667,20 @@ export function ContractsView({
           const docName = DOCUMENT_TYPES.find((d) => d.id === r.doc_type)?.name || r.doc_type;
           const readiness = docReadiness(r);
           const allReady = readiness !== null && readiness.ready === readiness.total;
-          // 일부 서류만 준비된 경우(미완)의 "남은 필수 입력" 목록 — 전부 준비(allReady)·
-          // 산출정의 없는 종류(readiness===null)면 빈 배열이라 표시도 SR 고지도 없다.
-          // 카드 칩의 "N/7 생성 가능"이 '몇 종'인지만 알려 주던 것을, '무엇이' 남았는지까지
-          // 열지 않고 카드에서 바로 보여 준다(검증 흐름 UX — 표시 전용·게이트 무접촉).
-          const missing = readiness && !allReady ? rowMissing(r) : [];
           // joint(공동사업표준협약서) 준비도 — collateral 의 "N/7" 대신 단일 협약서 생성 가능 여부.
           const jointReady = jointReadiness(r);
+          // 카드 "남은 필수 입력" 라벨 — 담보신탁(7종 합집합 rowMissing)·공동사업표준협약서
+          // (validateJoint) 양쪽 패리티. 한 행은 collateral 또는 joint 라 상호배타 — 준비 안 된
+          // 쪽의 누락 라벨만 채워지고, 전부 준비(allReady)·산출정의 없는 종류면 빈 배열이라
+          // 표시도 SR 고지도 없다. 카드 칩의 "N/7 생성 가능"(몇 종)·"필수 입력 누락"이 무엇이
+          // 남았는지는 안 알려 주던 것을, 열지 않고 카드에서 바로 보여 준다(검증 흐름 UX —
+          // 표시 전용·검증 게이트 무접촉, 라벨은 collateral=Missing.label / joint=문자열).
+          const missingLabels: string[] =
+            readiness && !allReady
+              ? rowMissing(r).map((mi) => mi.label)
+              : jointReady === false
+                ? rowJointMissing(r)
+                : [];
           // 위탁자·물건 소재지 — 실무 식별 기준(제목만으론 "(사본)"·동명 구분이 어려움).
           const identity = contractIdentity(r);
           const identityLine = [identity.trustor && `위탁자 ${identity.trustor}`, identity.property]
@@ -672,8 +703,8 @@ export function ContractsView({
           // 빨강 요약 줄(aria-hidden)을 보지만, SR 사용자는 카드 aria-label 이 내부 텍스트를
           // 가리므로(name 계산 우선) 여기에 실어 줘야 '무엇이' 남았는지 듣는다(요약 줄과 동일 출처).
           const missingLabel =
-            missing.length > 0
-              ? `, 남은 필수 입력 ${missing.length}건: ${missing.map((mi) => mi.label).join(", ")}`
+            missingLabels.length > 0
+              ? `, 남은 필수 입력 ${missingLabels.length}건: ${missingLabels.join(", ")}`
               : "";
           const openLabel = `${r.title}, ${statusLabel}${readyLabel}${missingLabel} — 열기`;
           return (
@@ -783,18 +814,19 @@ export function ContractsView({
                     );
                   })()}
                 </div>
-                {/* 남은 필수 입력 요약 — '몇 종'(준비도 칩)에 더해 '무엇이' 남았는지 한 줄로
-                    (앞 4건 + "외 N건"). 계약을 열지 않고도 무엇을 채워야 하는지 바로 보인다.
-                    줄 전체 aria-hidden — 낭독은 카드 aria-label(openLabel)이 전담(중복 0).
-                    검증 게이트 무접촉(rowMissing=validateDoc.missing 집계)·새 CSS 0. */}
-                {missing.length > 0 && (
+                {/* 남은 필수 입력 요약 — 준비도 칩(담보신탁 '몇 종'·협약서 '누락')에 더해
+                    '무엇이' 남았는지 한 줄로(앞 4건 + "외 N건"). 담보신탁·공동사업협약 양쪽
+                    패리티. 계약을 열지 않고도 무엇을 채워야 하는지 바로 보인다. 줄 전체
+                    aria-hidden — 낭독은 카드 aria-label(openLabel)이 전담(중복 0). 검증 게이트
+                    무접촉(collateral=rowMissing / joint=validateJoint.missing 표시)·새 CSS 0. */}
+                {missingLabels.length > 0 && (
                   <div
                     className="field-hint"
                     style={{ marginTop: 5, color: "var(--c-danger)" }}
                     aria-hidden="true"
                   >
-                    ⚠ 남은 필수 입력: {missing.slice(0, 4).map((mi) => mi.label).join(" · ")}
-                    {missing.length > 4 ? ` 외 ${missing.length - 4}건` : ""}
+                    ⚠ 남은 필수 입력: {missingLabels.slice(0, 4).join(" · ")}
+                    {missingLabels.length > 4 ? ` 외 ${missingLabels.length - 4}건` : ""}
                   </div>
                 )}
               </div>

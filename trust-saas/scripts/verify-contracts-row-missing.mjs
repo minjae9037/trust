@@ -21,8 +21,14 @@
      (C) 전체 충족 → 남은 입력 0건 · 칩 정합(rowMissing 빈 ⟺ ready 7/7)
      (D) 담보신탁 외(joint/fund)·손상 저장본 → [](요약 미표시·크래시 방지)
      (E) 배선(ContractsView.tsx) — type Missing import · rowMissing 정의(collateral 한정·
-         label dedup) · openLabel 에 남은 입력 SR 고지(missingLabel) · 요약 줄(aria-hidden·
+         label dedup) · rowJointMissing 정의(joint 한정·validateJoint.missing) · missingLabels
+         단일 출처(collateral ∪ joint) · openLabel SR 고지(missingLabel) · 요약 줄(aria-hidden·
          ⚠·앞 4건 slice·외 N건) · readyDocIds/일괄생성/검수 미리보기(회귀) 보존
+     (F) joint 패리티 — 공동사업협약 카드도 '무엇이' 남았는지: rowJointMissing 이
+         validateJoint(form).missing 와 단일 출처(라벨·순서 일치)·완전 입력→0건·손상 격리
+
+   ※ 그간 collateral 카드만 '무엇이' 남았는지(rowMissing) 보여 주고 joint 카드는 "필수 입력
+     누락" 칩만 있어 무엇을 채울지 열어야 알 수 있었다(목록 패리티 갭) — 본 가드가 양쪽을 잠근다.
 
    ContractsView.tsx 의 rowMissing() 와 동일 로직 재현(컴포넌트 내부 함수라 import 불가
    — 기존 contracts 가드와 동일 재현 패턴).
@@ -34,8 +40,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { blankContractForm } from "../src/lib/engine/model.ts";
-import { validateDoc } from "../src/lib/engine/validate.ts";
+import { blankContractForm, blankJointForm } from "../src/lib/engine/model.ts";
+import { validateDoc, validateJoint } from "../src/lib/engine/validate.ts";
 import { COLLATERAL_OUTPUT_DOCS } from "../src/lib/engine/schema.ts";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +71,19 @@ function rowMissing(row) {
       }
     }
     return list;
+  } catch {
+    return [];
+  }
+}
+// ContractsView.tsx 의 rowJointMissing(row) 재현 — joint 의 validateJoint.missing 을
+// 그대로 쓴다(별도 판정 로직 없음). joint 의 missing 은 이미 라벨 단위 유일이라 중복
+// 제거 불필요. joint 외·손상 저장본은 빈 배열(요약 미표시·크래시 방지).
+function rowJointMissing(row) {
+  if (row.doc_type !== "joint") return [];
+  const form = row.form_data;
+  if (!form || typeof form !== "object") return [];
+  try {
+    return validateJoint(form).missing;
   } catch {
     return [];
   }
@@ -156,25 +175,61 @@ console.log("\n[E] 배선(ContractsView.tsx) — rowMissing 정의 · 요약 줄
   ok(/seen\.has\(mi\.label\)/.test(body) && /seen\.add\(mi\.label\)/.test(body), "rowMissing: label 기준 중복 제거");
   ok(/catch \{\s*return \[\];\s*\}/.test(body), "rowMissing: 손상 저장본 try/catch 격리");
 
-  // 미완일 때만 집계(allReady·null 이면 빈 배열 — 표시·SR 고지 없음).
-  ok(/const missing = readiness && !allReady \? rowMissing\(r\) : \[\];/.test(cv),
-    "카드: missing = 미완(준비도 있음·!allReady)일 때만 rowMissing");
+  // 남은 입력 라벨 = 담보신탁(rowMissing) 미완분 + 공동사업협약(rowJointMissing) 미준비분의
+  // 단일 출처. 한 행은 collateral 또는 joint 라 상호배타 — 준비 안 된 쪽 라벨만 채워진다.
+  ok(/const missingLabels: string\[\] =\s*\n\s*readiness && !allReady\s*\n\s*\? rowMissing\(r\)\.map\(\(mi\) => mi\.label\)\s*\n\s*: jointReady === false\s*\n\s*\? rowJointMissing\(r\)\s*\n\s*: \[\];/.test(cv),
+    "카드: missingLabels = collateral 미완(rowMissing.label) ∪ joint 미준비(rowJointMissing) 단일 출처");
   // SR 고지: 카드 aria-label(openLabel)에 남은 입력 포함(요약 줄 aria-hidden 의 짝).
-  ok(/남은 필수 입력 \$\{missing\.length\}건: \$\{missing\.map\(\(mi\) => mi\.label\)\.join\(", "\)\}/.test(cv),
+  ok(/남은 필수 입력 \$\{missingLabels\.length\}건: \$\{missingLabels\.join\(", "\)\}/.test(cv),
     "openLabel: 남은 필수 입력 N건 + 라벨 목록 SR 고지(missingLabel)");
   ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}\$\{missingLabel\} — 열기`;/.test(cv),
     "openLabel: missingLabel 합성(접근명에 포함)");
   // 시각 요약 줄: aria-hidden(중복 낭독 0)·⚠·앞 4건 slice·외 N건.
-  ok(/\{missing\.length > 0 && \(/.test(cv), "요약 줄: missing 있을 때만 렌더");
+  ok(/\{missingLabels\.length > 0 && \(/.test(cv), "요약 줄: missingLabels 있을 때만 렌더");
   ok(/aria-hidden="true"[\s\S]{0,80}⚠ 남은 필수 입력:/.test(cv), "요약 줄: aria-hidden + ⚠ 남은 필수 입력 머리말");
-  ok(/missing\.slice\(0, 4\)\.map\(\(mi\) => mi\.label\)\.join\(" · "\)/.test(cv), "요약 줄: 앞 4건만 표시(slice)");
-  ok(/missing\.length > 4 \? ` 외 \$\{missing\.length - 4\}건` : ""/.test(cv), "요약 줄: 4건 초과 시 '외 N건'");
+  ok(/missingLabels\.slice\(0, 4\)\.join\(" · "\)/.test(cv), "요약 줄: 앞 4건만 표시(slice)");
+  ok(/missingLabels\.length > 4 \? ` 외 \$\{missingLabels\.length - 4\}건` : ""/.test(cv), "요약 줄: 4건 초과 시 '외 N건'");
 
   // 회귀: 준비도/일괄생성/검수 미리보기 보존
   ok(/function readyDocIds\(row: ContractRow\): DocId\[\] \| null/.test(cv), "회귀: readyDocIds 보존(단일 출처)");
   ok(/async function generateRowDocs\(row: ContractRow\)/.test(cv), "회귀: 일괄 생성 generateRowDocs 보존");
   ok(/function previewRowDocs\(row: ContractRow\)/.test(cv), "회귀: 검수 미리보기 previewRowDocs 보존");
   ok(/className=\{"ready-chip " \+ \(allReady \? "ok" : "warn"\)\}/.test(cv), "회귀: 준비도 칩(N/7) 보존");
+  // 배선: rowJointMissing 정의(joint 한정·validateJoint.missing·손상 격리) + missingLabels 분기.
+  const jm = cv.match(/function rowJointMissing\(row: ContractRow\): string\[\]\s*\{[\s\S]*?\n\}/);
+  ok(!!jm, "rowJointMissing 함수 추출");
+  const jbody = jm ? jm[0] : "";
+  ok(/if \(row\.doc_type !== "joint"\) return \[\];/.test(jbody), "rowJointMissing: joint 외 → [](요약 미표시)");
+  ok(/if \(!form \|\| typeof form !== "object"\) return \[\];/.test(jbody), "rowJointMissing: null/비객체(손상 저장본) → [](validateJoint 관대 처리 보완)");
+  ok(/validateJoint\(form\)\.missing/.test(jbody), "rowJointMissing: validateJoint.missing 재사용(별도 판정 로직 없음)");
+  ok(/catch \{\s*return \[\];\s*\}/.test(jbody), "rowJointMissing: 손상 저장본 try/catch 격리");
+}
+
+console.log("\n[F] joint 패리티 — 공동사업협약 카드도 '무엇이' 남았는지(validateJoint.missing)");
+{
+  // 빈 joint → 핵심 누락 라벨(갑 상호·사업명 등) 그대로 노출(collateral rowMissing 패리티).
+  const jm = rowJointMissing(rowOf(blankJointForm(), "joint"));
+  ok(jm.length > 0, `빈 joint → 남은 입력 ${jm.length}건(>0)`);
+  ok(jm.includes("갑(시행사) 상호"), "빈 joint → '갑(시행사) 상호' 누락 포함");
+  ok(jm.includes("사업명"), "빈 joint → '사업명' 누락 포함");
+  // validateJoint.missing 과 동일 출처(별도 판정 로직 없음) — 라벨·순서까지 일치.
+  ok(JSON.stringify(jm) === JSON.stringify(validateJoint(blankJointForm()).missing),
+    "rowJointMissing = validateJoint(form).missing 단일 출처(라벨·순서 일치)");
+  // 완전 입력 joint → 0건(collateral fullFilled 의 joint 짝).
+  const full = blankJointForm();
+  full.gap.name = "주식회사 갑시행사";
+  full.gap.repDir = "김대표";
+  full.gap.address = "서울특별시 강남구 테헤란로 1";
+  full.project.name = "○○ 공동주택 신축사업";
+  full.project.site = "서울특별시 강남구 역삼동 1-1";
+  full.project.scaleUse = "공동주택 300세대";
+  full.project.agreementYear = "2026";
+  full.project.agreementMonth = "6";
+  full.project.agreementDay = "25";
+  ok(rowJointMissing(rowOf(full, "joint")).length === 0, "완전 입력 joint → 남은 입력 0건");
+  // joint 외·손상 저장본 → [](요약 미표시·크래시 방지).
+  ok(rowJointMissing(rowOf(blankContractForm(), "collateral")).length === 0, "collateral → [](joint 헬퍼 대상 아님)");
+  ok(rowJointMissing({ doc_type: "joint", form_data: null }).length === 0, "null form_data → [](크래시 방지)");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
