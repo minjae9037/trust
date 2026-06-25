@@ -244,7 +244,15 @@ export function TrustApp() {
         </div>
       )}
 
-      {view === "company" && <CompanyPage onPick={pickCompany} />}
+      {view === "company" && (
+        <CompanyPage
+          onPick={pickCompany}
+          // 돌아온 사용자의 "이어서 작업하기" 진입점 — 첫 화면(신탁사 선택)에서 저장된
+          // 계약이 있으면 바로 내 계약으로. 빈 화면 "새 계약 작성하기" CTA(start)의 대칭(resume).
+          savedCount={savedCount}
+          onResume={() => setView("contracts")}
+        />
+      )}
       {view === "home" && <HomePage company={company} onPick={pickDoc} />}
       {view === "category" && docType && <CategoryPage docName={docType.name} onPick={pickCategory} />}
       {view === "wizard" && docType && category && (
@@ -368,7 +376,15 @@ function SaveBar() {
   );
 }
 
-function CompanyPage({ onPick }: { onPick: (name: string) => void }) {
+function CompanyPage({
+  onPick,
+  savedCount,
+  onResume,
+}: {
+  onPick: (name: string) => void;
+  savedCount: number;
+  onResume?: () => void;
+}) {
   return (
     <main className="page active">
       <div className="page-header">
@@ -379,6 +395,33 @@ function CompanyPage({ onPick }: { onPick: (name: string) => void }) {
           수급 후 순차 오픈됩니다.
         </p>
       </div>
+      {/* 돌아온 사용자 "이어서 작업하기" — 첫 화면(신탁사 선택)에서 저장된 계약이 있으면
+          바로 내 계약으로 진입. 빈 화면 "새 계약 작성하기" CTA(start)의 대칭(resume) —
+          종전엔 이 화면에서 저장 작업 신호가 상단 브레드크럼 "내 계약 (N)" 배지뿐이라
+          돌아온 사용자가 매번 신탁사부터 다시 골라야 했다. onResume 미전달·저장 0건이면
+          미렌더(후방호환). 시각 "→" 글리프는 aria-hidden(접근명 오염 0). 표시·내비게이션
+          전용 — 조문·엔진·검증·산출물 무접촉, 새 CSS 0(기존 field-hint/btn-primary+인라인). */}
+      {onResume && savedCount > 0 && (
+        <div
+          role="region"
+          aria-label="저장된 작업 이어서 하기"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: 18,
+          }}
+        >
+          <span className="field-hint">
+            저장된 계약 <strong>{savedCount}건</strong>이 있습니다.
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={onResume}>
+            이어서 작업하기<span aria-hidden="true"> →</span>
+          </button>
+        </div>
+      )}
       <div className="company-grid">
         {TRUST_COMPANIES.map((c) => (
           <button
