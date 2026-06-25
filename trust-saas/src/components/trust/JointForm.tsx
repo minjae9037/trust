@@ -221,12 +221,10 @@ export function JointForm() {
     );
   }
 
-  // 검증 게이트 누락 항목 클릭 → 해당 입력 필드로 스크롤·포커스(담보신탁 DocStep
-  // validate-jump 의 단일 폼 버전 — 스텝이 없으므로 필드 자체로 데려간다). 매핑은
-  // validate.ts 단일 출처(jointFieldIdForMissing). 매칭 실패(미상 라벨)는 무동작.
-  function focusMissing(label: string) {
-    const id = jointFieldIdForMissing(label);
-    if (!id) return;
+  // 입력 필드 id 로 스크롤·포커스(담보신탁 DocStep goToStep 의 단일 폼 버전 — 스텝이
+  // 없으므로 필드 자체로 데려간다). 검증 게이트 누락 점프(focusMissing)와 파일명 충돌
+  // 식별값 점프가 공유하는 단일 동선. DOM 에 없는 id 면 무동작(死점프 0).
+  function focusFieldById(id: string) {
     const el = typeof document !== "undefined" ? document.getElementById(id) : null;
     if (!el) return;
     // 모션 감축 설정(prefers-reduced-motion: reduce) 시 부드러운 스크롤은 JS 옵션이라
@@ -236,6 +234,14 @@ export function JointForm() {
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
     (el as HTMLElement).focus({ preventScroll: true });
+  }
+
+  // 검증 게이트 누락 항목 클릭 → 해당 입력 필드로. 매핑은 validate.ts 단일 출처
+  // (jointFieldIdForMissing). 매칭 실패(미상 라벨)는 무동작.
+  function focusMissing(label: string) {
+    const id = jointFieldIdForMissing(label);
+    if (!id) return;
+    focusFieldById(id);
   }
 
   return (
@@ -436,16 +442,36 @@ export function JointForm() {
             정해져 협약 "제목"과 무관하므로(downloadKeyOf/jointFileBase), 이름변경이 아니라 받은
             파일명 직접 변경을 실제 해소책으로 안내한다(내 계약 목록·DocStep 충돌 경고와 동일 출처). */}
         {ok && filenameCollision && (
-          <p
-            className="field-hint"
-            role="status"
-            aria-live="polite"
-            style={{ marginTop: 6, color: "var(--c-brown)" }}
-          >
-            <span aria-hidden="true">⚠ </span>
-            다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
-            갑(시행사) 상호로 정해집니다(협약 제목과 무관). 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
-          </p>
+          <>
+            <p
+              className="field-hint"
+              role="status"
+              aria-live="polite"
+              style={{ marginTop: 6, color: "var(--c-brown)" }}
+            >
+              <span aria-hidden="true">⚠ </span>
+              다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
+              갑(시행사) 상호로 정해집니다(협약 제목과 무관). 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
+            </p>
+            {/* 충돌 경고 → 식별값(갑 상호) 입력으로 잇는 1-클릭 점프 (담보신탁 DocStep 20:01 의
+                joint 짝). joint 다운로드 키는 갑(시행사) 상호 한 값(joint:{gap.name})으로만 정해지므로
+                점프 대상도 갑 상호 입력 1개다. 검증 게이트 누락 점프(focusMissing)와 동일한
+                focusFieldById·validate-jump 마크업을 그대로 재사용한다(새 CSS 0). role=status 영속
+                영역(위 <p>)에 들지 않는 별도 ul 이라 중복 낭독 0(점프 버튼은 조작 컨트롤). */}
+            <ul className="validate-list" style={{ marginTop: 4 }}>
+              <li>
+                <button
+                  type="button"
+                  className="validate-jump"
+                  onClick={() => focusFieldById("joint-gapName")}
+                  title="입력란으로 이동"
+                >
+                  <strong>갑(시행사) 상호 확인하러 가기</strong>
+                  <span className="validate-where"> — 입력란으로 ›</span>
+                </button>
+              </li>
+            </ul>
+          </>
         )}
       </section>
         </div>
