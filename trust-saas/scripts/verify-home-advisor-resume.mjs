@@ -54,6 +54,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dir, "..", ...p), "utf8");
 const island = read("src", "components", "home", "HomeAdvisorResumeEntry.tsx");
 const page = read("src", "app", "page.tsx");
+const group = read("src", "components", "home", "HomeResumeGroup.tsx");
 const repo = read("src", "lib", "advisor", "sessionRepo.ts");
 const globals = read("src", "app", "globals.css");
 
@@ -150,20 +151,26 @@ console.log("\n[B] sessionRepo 구독 인프라 런타임 — hasSavedSession·s
   if (origLS === undefined) delete globalThis.localStorage; else globalThis.localStorage = origLS;
 }
 
-console.log("\n[C] page.tsx 배선 — import + <HomeAdvisorResumeEntry /> 렌더·서버 컴포넌트 유지·그리드 위");
+console.log("\n[C] 배선 — 묶음(HomeResumeGroup)이 상담 축 렌더(두 축 공존)·page.tsx 가 묶음 렌더(서버 컴포넌트 유지·그리드 위)");
 {
-  ok(/import \{ HomeAdvisorResumeEntry \} from "@\/components\/home\/HomeAdvisorResumeEntry";/.test(page),
-     "page.tsx 가 HomeAdvisorResumeEntry import");
-  ok(/<HomeAdvisorResumeEntry \/>/.test(page),
-     "page.tsx 가 <HomeAdvisorResumeEntry /> 렌더");
-  ok(/<HomeResumeEntry \/>/.test(page),
-     "계약 축 진입점(HomeResumeEntry)도 보존(두 축 공존)");
+  // 상담 축 진입점은 이제 page.tsx 가 아니라 재개 진입점 묶음(HomeResumeGroup)이 렌더한다.
+  ok(/import \{ HomeAdvisorResumeEntry \} from "\.\/HomeAdvisorResumeEntry";/.test(group),
+     "HomeResumeGroup 이 HomeAdvisorResumeEntry import");
+  ok(/<HomeAdvisorResumeEntry \/>/.test(group),
+     "HomeResumeGroup 이 <HomeAdvisorResumeEntry /> 렌더");
+  ok(/<HomeResumeEntry \/>/.test(group),
+     "계약 축 진입점(HomeResumeEntry)도 묶음 안에 보존(두 축 공존)");
+  // page.tsx 는 묶음만 렌더(서버 컴포넌트 유지) — 묶음이 PILLAR 그리드보다 위에 노출
+  ok(/import \{ HomeResumeGroup \} from "@\/components\/home\/HomeResumeGroup";/.test(page),
+     "page.tsx 가 HomeResumeGroup import");
+  ok(/<HomeResumeGroup \/>/.test(page),
+     "page.tsx 가 <HomeResumeGroup /> 렌더");
   ok(!/^"use client";/.test(page),
      "page.tsx 는 서버 컴포넌트 유지(island 만 클라이언트 — RSC 경계 보존)");
-  const entryAt = page.indexOf("<HomeAdvisorResumeEntry />");
+  const entryAt = page.indexOf("<HomeResumeGroup />");
   const gridAt = page.indexOf('gridTemplateColumns: "1fr 1fr"');
   ok(entryAt >= 0 && gridAt > entryAt,
-     "<HomeAdvisorResumeEntry /> 가 PILLAR 그리드보다 위에 렌더(진입점 상단 노출)");
+     "<HomeResumeGroup /> 가 PILLAR 그리드보다 위에 렌더(진입점 상단 노출)");
 }
 
 console.log("\n[D] 무접촉 — island 페르소나/검색/로깅/엔진 무관·globals 새 클래스 0");
