@@ -22,6 +22,10 @@
      - 복원 초안 = **미저장(savedHash null)** 으로 들어와 여전히 dirty(저장본 둔갑 금지).
      - 자동 저장 best-effort(쓰기 실패 swallow). 서류 미선택(docTypeId null)엔 무동작
        (마운트 직후 빈 상태가 복원 대상 초안을 덮어쓰지 않게).
+     - ★자동 비움은 **명시 저장된 경우에만**(not dirty AND savedHash !== null). docTypeId
+       만 설정되고 form 은 손대지 않은 빈 양식(savedHash===null·상담 ?doc= 딥링크·새 서류
+       선택 직후)에는 비우지 않는다 — 사용자가 아무 것도 입력하기 전에 저장된 초안을
+       조용히 삭제하던 유실 결함 차단.
      - 비움은 명시 경로만(저장 완료·이탈 확정·복원). 새 CSS 0.
 
    단언:
@@ -132,9 +136,13 @@ console.log("\n[D] TrustApp 배선 — 적재·자동 저장·복원·이탈 비
   ok(/if \(draftDirty\) \{\s*\n\s*saveDraft\(\{/.test(app),
      "dirty 면 store 스냅샷 saveDraft");
   const effAt = app.indexOf("if (!docTypeId) return;");
-  const effBlock = app.slice(effAt, effAt + 700);
-  ok(/\} else \{\s*\n\s*clearDraft\(\);/.test(effBlock),
-     "저장됨(not dirty)이면 clearDraft(초안 비움 — contractRepo 가 보관)");
+  const effBlock = app.slice(effAt, effAt + 900);
+  ok(/\} else if \(store\.savedHash !== null\) \{\s*\n[\s\S]*?clearDraft\(\);/.test(effBlock),
+     "★자동 비움은 명시 저장된 경우만(not dirty AND savedHash !== null) → clearDraft");
+  ok(!/\} else \{\s*\n\s*clearDraft\(\);/.test(effBlock),
+     "★무조건 else→clearDraft 부재(빈 양식+docTypeId만 설정된 찰나에 초안 유실 차단)");
+  ok(/draftDirty,\s*\n\s*store\.savedHash,/.test(effBlock),
+     "자동 저장 effect deps 에 store.savedHash 포함(저장 기준선 변화 반영)");
   // 복원 핸들러
   const resAt = app.indexOf("function resumeDraft");
   const resBlock = app.slice(resAt, resAt + 420);

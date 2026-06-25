@@ -97,10 +97,16 @@ export function TrustApp() {
   const draftDirty = !!docTypeId && isFormDirty(activeForm, store.savedHash, isJointOpen);
 
   // 진행 중(미저장) 서류 초안 자동 영속 — 새로고침·이탈 시 복원. dirty(작성 중·미저장)면
-  // 현재 store 스냅샷을 저장하고, 저장 완료(저장 직후 savedHash 갱신→not dirty)면 초안을
-  // 비운다(저장본은 contractRepo 가 보관 — 별도 초안 불필요). ★서류 미선택(docTypeId
-  // null·초기/빈 양식)에는 **아무 것도 하지 않는다** — 마운트 직후 빈 상태가 복원 대상
-  // 초안을 덮어쓰지 않게(restorableDraft 적재 보호). best-effort·표시/재개 전용.
+  // 현재 store 스냅샷을 저장한다. 비움은 **명시 저장된 경우에만**(저장 직후 markSaved 로
+  // savedHash 가 채워져 not dirty 가 된 상태) — 저장본은 contractRepo 가 보관하므로 별도
+  // 초안이 불필요하다. ★서류 미선택(docTypeId null·초기/빈 양식)에는 아무 것도 하지 않는다
+  // — 마운트 직후 빈 상태가 복원 대상 초안을 덮어쓰지 않게(restorableDraft 적재 보호).
+  // ★★savedHash===null 인 not-dirty(=손대지 않은 빈 양식)에도 비우지 않는다: 상담
+  //   doc-action(?doc= 딥링크)이나 새 서류 선택이 docTypeId 만 설정해 **빈 양식인데
+  //   docTypeId 만 채워진** 찰나가 생기는데, 종전엔 그 not-dirty 가 무조건 else→clearDraft
+  //   로 빠져 *이전에 저장돼 있던 다른 초안을 사용자가 아무 것도 입력하기 전에 조용히
+  //   삭제*했다(상담→서류 동선에서 진행 중 작업 유실). 저장 기준선이 있을 때만 비운다.
+  //   best-effort·표시/재개 전용.
   useEffect(() => {
     if (!docTypeId) return; // 서류 미선택 = 저장/비움 대상 아님(저장된 초안 보존)
     if (draftDirty) {
@@ -113,12 +119,15 @@ export function TrustApp() {
         tab: store.tab,
         step: store.step,
       });
-    } else {
-      clearDraft(); // 서류는 열렸으나 not dirty = 방금 저장됨 → 초안 비움
+    } else if (store.savedHash !== null) {
+      // not dirty + 저장 기준선 존재 = 방금 명시 저장됨 → 초안 비움(contractRepo 가 보관).
+      // savedHash===null 인 not-dirty 는 "손대지 않은 빈 양식"이라 비우지 않는다(위 ★★).
+      clearDraft();
     }
   }, [
     docTypeId,
     draftDirty,
+    store.savedHash,
     category,
     store.title,
     store.form,
