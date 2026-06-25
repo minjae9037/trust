@@ -1154,10 +1154,18 @@ function docFilePropToken(f) {
   const filled = props.filter((p) => p && (p.address || "").trim()).length;
   return filled > 1 ? `${addr} 외${filled - 1}` : addr;
 }
-function docFileBase(metaName, f) {
+/** 산출 파일명의 "계약 식별" 부분(서류종류명 제외) — 위탁자·체결일·첫 담보물건 소재지.
+ *  docFileBase 와 단일 출처: base = `${서류종류명}_${contractFileKey(f)}`. 서류종류명은
+ *  서류마다 불변이라, 두 계약의 산출 .docx 가 (모든 서류에서) 섞이는지 = contractFileKey 동일
+ *  여부와 같다. → 내 계약 목록의 "다운로드 파일명 충돌" 경고가 실제 다운로드명과 어긋나지 않게
+ *  같은 키를 재사용한다(표시 전용 — 파일명 산출 동작은 무변경, 추출만 한 단일 출처화). */
+export function contractFileKey(f) {
   const trustor = (f && f.trustors && f.trustors[0] && f.trustors[0].name) || "위탁자";
   const prop = docFilePropToken(f);
-  return `${metaName}_${trustor}_${docFileDateToken(f && f.common)}${prop ? `_${prop}` : ""}`;
+  return `${trustor}_${docFileDateToken(f && f.common)}${prop ? `_${prop}` : ""}`;
+}
+function docFileBase(metaName, f) {
+  return `${metaName}_${contractFileKey(f)}`;
 }
 function pdfDocTitle(metaName, f) {
   return `${docFileBase(metaName, f)} (PDF)`;

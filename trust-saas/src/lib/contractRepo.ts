@@ -66,6 +66,36 @@ export function contractIdentity(row: {
   }
 }
 
+/**
+ * 다운로드 파일명이 같아 산출 .docx 가 섞일 수 있는 행들의 id 집합(순수).
+ * 로컬 우선(브라우저 다운로드) 구조라, 두 계약의 산출 파일명이 같으면 사용자가 받는 .docx 가
+ * 서로 덮어쓰이거나(브라우저 "(1)" 접미사) 어느 계약 것인지 구분되지 않아 섞인다 — 신탁 서류는
+ * 법적 효력 문서라 섞임은 정확성 위험이다(다른 계약의 서류를 제출). 산출 파일명은 서류종류명이
+ * 서류마다 불변이므로, 두 계약이 (모든 서류에서) 섞이는지 = 다운로드 식별 키(위탁자·체결일·소재지)
+ * 동일 여부와 같다. keyFor 가 각 행의 그 키를 준다(엔진 contractFileKey 등 **실제 다운로드명과 동일
+ * 단일 출처** 주입) — 식별 불가(빈 키 null)면 제외(빈 초안 노이즈 방지). 같은 키 행이 2개 이상이면
+ * 그 행 전부를 충돌로 표시한다(입력 배열 무변형 — 순수 함수, 회귀 가드에서 직접 단언).
+ * ※ 조문·엔진·검증·산출물 무접촉 — 저장된 행의 식별 키를 묶어 표시에 쓸 뿐이다.
+ */
+export function collidingDownloadIds(
+  rows: ContractRow[],
+  keyFor: (r: ContractRow) => string | null,
+): Set<string> {
+  const byKey = new Map<string, string[]>();
+  for (const r of rows) {
+    const k = keyFor(r);
+    if (!k) continue;
+    const arr = byKey.get(k);
+    if (arr) arr.push(r.id);
+    else byKey.set(k, [r.id]);
+  }
+  const out = new Set<string>();
+  for (const ids of byKey.values()) {
+    if (ids.length > 1) for (const id of ids) out.add(id);
+  }
+  return out;
+}
+
 function readAll(): ContractRow[] {
   if (typeof window === "undefined") return [];
   try {

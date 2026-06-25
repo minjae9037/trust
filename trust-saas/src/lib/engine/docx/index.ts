@@ -59,3 +59,10 @@ export function previewDisposalHTML(form: ContractForm, docId: DocId): string {
 export function previewJointHTML(jointForm: JointForm): string {
   return B.previewJointHTML(jointForm);
 }
+
+/** 산출 .docx 다운로드명의 "계약 식별" 키(서류종류명 제외) — 위탁자·체결일·첫 담보물건 소재지.
+ *  실제 다운로드명(docFileBase)과 단일 출처. 내 계약 목록에서 두 계약의 다운로드 파일이 섞이는지
+ *  (같은 키) 판정에 재사용한다(표시 전용 — 파일명 산출 무변경). */
+export function contractFileKey(form: ContractForm): string {
+  return B.contractFileKey(form);
+}

@@ -10,13 +10,14 @@ import {
   exportContracts,
   importContracts,
   contractIdentity,
+  collidingDownloadIds,
   enqueueUndo,
   dequeueUndo,
   type ContractRow,
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 import { validateDoc, validateJoint, type Missing } from "@/lib/engine/validate";
-import { generateCollateralDoc, generateJointDoc, previewDocHTML } from "@/lib/engine/docx";
+import { generateCollateralDoc, generateJointDoc, previewDocHTML, contractFileKey } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
 import { collateralMissingUnion } from "@/lib/ui/contract-missing";
@@ -154,6 +155,25 @@ function rowJointMissing(row: ContractRow): string[] {
     return validateJoint(form).missing;
   } catch {
     return [];
+  }
+}
+
+/**
+ * 행의 "다운로드 파일명 식별 키"(순수) — 두 계약의 산출 .docx 가 섞이는지 판정용.
+ * 실제 다운로드명과 **동일 단일 출처**를 쓴다: collateral 등은 엔진 `contractFileKey`
+ * (위탁자·체결일·소재지 = docFileBase 의 식별부), joint 는 `공동사업표준협약서_{갑}` 의
+ * 식별부(gap.name). 두 종류는 서류종류명 접두가 달라 서로 충돌하지 않으므로 키에 종류
+ * 접두("coll:"/"joint:")를 붙여 분리한다. 위탁자(갑) 미입력으로 식별 불가한 빈 초안은
+ * null → 충돌 경고에서 제외(노이즈 방지). ※ 표시 전용 — 산출/검증/조문 무접촉.
+ */
+function downloadKeyOf(r: ContractRow): string | null {
+  const id = contractIdentity(r);
+  if (!id.trustor) return null;
+  if (r.doc_type === "joint") return `joint:${id.trustor}`;
+  try {
+    return `coll:${contractFileKey(r.form_data as ContractForm)}`;
+  } catch {
+    return null;
   }
 }
 
@@ -430,6 +450,10 @@ export function ContractsView({
     [rows],
   );
 
+  // 다운로드 파일명이 같아 산출 .docx 가 섞일 수 있는 계약들 — 전체 rows 기준(검색·필터와 무관:
+  // 충돌은 현재 보이는 목록이 아니라 저장 전체에 존재). 카드 경고·접근명에 같은 출처를 쓴다.
+  const collidingIds = useMemo(() => collidingDownloadIds(rows, downloadKeyOf), [rows]);
+
   // 검색(제목·서류종) + 상태 필터 + 정렬 — 계약이 쌓일수록 빠르게 찾기·정리.
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -699,7 +723,13 @@ export function ContractsView({
             missingLabels.length > 0
               ? `, 남은 필수 입력 ${missingLabels.length}건: ${missingLabels.join(", ")}`
               : "";
-          const openLabel = `${r.title}, ${statusLabel}${readyLabel}${missingLabel} — 열기`;
+          // 다른 계약과 다운로드 파일명이 같으면(.docx 섞임 위험) 카드 접근명에도 실어, 시각의
+          // 아래 경고 줄(aria-hidden)을 못 보는 SR 사용자도 카드 이름에서 함께 듣는다(동일 출처).
+          const collision = collidingIds.has(r.id);
+          const collisionLabel = collision
+            ? ", 주의: 다른 계약과 다운로드 파일명이 같아 .docx 가 섞일 수 있습니다(제목·체결일·담보물건 소재지로 구분 권장)"
+            : "";
+          const openLabel = `${r.title}, ${statusLabel}${readyLabel}${missingLabel}${collisionLabel} — 열기`;
           return (
             <div key={r.id} className="contract-card">
               <div
@@ -787,6 +817,19 @@ export function ContractsView({
                 {identityLine && (
                   <div className="contract-card-identity" style={{ marginTop: 4 }}>
                     <Highlight text={identityLine} query={q} />
+                  </div>
+                )}
+                {/* 다운로드 파일명 충돌 경고 — 위탁자·체결일·담보물건 소재지가 다른 계약과 같아
+                    산출 .docx 가 섞일 수 있을 때. 막지 않는 안내(차단 적색 아님·var(--c-brown))이며
+                    줄 전체 aria-hidden — 낭독은 카드 aria-label(openLabel)이 전담(중복 0). 새 CSS 0
+                    (기존 field-hint + 인라인 style). 표시 전용 — 산출/검증/조문 무접촉. */}
+                {collision && (
+                  <div
+                    className="field-hint"
+                    style={{ marginTop: 4, color: "var(--c-brown)" }}
+                    aria-hidden="true"
+                  >
+                    ⚠ 다른 계약과 다운로드 파일명이 같습니다 — 제목·체결일·담보물건 소재지를 구분하면 .docx 가 섞이지 않습니다.
                   </div>
                 )}
                 <div className="field-hint" style={{ marginTop: 5 }}>

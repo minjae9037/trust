@@ -184,8 +184,10 @@ console.log("\n[E] 배선(ContractsView.tsx) — rowMissing 정의 · 요약 줄
   // SR 고지: 카드 aria-label(openLabel)에 남은 입력 포함(요약 줄 aria-hidden 의 짝).
   ok(/남은 필수 입력 \$\{missingLabels\.length\}건: \$\{missingLabels\.join\(", "\)\}/.test(cv),
     "openLabel: 남은 필수 입력 N건 + 라벨 목록 SR 고지(missingLabel)");
-  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}\$\{missingLabel\} — 열기`;/.test(cv),
-    "openLabel: missingLabel 합성(접근명에 포함)");
+  // openLabel 에 missingLabel 이 readyLabel 뒤로 합성돼 접근명에 포함(뒤에 다운로드 충돌
+  // 고지 collisionLabel 등 추가 라벨이 붙어도 수용 — missingLabel 합성 사실만 단언).
+  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}\$\{missingLabel\}[^`]* — 열기`;/.test(cv),
+    "openLabel: missingLabel 합성(접근명에 포함·추가 라벨 수용)");
   // 시각 요약 줄: aria-hidden(중복 낭독 0)·⚠·앞 4건 slice·외 N건.
   ok(/\{missingLabels\.length > 0 && \(/.test(cv), "요약 줄: missingLabels 있을 때만 렌더");
   ok(/aria-hidden="true"[\s\S]{0,80}⚠ 남은 필수 입력:/.test(cv), "요약 줄: aria-hidden + ⚠ 남은 필수 입력 머리말");
