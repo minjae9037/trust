@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
-import { validateDoc, type Missing } from "@/lib/engine/validate";
+import { validateDoc } from "@/lib/engine/validate";
 import { generateCollateralDoc, previewDocHTML } from "@/lib/engine/docx";
+import { collateralMissingUnion } from "@/lib/ui/contract-missing";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
 import { consumeFieldFocus, requestFieldFocus } from "@/lib/ui/wizard-focus";
 import { genFreshness } from "@/lib/engine/genStatus";
@@ -55,25 +56,18 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   // ── 서류별 생성 가능 여부 + 계약 전체 "남은 필수 입력"(중복 제거) — 한 번의 검증 패스로 산출.
   //    docReady: 각 서류 step의 생성 가능 여부(네비 ✓/⚠ 마커). 각 서류 step에 들어가지 않고도
   //      어떤 서류가 필수 입력 누락으로 막혔는지 위저드 네비에서 한눈에 표시.
-  //    missingList: 7종 서류에 걸쳐 누락된 필수 입력을 label 기준 중복 제거해 한 곳에 모은 목록.
-  //      공통 누락(위탁자·우선수익자·대출금액·물건·체결일 등)은 7종 모두의 missing에 반복 등장하므로
-  //      1회만 담는다. 헤더의 firstBlocked(단일 서류 이동)·각 DocStep 검증박스(그 서류 한정)와 달리
-  //      "계약 전체에 남은 입력 전부"를 한 곳에서 보여주고 항목별로 바로 점프한다. (조문·엔진 무손상)
+  //    missingList: 7종 서류에 걸쳐 누락된 필수 입력을 label 기준 중복 제거해 한 곳에 모은 목록
+  //      — 내 계약 카드 "남은 필수 입력" 요약(ContractsView)과 **동일 단일 출처**
+  //      `collateralMissingUnion`(두 화면이 말없이 어긋나지 않게 한 곳에서 산출). 헤더의
+  //      firstBlocked(단일 서류 이동)·각 DocStep 검증박스(그 서류 한정)와 달리 "계약 전체에
+  //      남은 입력 전부"를 한 곳에서 보여주고 항목별로 바로 점프한다. (조문·엔진 무손상)
   const { docReady, missingList } = useMemo(() => {
     const map: Record<number, boolean> = {};
-    const seen = new Set<string>();
-    const list: Missing[] = [];
     for (const s of STEPS) {
       if (!s.docId) continue;
-      const { ok, missing } = validateDoc(form, s.docId);
-      map[s.idx] = ok;
-      for (const mi of missing) {
-        if (seen.has(mi.label)) continue;
-        seen.add(mi.label);
-        list.push(mi);
-      }
+      map[s.idx] = validateDoc(form, s.docId).ok;
     }
-    return { docReady: map, missingList: list };
+    return { docReady: map, missingList: collateralMissingUnion(form) };
   }, [form]);
 
   // ── 서류 생성 준비 현황 요약(✓ N/7) — 7종 서류 중 몇 종이 생성 가능한지 한눈에.

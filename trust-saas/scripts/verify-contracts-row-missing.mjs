@@ -165,14 +165,16 @@ console.log("\n[E] 배선(ContractsView.tsx) — rowMissing 정의 · 요약 줄
   const cv = src("src/components/trust/ContractsView.tsx");
   ok(/import\s*\{[^}]*\btype Missing\b[^}]*\}\s*from\s*"@\/lib\/engine\/validate"/.test(cv),
     "type Missing import(@/lib/engine/validate)");
+  // 단일 출처: rowMissing 은 collateralMissingUnion(위저드 헤더 missingList 와 동일 헬퍼)을
+  // 호출한다 — 그간 인라인 재현하던 dedup-합집합 로직을 한 곳으로 단일화(화면 간 drift 차단).
+  ok(/import\s*\{[^}]*\bcollateralMissingUnion\b[^}]*\}\s*from\s*"@\/lib\/ui\/contract-missing"/.test(cv),
+    "collateralMissingUnion import(@/lib/ui/contract-missing — 단일 출처)");
 
   const m = cv.match(/function rowMissing\(row: ContractRow\): Missing\[\]\s*\{[\s\S]*?\n\}/);
   ok(!!m, "rowMissing 함수 추출");
   const body = m ? m[0] : "";
   ok(/if \(row\.doc_type !== "collateral"\) return \[\];/.test(body), "rowMissing: collateral 외 → [](요약 미표시)");
-  ok(/for \(const d of COLLATERAL_OUTPUT_DOCS\)/.test(body), "rowMissing: 7종 산출 서류 순회(검증 게이트 단일 출처)");
-  ok(/validateDoc\(form, d\.id\)/.test(body), "rowMissing: validateDoc 결과 재사용(별도 판정 로직 없음)");
-  ok(/seen\.has\(mi\.label\)/.test(body) && /seen\.add\(mi\.label\)/.test(body), "rowMissing: label 기준 중복 제거");
+  ok(/return collateralMissingUnion\(form\);/.test(body), "rowMissing: collateralMissingUnion 위임(7종 dedup-합집합 단일 출처)");
   ok(/catch \{\s*return \[\];\s*\}/.test(body), "rowMissing: 손상 저장본 try/catch 격리");
 
   // 남은 입력 라벨 = 담보신탁(rowMissing) 미완분 + 공동사업협약(rowJointMissing) 미준비분의

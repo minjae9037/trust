@@ -19,6 +19,7 @@ import { validateDoc, validateJoint, type Missing } from "@/lib/engine/validate"
 import { generateCollateralDoc, generateJointDoc, previewDocHTML } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
+import { collateralMissingUnion } from "@/lib/ui/contract-missing";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import { highlightSegments } from "@/lib/ui/highlight";
 import { formatRelativeTime } from "@/lib/engine/calc";
@@ -99,24 +100,16 @@ function docReadiness(row: ContractRow): { ready: number; total: number } | null
  * 알 수 있었다(카드 칩 title 도 "열기 → 각 서류에서 확인"이라 안내). 공통 누락(위탁자·
  * 우선수익자 등)은 7종 모두의 missing 에 반복 등장하므로 label 기준 1회만 담는다. 전부
  * 준비됐으면 빈 배열(readyDocIds 가 7종 전부일 때). joint·기타 종류·손상 저장본은 빈 배열.
- * ※ 조문·엔진·검증 판정 무접촉 — 이미 산출된 validateDoc.missing 을 목록 수준에서 모을 뿐.
+ * ※ 조문·엔진·검증 판정 무접촉 — 위저드 헤더 missingList 와 **동일 단일 출처**
+ *   `collateralMissingUnion`(두 화면이 말없이 어긋나지 않게 한 곳에서 산출)을 호출할 뿐.
+ *   손상 저장본(form_data 일부 누락)은 호출부 try/catch 로 격리(목록 렌더 크래시 방지).
  */
 function rowMissing(row: ContractRow): Missing[] {
   if (row.doc_type !== "collateral") return [];
   // doc_type==="collateral" 가드로 form_data 는 ContractForm 임이 보장된다.
   const form = row.form_data as ContractForm;
   try {
-    const seen = new Set<string>();
-    const list: Missing[] = [];
-    for (const d of COLLATERAL_OUTPUT_DOCS) {
-      const { missing } = validateDoc(form, d.id);
-      for (const mi of missing) {
-        if (seen.has(mi.label)) continue;
-        seen.add(mi.label);
-        list.push(mi);
-      }
-    }
-    return list;
+    return collateralMissingUnion(form);
   } catch {
     return [];
   }
