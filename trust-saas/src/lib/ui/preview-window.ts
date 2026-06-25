@@ -57,6 +57,14 @@ export interface PreviewDoc {
   html: string;
 }
 
+/** 통합 검수 셸의 부가 정보(선택). 모두 표시 전용 — 서류 HTML 은 무접촉(verbatim).
+ *  - excluded: 필수 입력 미완으로 이 검수·일괄 생성에서 제외된 서류 이름들.
+ *    검수자가 부분집합(준비된 N종)을 전체 서류 세트로 오인해 미완 서류 누락을
+ *    못 보고 출하하는 것을 막는 완성도 고지(법적 서류=정확성 최우선). */
+export interface MultiDocOpts {
+  excluded?: string[];
+}
+
 /** <iframe srcdoc> 속성 임베드용 최소 이스케이프. 큰따옴표 속성 안에서 의미를
  *  갖는 `&`·`"` 만 엔티티로 바꾼다 — 브라우저가 srcdoc 을 파싱할 때 원래 문자로
  *  되돌리므로(무손실), 격리 문서 안의 조문·표·HTML 은 verbatim 으로 렌더된다.
@@ -75,8 +83,9 @@ function escText(s: string): string {
 
 /** 준비된 서류들을 한 창에 모으는 셸 HTML 을 만든다 — 각 서류 = 격리 iframe(verbatim),
  *  서류 사이 page-break(인쇄 시 분리), 읽기 전용(자동 인쇄 스크립트 없음).
- *  순수 함수(부수효과 없음)라 가드가 출력 문자열을 직접 단언한다. */
-export function buildMultiDocShell(docs: PreviewDoc[]): string {
+ *  순수 함수(부수효과 없음)라 가드가 출력 문자열을 직접 단언한다.
+ *  @param opts.excluded 입력 미완으로 제외된 서류 이름들(있으면 부분집합 고지 표출). */
+export function buildMultiDocShell(docs: PreviewDoc[], opts?: MultiDocOpts): string {
   const count = docs.length;
   const sections = docs
     .map((d, i) => {
@@ -95,6 +104,16 @@ export function buildMultiDocShell(docs: PreviewDoc[]): string {
   // 목차(TOC) — 서류 2종 이상일 때만 표출(단건은 점프 불필요). 순수 HTML 앵커(#doc-N)
   // 로 서류 간 이동 — 스크립트 0(읽기 전용 불변식 유지). 브라우저 기본 동작이라
   // sandbox 격리(iframe)·셸 script 0 을 깨지 않는다.
+  // 부분집합 고지 — 입력 미완으로 이 검수·일괄 생성에서 제외된 서류가 있으면, 검수자가
+  // 준비된 N종을 전체로 오인하지 않도록 명시한다(읽기 전용·순수 HTML 텍스트, 스크립트 0).
+  const excluded = (opts?.excluded ?? []).filter((n) => n && n.trim());
+  const notice = excluded.length
+    ? `<div class="notice" role="note">` +
+      `<strong>입력 미완 ${excluded.length}종은 이 검수에 포함되지 않았습니다.</strong> ` +
+      `일괄 생성(.docx)·다운로드에서도 동일하게 제외됩니다 — ` +
+      excluded.map((n) => `〈${escText(n)}〉`).join(" ") +
+      `. 모든 서류를 검수·생성하려면 위저드로 돌아가 누락 입력을 채워 주세요.</div>`
+    : "";
   const toc =
     count > 1
       ? `<nav class="toc" aria-label="서류 바로가기"><span class="toc-label">바로가기</span>` +
@@ -121,12 +140,16 @@ export function buildMultiDocShell(docs: PreviewDoc[]): string {
     `nav.toc .toc-link{font-size:12px;color:#2b2620;text-decoration:none;background:#fff;` +
     `border:1px solid #d8d2c4;border-radius:999px;padding:3px 10px}` +
     `nav.toc .toc-link:hover{border-color:#cdbf9e;background:#f4f1ea}` +
+    `div.notice{background:#fbf1dd;border-bottom:1px solid #e0cfa0;color:#5c4a12;` +
+    `padding:9px 20px;font-size:12.5px;line-height:1.55}` +
+    `div.notice strong{color:#3f3410}` +
     `.doc{max-width:900px;margin:22px auto;padding:0 16px;scroll-margin-top:96px}` +
     `.doc-title{margin:0 0 8px;padding-bottom:6px;font-size:15px;font-weight:700;border-bottom:2px solid #cdbf9e}` +
     `.doc-frame{width:100%;height:78vh;border:1px solid #d8d2c4;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}` +
     `</style></head><body>` +
     `<header class="bar">준비된 서류 통합 검수 미리보기` +
     `<span class="sub">${count}종 · 읽기 전용(인쇄 대화상자 없음) · 내려받기 전 정독용</span></header>` +
+    notice +
     toc +
     sections +
     `</body></html>`
@@ -139,17 +162,19 @@ export function buildMultiDocShell(docs: PreviewDoc[]): string {
  *  열지 않는다.
  *  @param docs   [{name, html}] — html 빈/공백 항목 제외
  *  @param openFn () => window.open(...) 주입(null=차단)
+ *  @param opts   excluded(입력 미완 제외 서류 이름) 등 표시 전용 부가 정보
  *  @returns opened·empty(유효 서류 0)·blocked */
 export function openMultiDocPreviewWindow(
   docs: PreviewDoc[],
   openFn: () => PreviewWindow | null,
+  opts?: MultiDocOpts,
 ): PreviewOpenResult {
   const valid = docs.filter((d) => d.html && d.html.trim());
   if (!valid.length) return "empty";
   const w = openFn();
   if (!w) return "blocked";
   w.document.open();
-  w.document.write(buildMultiDocShell(valid));
+  w.document.write(buildMultiDocShell(valid, opts));
   w.document.close();
   return "opened";
 }

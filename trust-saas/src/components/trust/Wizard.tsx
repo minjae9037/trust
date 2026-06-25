@@ -180,8 +180,14 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
       name: s.title,
       html: previewDocHTML(form, s.docId as DocId),
     }));
-    const r = openMultiDocPreviewWindow(docs, () =>
-      window.open("", "_blank", "width=1040,height=1000"),
+    // 입력 미완으로 이 검수·일괄 생성에서 빠진 서류 이름들 — 통합 창에 부분집합 고지로
+    // 명시해, 준비된 N종을 전체 세트로 오인한 채 미완 서류 누락을 못 보고 출하하는
+    // 것을 막는다(법적 서류=정확성 최우선·표시 전용).
+    const excluded = docSteps.filter((s) => !docReady[s.idx]).map((s) => s.title);
+    const r = openMultiDocPreviewWindow(
+      docs,
+      () => window.open("", "_blank", "width=1040,height=1000"),
+      { excluded },
     );
     setPreviewMsg(
       r === "blocked"
