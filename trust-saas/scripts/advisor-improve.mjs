@@ -44,6 +44,25 @@ function rescore(q) {
   return { score, identity, strength: groundingStrength(score, identity) };
 }
 
+/**
+ * 로그 인코딩 손상 질문 탐지 — 자가고도화 [분석]의 정직성 보강.
+ * advisor-logs/*.jsonl 에 헤드리스/CP949 테스트 세션이 깨진 바이트로 기록한 질문
+ * (유니코드 대체문자 U+FFFD·사설영역 U+E000–U+F8FF 포함)은 실제 사용자 질문이
+ * 아니라 로깅 아티팩트다. 이런 문자열은 어떤 KNOWLEDGE 청크와도 매칭될 수 없어
+ * (실재하는 단어가 아님) 무조건 score 0 → "지식공백"으로 오집계되고, 보강
+ * 우선순위 키워드를 쓰레기 토큰(zxq42 등)으로 오염시켜 사업팀 검수를 오도한다.
+ * 따라서 공백/키워드 집계에서 제외하되, 데이터 품질 카운트로 투명 보고한다(은폐 아님).
+ */
+function isMalformed(s) {
+  if (typeof s !== "string") return false;
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    // U+FFFD 대체문자(깨진 바이트) · U+E000–U+F8FF 사설영역 — 정상 한글/영문엔 부재.
+    if (c === 0xfffd || (c >= 0xe000 && c <= 0xf8ff)) return true;
+  }
+  return false;
+}
+
 function tokenize(s) {
   return Array.from(new Set((s.toLowerCase().match(/[가-힣]{2,}|[a-z0-9]{2,}/g) || [])));
 }
@@ -94,13 +113,19 @@ async function main() {
       const usedContext = typeof r.rquery === "string" && r.rquery.length > 0;
       const cur = rescore(usedContext ? r.rquery : r.q);
       const frozenMiss = r.hit === false || (r.topScore ?? 0) < STRONG_GROUNDING_SCORE;
-      return { q: r.q, usedContext, cur, frozenMiss, isGap: cur.strength === "weak" };
+      // 로그 인코딩 손상(깨진 바이트) 질문은 실제 사용자 질문이 아니므로 공백 후보 제외.
+      const malformed = isMalformed(r.q) || (usedContext && isMalformed(r.rquery));
+      return { q: r.q, usedContext, cur, frozenMiss, malformed, isGap: !malformed && cur.strength === "weak" };
     });
-  const misses = scoredQueries.filter((r) => r.isGap);
+  // 손상 로그는 공백/키워드 집계에서 제외하고 데이터 품질 카운트로만 투명 보고(은폐 아님).
+  const malformedQueries = scoredQueries.filter((r) => r.malformed);
+  const validQueries = scoredQueries.filter((r) => !r.malformed);
+  const misses = validQueries.filter((r) => r.isGap);
   // 투명성: 기록 시점엔 미적중이었으나 현재 엔진으로는 strong = 코드 개선으로 해소된 건.
-  const resolvedSinceLog = scoredQueries.filter((r) => r.frozenMiss && !r.isGap);
+  const resolvedSinceLog = validQueries.filter((r) => r.frozenMiss && !r.isGap);
 
-  const total = queries.length;
+  // 미적중률 분모 = 손상 로그를 제외한 실제 질문 수(거짓 공백·키워드 오염 차단).
+  const total = validQueries.length;
   const missRate = total ? ((misses.length / total) * 100).toFixed(1) : "0.0";
   const upCount = feedback.filter((r) => r.rating === "up").length;
 
@@ -111,8 +136,9 @@ async function main() {
   lines.push(`> 분류 기준: **현재 retrieve() 재채점** — 라우트와 동일 \`groundingStrength(top.score, top.identity)\`. 공백 = 현재도 weak grounding(임계 ${STRONG_GROUNDING_SCORE}·정체성 매칭 시 strong). 코퍼스 = KNOWLEDGE 단독(공개/정적 출하 구성). 멀티턴 질문은 로그의 rquery(라우트 실제 회수 질의)로 재채점(맥락 반영).`);
   lines.push("");
   lines.push(`## 요약`);
-  lines.push(`- 총 질문: **${total}** / 지식공백(현재 엔진 weak grounding): **${misses.length}** (${missRate}%)`);
+  lines.push(`- 총 질문(유효): **${total}** / 지식공백(현재 엔진 weak grounding): **${misses.length}** (${missRate}%)`);
   lines.push(`- 자가고도화 해소: 기록 시점 미적중이었으나 **현재 코드로 해소(strong 전환): ${resolvedSinceLog.length}건** — 재채점이 없었다면 공백으로 오집계됐을 건.`);
+  lines.push(`- 제외(로그 인코딩 손상): **${malformedQueries.length}건** — 헤드리스/CP949 테스트 세션이 깨진 바이트(U+FFFD·사설영역)로 기록한 질문. 실제 질문이 아니라 로깅 아티팩트이므로 공백·키워드 집계에서 제외(아래 섹션에 원문·은폐 아님).`);
   lines.push(`- 피드백: 👍 ${upCount} · 👎 ${downs.length}`);
   lines.push("");
   lines.push(`## 보강 우선순위 — 미적중 질문에 자주 등장한 키워드`);
@@ -134,6 +160,13 @@ async function main() {
     for (const m of recentResolved) lines.push(`- ${m.q} _(현재 top score ${m.cur.score}${m.cur.identity ? "·정체성✓" : ""}${m.usedContext ? "·맥락 반영" : ""})_`);
     lines.push("");
   }
+  if (malformedQueries.length > 0) {
+    lines.push(`## ⚠ 제외된 손상 로그 (인코딩 깨진 질문 — 공백 아님, 최근 30건)`);
+    lines.push(`(헤드리스/CP949 테스트 세션 아티팩트. 실제 질문이 아니므로 미적중·키워드 집계에서 제외했다. 데이터 품질 추적용으로만 노출 — 잦으면 로깅 경로 인코딩 점검 필요.)`);
+    const recentMalformed = malformedQueries.slice(-30).reverse();
+    for (const m of recentMalformed) lines.push(`- \`${m.q}\``);
+    lines.push("");
+  }
   lines.push(`## 👎 부정 피드백 질문 (답변 품질 개선 후보, 최근 50건)`);
   const recentDown = downs.slice(-50).reverse();
   if (recentDown.length === 0) lines.push("- (없음)");
@@ -149,7 +182,7 @@ async function main() {
   await fs.mkdir(LOG_DIR, { recursive: true });
   await fs.writeFile(out, lines.join("\n"), "utf8");
   console.log(`gap-report 생성: ${out}`);
-  console.log(`총 질문 ${total}, 미적중(현재 엔진) ${misses.length}(${missRate}%), 해소 ${resolvedSinceLog.length}, 👎 ${downs.length}`);
+  console.log(`총 질문(유효) ${total}, 미적중(현재 엔진) ${misses.length}(${missRate}%), 해소 ${resolvedSinceLog.length}, 손상제외 ${malformedQueries.length}, 👎 ${downs.length}`);
 }
 
 main().catch((e) => {
