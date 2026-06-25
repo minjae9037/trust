@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
 import { generateJointDoc, generateJointPDFDoc, previewJointHTML, jointDocFileName, jointPdfTitle } from "@/lib/engine/docx";
+import {
+  downloadKeyCollidesWithSaved,
+  snapshotContracts,
+  subscribeContracts,
+  contractCount,
+} from "@/lib/contractRepo";
+import { downloadKeyOf } from "@/lib/ui/download-key";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
 import { genFreshness } from "@/lib/engine/genStatus";
@@ -40,7 +47,7 @@ function useDebounced<T>(value: T, delayMs: number): T {
 }
 
 export function JointForm() {
-  const { jointForm, updateJoint } = useContractStore();
+  const { jointForm, updateJoint, currentContractId } = useContractStore();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   // "크게 보기"(새 창) 팝업 차단 안내. 차단 외에는 비워 둔다.
@@ -83,6 +90,25 @@ export function JointForm() {
   // PDF 경로("PDF 생성" → 인쇄창)는 "PDF로 저장" 시 브라우저가 인쇄 HTML <title>(jointPdfTitle
   // = `공동사업표준협약서_{갑 상호} (PDF)`)을 파일명으로 제안한다 — .docx 와 다른 이름이라 함께 고지(드리프트 0).
   const pdfFileName = useMemo(() => jointPdfTitle(jointForm), [jointForm]);
+
+  // 다운로드 직전 "파일명 충돌" 사전 경고 (담보신탁 DocStep 4b7c513 의 joint 짝) — 같은
+  // 다운로드 식별 키(joint 는 갑 상호 = `joint:{gap.name}`)의 다른 저장 계약이 있으면, 지금
+  // 생성·다운로드할 .docx/PDF 가 그 계약 파일과 섞일 수 있다(브라우저가 덮어쓰거나 "(1)"
+  // 자동부여 — 신탁 서류는 법적 효력 문서라 섞임은 정확성 위험). downloadKeyOf 는 내 계약
+  // 목록의 사후 경고(collidingDownloadIds)·DocStep 사전 경고와 동일한 단일 출처(lib/ui/
+  // download-key)라 세 표면의 판정이 어긋나지 않는다(드리프트 0). 작성 중 계약 자신
+  // (currentContractId)은 제외. 저장 변경에 구독(useSyncExternalStore)해 다른 계약을 저장·
+  // 삭제하면 경고가 살아 있게 한다(staleness 0). ★표시 전용 — 조문/엔진/검증 게이트
+  // (validateJoint)/산출물(docx/PDF) 동작 무접촉(식별 키 비교만).
+  const currentDownloadKey = useMemo(
+    () => downloadKeyOf({ doc_type: "joint", form_data: jointForm }),
+    [jointForm],
+  );
+  const savedCount = useSyncExternalStore(subscribeContracts, contractCount, () => 0);
+  const filenameCollision = useMemo(
+    () => downloadKeyCollidesWithSaved(snapshotContracts(), currentContractId, currentDownloadKey, downloadKeyOf),
+    [savedCount, currentContractId, currentDownloadKey],
+  );
 
   // ── 인라인 검증 피드백 (담보신탁 PartyCard/StepBasic 패리티) — 게이트(validateJoint)는
   //    하단 .validate-box 에 누락을 모아 알려 주지만, "그 필드 옆"에서 입력 즉시 오류를
@@ -400,6 +426,25 @@ export function JointForm() {
           <p className="field-hint" style={{ marginTop: 4 }}>
             <span aria-hidden="true">🖨 </span>
             PDF로 저장 시(브라우저 제안): <strong style={{ wordBreak: "break-all" }}>{pdfFileName}</strong>
+          </p>
+        )}
+        {/* 다운로드 직전 "파일명 충돌" 사전 경고 (담보신탁 DocStep 4b7c513 의 joint 짝) — 같은
+            식별 키(갑 상호)의 다른 저장 계약이 있어 받게 될 .docx/PDF 가 섞일 수 있을 때. 막지
+            않는 안내(차단 적색 아님·var(--c-brown))이며 입력 지점 advisory 패밀리와 동형
+            (role=status·aria-live=polite, ⚠ 글리프만 aria-hidden). 새 CSS 0(기존 field-hint +
+            인라인 style). 표시 전용 — 산출/검증/조문 무접촉. ★정확성: 파일명은 갑(시행사) 상호로
+            정해져 협약 "제목"과 무관하므로(downloadKeyOf/jointFileBase), 이름변경이 아니라 받은
+            파일명 직접 변경을 실제 해소책으로 안내한다(내 계약 목록·DocStep 충돌 경고와 동일 출처). */}
+        {ok && filenameCollision && (
+          <p
+            className="field-hint"
+            role="status"
+            aria-live="polite"
+            style={{ marginTop: 6, color: "var(--c-brown)" }}
+          >
+            <span aria-hidden="true">⚠ </span>
+            다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
+            갑(시행사) 상호로 정해집니다(협약 제목과 무관). 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
           </p>
         )}
       </section>
