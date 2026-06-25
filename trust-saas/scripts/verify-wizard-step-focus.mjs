@@ -88,14 +88,18 @@ console.log("\n[D] CSS — 제목 포커스 아웃라인 억제(시각 무변경
 
 console.log("\n[E] 무회귀 — 단계 이동·내용·점프 배선 보존");
 {
-  // goStep 은 setStep + setTab 둘 다 (모든 이동 경로의 단일 출처)
-  ok(/function goStep\(idx: number\)\s*\{[\s\S]*?setStep\(idx\);[\s\S]*?setTab\(s\.tab\);[\s\S]*?\}/.test(wiz),
+  // goStep 은 setStep + setTab 둘 다 (모든 이동 경로의 단일 출처).
+  // (fieldId? 인자 추가 — "남은 필수 입력" 요약 점프가 입력 필드까지 포커스. setStep+setTab
+  //  단일 출처는 보존. 상세 불변식은 verify-docstep-validate-focus.mjs.)
+  ok(/function goStep\(idx: number(?:, fieldId\?: string)?\)\s*\{[\s\S]*?setStep\(idx\);[\s\S]*?setTab\(s\.tab\);[\s\S]*?\}/.test(wiz),
     "goStep = setStep(idx) + setTab(s.tab) 보존");
   ok(/onClick=\{\(\) => goStep\(s\.idx\)\}/.test(wiz), "pill/stepper goStep 배선 보존");
   ok(/<StepContent stepKey=\{current\.key\} docId=\{current\.docId\} \/>/.test(wiz), "StepContent 렌더 보존");
   ok(/className="pagenav"/.test(wiz), "이전/다음 pagenav 보존");
-  // DocStep 의 누락항목 점프(goToStep)도 store step 을 갱신 → 같은 effect 가 포커스 이동 처리
-  ok(/function goToStep\(idx: number\)\s*\{[\s\S]*?setStep\(s\.idx\);[\s\S]*?setTab\(s\.tab\);[\s\S]*?\}/.test(docStep),
+  // DocStep 의 누락항목 점프(goToStep)도 store step 을 갱신 → 같은 effect 가 포커스 이동 처리.
+  // (fieldId? 인자 추가 — 단계 점프 후 그 입력 필드까지 포커스. setStep+setTab 단일 출처는 보존.
+  //  상세 불변식은 verify-docstep-validate-focus.mjs.)
+  ok(/function goToStep\(idx: number(?:, fieldId\?: string)?\)\s*\{[\s\S]*?setStep\(s\.idx\);[\s\S]*?setTab\(s\.tab\);[\s\S]*?\}/.test(docStep),
     "DocStep goToStep = setStep + setTab 보존(같은 step 갱신 → 포커스 이동 공유)");
 }
 

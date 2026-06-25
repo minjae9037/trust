@@ -6,6 +6,7 @@ import { STEPS, TAB_LABELS } from "@/lib/engine/schema";
 import { validateDoc, type Missing } from "@/lib/engine/validate";
 import { generateCollateralDoc, previewDocHTML } from "@/lib/engine/docx";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
+import { consumeFieldFocus, requestFieldFocus } from "@/lib/ui/wizard-focus";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 import type { Category, DocId } from "@/lib/engine/model";
@@ -83,9 +84,20 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   const totalDocs = docSteps.length;
   const firstBlocked = docSteps.find((s) => !docReady[s.idx]);
 
-  function goStep(idx: number) {
+  // fieldId? — "남은 필수 입력" 요약의 누락 항목 점프가 단계뿐 아니라 그 입력 필드까지
+  // 데려가도록 예약(DocStep 검증 박스 goToStep 과 동일 핸드오프). 단계 전환 후 위 step
+  // useEffect 가 제목 포커스 전에 소비한다. fieldId 미전달(요약 카드의 일반 단계 점프)이면
+  // 평소대로 제목 포커스.
+  function goStep(idx: number, fieldId?: string) {
     const s = STEPS.find((x) => x.idx === idx);
     if (!s) return;
+    if (fieldId) requestFieldFocus(fieldId);
+    if (idx === step) {
+      // 이미 그 단계 — step 이 안 바뀌어 위 [step] useEffect 가 안 돌므로(예약 미소비),
+      // 여기서 직접 소비해 같은 화면의 그 필드로 포커스한다(같은 단계 누락 항목 점프).
+      consumeFieldFocus();
+      return;
+    }
     setStep(idx);
     setTab(s.tab);
   }
@@ -105,6 +117,11 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
       mountedRef.current = true;
       return;
     }
+    // DocStep 검증 게이트의 누락 항목 점프는 제목이 아니라 "그 누락 입력 필드"로
+    // 데려가야 한다(requestFieldFocus 로 예약됨). 단계 전환 후 포커스의 단일 권한인
+    // 이 effect 가 제목보다 먼저 그 예약을 소비한다 — 예약이 있으면 필드를 포커스하고
+    // 제목 포커스를 양보(레이스 없음), 없으면 평소대로 제목으로(consumeFieldFocus=false).
+    if (consumeFieldFocus()) return;
     headingRef.current?.focus();
   }, [step]);
 
@@ -274,7 +291,7 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
                   <button
                     type="button"
                     className="validate-jump"
-                    onClick={() => goStep(mi.stepIdx)}
+                    onClick={() => goStep(mi.stepIdx, mi.fieldId)}
                     title={`${mi.where}(으)로 이동해 입력`}
                   >
                     <strong>{mi.label}</strong>

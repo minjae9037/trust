@@ -14,6 +14,7 @@ import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate, interpretSharePct } from "@/lib/engine/calc";
 import { genFreshness } from "@/lib/engine/genStatus";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
+import { requestFieldFocus, consumeFieldFocus } from "@/lib/ui/wizard-focus";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
 
 // stale(입력 변경) 안내 문구 단일 출처 — 시각 span 과 SR 영속 라이브 영역이 같은 문구를
@@ -46,13 +47,27 @@ function useDebounced<T>(value: T, delayMs: number): T {
 }
 
 export function DocStep({ docId }: { docId: DocId }) {
-  const { form, updateDocContent, setStep, setTab } = useContractStore();
+  const { form, updateDocContent, setStep, setTab, step } = useContractStore();
 
-  // 누락 항목 → 해당 입력 단계로 바로 이동(점프). 검증 게이트가 "어디로 가라"고
-  // 안내만 하던 것을 한 번의 클릭으로 그 단계까지 데려가 누락을 즉시 채우게 한다.
-  function goToStep(idx: number) {
+  // 누락 항목 → 해당 입력 단계로 이동 + 그 입력 필드까지 스크롤·포커스(JointForm
+  // focusMissing 의 DocStep 짝 — JointForm 은 단일 폼이라 필드만, 여긴 스텝 점프 후
+  // 필드). 매핑(fieldId)은 validate.ts(Missing.fieldId) 단일 출처. fieldId 가 없거나
+  // DOM 에서 못 찾으면 단계 이동까지만(死점프 0 — 매칭 실패는 무동작).
+  // ★실제 포커스는 Wizard 의 step useEffect 가 단일 권한으로 수행한다 — 단계 전환 시
+  //   Wizard 는 새 단계 "제목"으로 포커스를 옮기는데, 여기서 setTimeout 으로 필드를 직접
+  //   포커스하면 제목 포커스(React passive effect)와 순서가 비보장이라 레이스가 난다.
+  //   그래서 점프 직전 requestFieldFocus 로 "예약"만 남기고, Wizard 가 제목 포커스 전에
+  //   소비한다(consumeFieldFocus → 예약 있으면 필드 우선·없으면 제목). 표시·내비 전용.
+  function goToStep(idx: number, fieldId?: string) {
     const s = STEPS.find((x) => x.idx === idx);
     if (!s) return;
+    if (fieldId) requestFieldFocus(fieldId); // 전환 후 Wizard 가 제목 대신 이 필드로 포커스
+    if (s.idx === step) {
+      // 같은 단계 누락 항목(예: Doc 01 의 "신탁부동산 가격") — step 미변경이라 Wizard 의
+      // [step] useEffect 가 안 돌므로 여기서 직접 소비해 같은 화면의 그 필드로 포커스한다.
+      consumeFieldFocus();
+      return;
+    }
     setStep(s.idx);
     setTab(s.tab);
   }
@@ -577,7 +592,7 @@ export function DocStep({ docId }: { docId: DocId }) {
                   <button
                     type="button"
                     className="validate-jump"
-                    onClick={() => goToStep(m.stepIdx)}
+                    onClick={() => goToStep(m.stepIdx, m.fieldId)}
                     title={`${m.where}(으)로 이동`}
                   >
                     <strong>{m.label}</strong>

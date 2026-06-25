@@ -145,6 +145,7 @@ export function StepLoanCalc() {
                     </th>
                     <td style={{ ...td, textAlign: "right" }}>
                       <input
+                        id={`loan-amount-${i}`}
                         className="input"
                         type="number"
                         value={p.loanAmount}

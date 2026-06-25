@@ -14,6 +14,11 @@ export interface Missing {
   where: string;
   /** 입력 단계의 STEP.idx — 검증 게이트에서 해당 단계로 바로 이동(점프)하는 데 사용 */
   stepIdx: number;
+  /** 해당 입력 필드(또는 그룹 라벨)의 DOM id — 검증 게이트가 단계로 점프한 뒤 그 필드까지
+   *  스크롤·포커스하는 데 쓴다(JointForm `jointFieldIdForMissing` 의 DocStep 짝 — 거긴
+   *  단일 폼이라 필드 포커스만, 여긴 스텝 점프 후 필드 포커스). 없거나 DOM 에서 못 찾으면
+   *  단계 이동까지만(死점프 0 — 매칭 실패는 무동작). 순수 데이터(여기선 DOM 무접근). */
+  fieldId?: string;
 }
 
 const hasText = (v: unknown) => typeof v === "string" && v.trim().length > 0;
@@ -22,9 +27,9 @@ const hasText = (v: unknown) => typeof v === "string" && v.trim().length > 0;
  * 누락 항목 1건 생성. `where`(안내 문구)는 STEPS에서 파생해
  * 스텝 라벨/제목이 바뀌어도 검증 안내가 stale 되지 않게 한다(단일 출처).
  */
-function miss(label: string, stepIdx: number): Missing {
+function miss(label: string, stepIdx: number, fieldId?: string): Missing {
   const s = STEPS.find((x) => x.idx === stepIdx);
-  return { label, stepIdx, where: s ? `${s.label} ${s.title}` : "" };
+  return { label, stepIdx, where: s ? `${s.label} ${s.title}` : "", fieldId };
 }
 
 /** 공통(모든 담보신탁 서류) 필수 입력 — 당사자·물건·금액 */
@@ -33,11 +38,11 @@ function commonMissing(form: ContractForm): Missing[] {
 
   // 위탁자: 최소 1인 + 이름 (STEP 01)
   if (!form.trustors.some((p) => hasText(p.name))) {
-    m.push(miss("위탁자 (성명/상호)", 1));
+    m.push(miss("위탁자 (성명/상호)", 1, "party-trustors-0-name"));
   }
   // 우선수익자: 최소 1인 + 이름 (STEP 02)
   if (!form.priorities.some((p) => hasText(p.name))) {
-    m.push(miss("우선수익자 (성명/상호)", 2));
+    m.push(miss("우선수익자 (성명/상호)", 2, "party-priorities-0-name"));
   }
   // 채무자·수익자 (별도 입력 시) — 성명/상호 (STEP 01)
   // 채무자·수익자는 기본 위탁자와 동일(sameAsTrustor)이라 위탁자 이름 검사로 충분하나,
@@ -51,10 +56,10 @@ function commonMissing(form: ContractForm): Missing[] {
   // 검사가 이미 동일하게 `!sameAsTrustor` 일 때만 도는 것과 동일 정책). "최소 1인 named" 기준도
   // 위탁자·우선수익자 검사와 동일(some) — 분리를 선언했으면 이름 있는 당사자가 최소 1인 필요.
   if (!form.debtorSameAsTrustor && !form.debtors.some((p) => hasText(p.name))) {
-    m.push(miss("채무자 (성명/상호)", 1));
+    m.push(miss("채무자 (성명/상호)", 1, "party-debtors-0-name"));
   }
   if (!form.beneficiarySameAsTrustor && !form.beneficiaries.some((p) => hasText(p.name))) {
-    m.push(miss("수익자 (성명/상호)", 1));
+    m.push(miss("수익자 (성명/상호)", 1, "party-beneficiaries-0-name"));
   }
   // 채무자·수익자 (별도 입력 시) — 주소 (STEP 01)
   // 이름과 동일하게, 별도 입력(sameAsTrustor=false)이면 그 주소가 별첨2(나.수익자·다.채무자 표
@@ -70,14 +75,14 @@ function commonMissing(form: ContractForm): Missing[] {
   // 수익자는 사용자가 「위탁자와 다름」을 명시 선언한 opt-in 당사자(기본은 미검사)라, 이름과 함께
   // 주소도 필수로 보는 것이 정합적이며 기본 경로를 건드리지 않아 회귀가 없다.
   if (!form.debtorSameAsTrustor && !form.debtors.some((p) => hasText(p.address))) {
-    m.push(miss("채무자 (주소)", 1));
+    m.push(miss("채무자 (주소)", 1, "party-debtors-0-address"));
   }
   if (!form.beneficiarySameAsTrustor && !form.beneficiaries.some((p) => hasText(p.address))) {
-    m.push(miss("수익자 (주소)", 1));
+    m.push(miss("수익자 (주소)", 1, "party-beneficiaries-0-address"));
   }
   // 대출금액(우선수익한도 산정 근거): 합계 > 0 (STEP 02-1)
   if (!form.priorities.some((p) => parseAmount(p.loanAmount) > 0)) {
-    m.push(miss("우선수익자 대출금액", 3));
+    m.push(miss("우선수익자 대출금액", 3, "loan-amount-0"));
   } else {
     // 합계가 양(+)이라도 개별 우선수익자의 대출금액이 "0·음수·비숫자"이면, 그 우선수익자의
     // 우선수익한도금액(= loanAmount × 비율)이 0/음수로 산출물 표에 박힌다(builders.js: 별첨2/3·
@@ -85,7 +90,7 @@ function commonMissing(form: ContractForm): Missing[] {
     // 금액을 차단한다(빈 값은 위 합계 검사로 충분 — 미입력 우선수익자는 0 한도로 의도될 수 있음).
     form.priorities.forEach((p, i) => {
       if (hasText(p.loanAmount) && !isPositiveAmount(p.loanAmount)) {
-        m.push(miss(`우선수익자 ${i + 1} 대출금액 (유효하지 않은 금액)`, 3));
+        m.push(miss(`우선수익자 ${i + 1} 대출금액 (유효하지 않은 금액)`, 3, `loan-amount-${i}`));
       }
     });
   }
@@ -95,11 +100,11 @@ function commonMissing(form: ContractForm): Missing[] {
   // import·구버전·AI 머지로도 들어올 수 있어 게이트가 한 번 더 검사한다. 0·빈 값은 빌더가 기본
   // 120%로 처리하므로(isValidRatio 가 동일하게 || 120 검사) 무회귀 위해 통과시키고 범위 밖만 차단.
   if (!isValidRatio(form.common.priorityRatio)) {
-    m.push(miss("우선수익한도 비율 (100~150% 범위)", 3));
+    m.push(miss("우선수익한도 비율 (100~150% 범위)", 3, "loan-priorityRatio"));
   }
   // 신탁 부동산: 최소 1건 + 주소 (STEP 03)
   if (!form.properties.some((p) => hasText(p.address))) {
-    m.push(miss("신탁 부동산 (소재지)", 4));
+    m.push(miss("신탁 부동산 (소재지)", 4, "prop-0-address"));
   }
   // 부동산 등기 고유번호 (STEP 03) — 신탁부동산 표(신청서 partyTable·계약서 별지)에 각 부동산의
   // 등기 고유번호가 그대로 박히므로(builders.js: tc(p.regNo)), 자릿수가 맞지 않는 오타·부분 입력이
@@ -110,7 +115,7 @@ function commonMissing(form: ContractForm): Missing[] {
   // 금지 — 유효한 실제 번호 오탐 차단 방지). import·구버전·AI 머지로 들어온 값까지 한 번 더 방어.
   form.properties.forEach((p, i) => {
     if (hasText(p.regNo) && !isValidRegNo(p.regNo)) {
-      m.push(miss(`부동산 ${i + 1} 등기 고유번호 (형식 오류 — 14자리)`, 4));
+      m.push(miss(`부동산 ${i + 1} 등기 고유번호 (형식 오류 — 14자리)`, 4, `prop-${i}-regNo`));
     }
     // 면적(㎡) (STEP 03) — 신탁부동산 표(별첨1·신청서·계약서 별지)의 면적칸에 `p.area + "㎡"`로
     // 그대로 박힌다(builders.js: tc(p.area)·`area + "㎡"`). 가격·원본가액·개별 대출금액과 동일한
@@ -120,7 +125,7 @@ function commonMissing(form: ContractForm): Missing[] {
     // "채웠지만 0·음수·비숫자"만 차단한다. 단위(㎡)는 빌더가 자동 표기하므로 숫자만 입력한다
     // (쉼표·공백은 parseAmount 가 허용, 소수점 면적 1234.56 도 양수로 통과 — isPositiveAmount 정합).
     if (hasText(p.area) && !isPositiveAmount(p.area)) {
-      m.push(miss(`부동산 ${i + 1} 면적 (유효하지 않은 값)`, 4));
+      m.push(miss(`부동산 ${i + 1} 면적 (유효하지 않은 값)`, 4, `prop-${i}-area`));
     }
   });
   // 계약 체결일 (STEP 04) — 누락뿐 아니라 실재하지 않는 날짜(예: 2월 31일)도 차단.
@@ -128,9 +133,9 @@ function commonMissing(form: ContractForm): Missing[] {
   // 들어온 데이터는 이 게이트를 통과하므로 달력 유효성을 한 번 더 검사한다(정확성 가드레일).
   const { year, month, day } = form.common;
   if (!year || !month || day === "" || day == null) {
-    m.push(miss("계약 체결일 (연·월·일)", 5));
+    m.push(miss("계약 체결일 (연·월·일)", 5, "basic-contractDate"));
   } else if (!isRealDate(year, month, day)) {
-    m.push(miss("계약 체결일 (실재하지 않는 날짜)", 5));
+    m.push(miss("계약 체결일 (실재하지 않는 날짜)", 5, "basic-contractDate"));
   }
   // 신탁보수 (STEP 04) — 가격·원본가액·개별 대출금액에 이은 데이터 정합성 계열 마감.
   // ⚠️ 빈 값은 차단하지 않는다: 빌더가 별첨3 보수액을 "[ ] — 신탁보수 미입력 (STEP 04)"로
@@ -139,7 +144,7 @@ function commonMissing(form: ContractForm): Missing[] {
   // 단, "채웠지만 0·음수·비숫자"는 별첨3 보수액이 ₩-5,000.- 같은 잘못된 금액으로,
   // valReport kvRow가 "-5,000 원"으로 법적 서류에 박히므로(가격·원본가액과 동일 결함 유형) 차단한다.
   if (hasText(form.common.trustFee) && !isPositiveAmount(form.common.trustFee)) {
-    m.push(miss("신탁보수 (유효하지 않은 금액)", 5));
+    m.push(miss("신탁보수 (유효하지 않은 금액)", 5, "basic-trustFee"));
   }
   // 신탁기간 (STEP 04) — UI에 `*` 필수이나 게이트에 누락돼 있던 마지막 필수 공통 항목.
   // 빈 값이면 valReport(원본가액신고서) kvRow가 신탁기간을 빈칸으로 렌더하고
@@ -149,7 +154,7 @@ function commonMissing(form: ContractForm): Missing[] {
   // 빈 값을 차단한다 — 모델 기본값이 비어있지 않아 정상 계약은 무회귀(빈 신탁기간은 애초에
   // "올바른" 적이 없음). 자유 텍스트이므로 형식이 아닌 "존재"만 검사한다(추정 형식 강제 금지).
   if (!hasText(form.common.trustPeriod)) {
-    m.push(miss("신탁기간", 5));
+    m.push(miss("신탁기간", 5, "basic-trustPeriod"));
   }
   // 사업자등록번호 (관계사) — 신청서 관계사 표·별첨에 각 당사자의 사업자등록번호가 그대로 박히므로
   // (builders.js partyTable: kvRow "사업자등록번호" = bizP1-bizP2-bizP3), 오타로 체크섬이 깨진
@@ -158,20 +163,22 @@ function commonMissing(form: ContractForm): Missing[] {
   // 무회귀). "입력됐으나(숫자 하나라도) 유효한 10자리 체크섬이 아닌" 경우만 차단한다(채웠지만
   // 무효 = 금액 패턴과 동일). 검증식은 국세청 표준(추정 형식 아님). import·구버전·AI 머지로
   // 입력 위젯(숫자만 허용)을 우회한 값까지 isValidBizNo 단일 출처로 한 번 더 방어한다.
-  const checkBiz = (arr: Party[], label: string, stepIdx: number) => {
+  // idPrefix = `party-${role}`(PartyCard 의 `fid` 단일 출처와 동일 스킴) — 검증 게이트가
+  // 해당 당사자 카드의 사업자등록번호 그룹 라벨(party-${role}-${i}-biz)로 스크롤·포커스한다.
+  const checkBiz = (arr: Party[], label: string, stepIdx: number, idPrefix: string) => {
     arr.forEach((p, i) => {
       const biz = [p.bizP1, p.bizP2, p.bizP3].map((x) => String(x ?? "")).join("").replace(/\D/g, "");
       if (biz.length > 0 && !isValidBizNo(biz)) {
-        m.push(miss(`${label} ${i + 1} 사업자등록번호 (유효하지 않은 번호)`, stepIdx));
+        m.push(miss(`${label} ${i + 1} 사업자등록번호 (유효하지 않은 번호)`, stepIdx, `${idPrefix}-${i}-biz`));
       }
     });
   };
-  checkBiz(form.trustors, "위탁자", 1);
-  checkBiz(form.priorities, "우선수익자", 2);
+  checkBiz(form.trustors, "위탁자", 1, "party-trustors");
+  checkBiz(form.priorities, "우선수익자", 2, "party-priorities");
   // 채무자·수익자는 기본 위탁자와 동일(sameAsTrustor) — 그 경우 위탁자 검사로 충분(중복 방지).
   // 별도 입력(다름)일 때만 그 자체 배열을 검사한다(STEP 01 관계사).
-  if (!form.debtorSameAsTrustor) checkBiz(form.debtors, "채무자", 1);
-  if (!form.beneficiarySameAsTrustor) checkBiz(form.beneficiaries, "수익자", 1);
+  if (!form.debtorSameAsTrustor) checkBiz(form.debtors, "채무자", 1, "party-debtors");
+  if (!form.beneficiarySameAsTrustor) checkBiz(form.beneficiaries, "수익자", 1, "party-beneficiaries");
 
   // 법인등록번호 (관계사) — 계약서 본문·신청서 관계사 표·별첨에 각 "법인" 당사자의 법인등록번호가
   // 그대로 박힌다(builders.js: corpRegFront-corpRegBack). 사업자등록번호와 동일한 "정형 식별번호"
@@ -181,19 +188,21 @@ function commonMissing(form: ContractForm): Missing[] {
   // 무회귀). "입력됐으나 유효한 13자리 체크섬이 아닌" 경우만 차단(사업자번호·금액 패턴과 동일).
   // ⚠️ 개인 당사자는 이 칸이 생년월일로 렌더되므로(builders.js: type==="개인"→"생년월일") 법인
   // (type==="법인")일 때만 검사한다 — 개인 생년월일에 13자리 체크섬을 적용해 오탐하지 않는다.
-  const checkCorpReg = (arr: Party[], label: string, stepIdx: number) => {
+  // 법인등록번호·생년월일은 같은 식별번호 칸(party-${role}-${i}-regid 그룹 라벨)을 공유한다
+  // (PartyCard: 법인=법인등록번호 / 개인=생년월일). 점프 대상도 그 공통 라벨로 단일화한다.
+  const checkCorpReg = (arr: Party[], label: string, stepIdx: number, idPrefix: string) => {
     arr.forEach((p, i) => {
       if (p.type !== "법인") return; // 개인 = 생년월일 칸(법인등록번호 체크섬 비대상)
       const corp = [p.corpRegFront, p.corpRegBack].map((x) => String(x ?? "")).join("").replace(/\D/g, "");
       if (corp.length > 0 && !isValidCorpRegNo(corp)) {
-        m.push(miss(`${label} ${i + 1} 법인등록번호 (유효하지 않은 번호)`, stepIdx));
+        m.push(miss(`${label} ${i + 1} 법인등록번호 (유효하지 않은 번호)`, stepIdx, `${idPrefix}-${i}-regid`));
       }
     });
   };
-  checkCorpReg(form.trustors, "위탁자", 1);
-  checkCorpReg(form.priorities, "우선수익자", 2);
-  if (!form.debtorSameAsTrustor) checkCorpReg(form.debtors, "채무자", 1);
-  if (!form.beneficiarySameAsTrustor) checkCorpReg(form.beneficiaries, "수익자", 1);
+  checkCorpReg(form.trustors, "위탁자", 1, "party-trustors");
+  checkCorpReg(form.priorities, "우선수익자", 2, "party-priorities");
+  if (!form.debtorSameAsTrustor) checkCorpReg(form.debtors, "채무자", 1, "party-debtors");
+  if (!form.beneficiarySameAsTrustor) checkCorpReg(form.beneficiaries, "수익자", 1, "party-beneficiaries");
 
   // 생년월일 (개인 관계사) — 개인 당사자의 식별번호 칸은 산출물에 "생년월일"로 렌더된다
   // (builders.js: type==="개인"→"생년월일"). 법인은 위 checkCorpReg 가 13자리 체크섬을 검사하지만,
@@ -204,19 +213,19 @@ function commonMissing(form: ContractForm): Missing[] {
   // ⚠️ 법인은 이 칸이 법인등록번호이므로(checkCorpReg 담당) 개인(type==="개인")일 때만 검사한다.
   // 주민등록번호 체크섬은 폐지돼 적용하지 않고 앞 6자리의 달력 유효성만 본다(isValidBirthDate, 추정
   // 체크섬 금지 — regNo 와 동일 원칙). PII(주민번호)는 로컬 입력값에만 적용·전송 없음.
-  const checkBirth = (arr: Party[], label: string, stepIdx: number) => {
+  const checkBirth = (arr: Party[], label: string, stepIdx: number, idPrefix: string) => {
     arr.forEach((p, i) => {
       if (p.type !== "개인") return; // 법인 = 법인등록번호 칸(checkCorpReg 담당)
       const front = String(p.corpRegFront ?? "").replace(/\D/g, "");
       if (front.length > 0 && !isValidBirthDate(p.corpRegFront, p.corpRegBack)) {
-        m.push(miss(`${label} ${i + 1} 생년월일 (실재하지 않는 날짜)`, stepIdx));
+        m.push(miss(`${label} ${i + 1} 생년월일 (실재하지 않는 날짜)`, stepIdx, `${idPrefix}-${i}-regid`));
       }
     });
   };
-  checkBirth(form.trustors, "위탁자", 1);
-  checkBirth(form.priorities, "우선수익자", 2);
-  if (!form.debtorSameAsTrustor) checkBirth(form.debtors, "채무자", 1);
-  if (!form.beneficiarySameAsTrustor) checkBirth(form.beneficiaries, "수익자", 1);
+  checkBirth(form.trustors, "위탁자", 1, "party-trustors");
+  checkBirth(form.priorities, "우선수익자", 2, "party-priorities");
+  if (!form.debtorSameAsTrustor) checkBirth(form.debtors, "채무자", 1, "party-debtors");
+  if (!form.beneficiarySameAsTrustor) checkBirth(form.beneficiaries, "수익자", 1, "party-beneficiaries");
   return m;
 }
 
@@ -232,17 +241,17 @@ function docMissing(form: ContractForm, docId: DocId): Missing[] {
   if (docId === "appform") {
     const v = c.appform?.valuationPrice;
     if (!hasText(v)) {
-      m.push(miss("신탁부동산 가격", stepIdxOf("appform")));
+      m.push(miss("신탁부동산 가격", stepIdxOf("appform"), "doc-appform-valuationPrice"));
     } else if (!isPositiveAmount(v)) {
-      m.push(miss("신탁부동산 가격 (유효하지 않은 금액)", stepIdxOf("appform")));
+      m.push(miss("신탁부동산 가격 (유효하지 않은 금액)", stepIdxOf("appform"), "doc-appform-valuationPrice"));
     }
   }
   if (docId === "valReport") {
     const v = c.valReport?.principalValue;
     if (!hasText(v)) {
-      m.push(miss("신탁재산 원본가액", stepIdxOf("valReport")));
+      m.push(miss("신탁재산 원본가액", stepIdxOf("valReport"), "doc-valReport-principalValue"));
     } else if (!isPositiveAmount(v)) {
-      m.push(miss("신탁재산 원본가액 (유효하지 않은 금액)", stepIdxOf("valReport")));
+      m.push(miss("신탁재산 원본가액 (유효하지 않은 금액)", stepIdxOf("valReport"), "doc-valReport-principalValue"));
     }
   }
   // 대리금융기관 (제20조 · 별첨4) — StepConditions(STEP 05)에서 「대리금융기관 지정」을 켜면
@@ -257,7 +266,7 @@ function docMissing(form: ContractForm, docId: DocId): Missing[] {
   // 자유 텍스트라 형식이 아닌 "존재"만 검사한다(추정 형식 강제 금지). 점프 타깃 = 조건·특약 단계(STEP 05).
   if (docId === "contract" && c.contract?.agentBankEnabled === true && !hasText(c.contract?.agentBank)) {
     const condIdx = STEPS.find((s) => s.key === "conditions")?.idx ?? 0;
-    m.push(miss("대리금융기관 회사명 (제20조 — 지정했으나 미입력)", condIdx));
+    m.push(miss("대리금융기관 회사명 (제20조 — 지정했으나 미입력)", condIdx, "cond-agentBank-name"));
   }
   return m;
 }

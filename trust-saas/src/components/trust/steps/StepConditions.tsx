@@ -130,7 +130,7 @@ export function StepConditions() {
         </label>
         {c.agentBankEnabled && (
           <div className="field full">
-            <input className="input" placeholder="예) ○○신용협동조합 / 한국투자증권 주식회사"
+            <input id="cond-agentBank-name" className="input" placeholder="예) ○○신용협동조합 / 한국투자증권 주식회사"
               aria-label="대리금융기관 회사명"
               value={c.agentBank || ""} onChange={(e) => set({ agentBank: e.target.value })} />
             <div className="field-hint">입력한 회사명이 별첨4 제20조에 자동 기재됩니다(빈 값이면 빈칸 출력).</div>
