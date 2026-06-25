@@ -80,6 +80,21 @@ interface ContractState {
     form_data: ContractForm | JointForm;
   }) => void;
 
+  /**
+   * 저장 안 된 진행 중 초안(draftRepo)을 위저드 상태로 복원한다. loadContract 와 달리
+   * **미저장(savedHash=null·currentContractId=null)** 으로 들어와 여전히 dirty 이고
+   * beforeunload 가 계속 경고한다(초안=아직 저장 안 한 작업이므로 저장본으로 둔갑 금지).
+   */
+  restoreDraft: (draft: {
+    docTypeId: string;
+    category: Category | null;
+    title: string;
+    form: ContractForm;
+    jointForm: JointForm;
+    tab: number;
+    step: number;
+  }) => void;
+
   reset: () => void;
 }
 
@@ -233,6 +248,35 @@ export const useContractStore = create<ContractState>((set) => ({
       step: resume ? resume.idx : 1,
     });
   },
+
+  restoreDraft: (draft) =>
+    set(() => {
+      // 두 폼 모두 blank 와 한 단계 더 병합해 구버전·부분 초안의 키 누락을 안전 격리
+      // (loadContract 와 동일 패턴 — validate 등 크래시 방지). form 은 파생값 재계산.
+      const base = blankContractForm();
+      const mergedForm: ContractForm = { ...base, ...draft.form };
+      mergedForm.docContents = { ...base.docContents, ...(mergedForm.docContents ?? {}) };
+      const jbase = blankJointForm();
+      const jfd = draft.jointForm ?? {};
+      const mergedJoint: JointForm = {
+        ...jbase,
+        ...jfd,
+        gap: { ...jbase.gap, ...(jfd.gap ?? {}) },
+        project: { ...jbase.project, ...(jfd.project ?? {}) },
+      };
+      return {
+        docTypeId: draft.docTypeId,
+        category: draft.category,
+        title: draft.title,
+        form: withRecalc(mergedForm),
+        jointForm: mergedJoint,
+        tab: draft.tab,
+        step: draft.step,
+        // ★초안 = 아직 저장 안 한 작업 → 미저장(dirty)·신규(미연결)로 복원한다.
+        currentContractId: null,
+        savedHash: null,
+      };
+    }),
 
   reset: () =>
     set({

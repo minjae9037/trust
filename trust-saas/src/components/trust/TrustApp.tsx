@@ -16,6 +16,7 @@ import {
   contractCount,
   type ContractRow,
 } from "@/lib/contractRepo";
+import { loadDraft, saveDraft, clearDraft, type ContractDraft } from "@/lib/store/draftRepo";
 import { Wizard } from "./Wizard";
 import { ChatPanel } from "./ChatPanel";
 import { ContractsView } from "./ContractsView";
@@ -48,7 +49,17 @@ export function TrustApp() {
     setStep,
     reset,
     loadContract,
+    restoreDraft,
   } = store;
+
+  // 새로고침·이탈 시 복원할 진행 중 서류 초안(draftRepo) — 마운트 후 클라이언트에서만
+  // 1회 읽어 첫 화면(신탁사 선택)에 "이어서 작성하기" 진입점을 띄운다(SSR 스냅샷 null →
+  // 하이드레이션 일치). 복원·이탈 확정 시 null 로 비운다. 표시·재개 전용.
+  const [restorableDraft, setRestorableDraft] = useState<ContractDraft | null>(null);
+  useEffect(() => {
+    const d = loadDraft();
+    if (d) setRestorableDraft(d);
+  }, []);
 
   const docType = DOCUMENT_TYPES.find((d) => d.id === docTypeId) || null;
 
@@ -83,6 +94,38 @@ export function TrustApp() {
   // 현재 열린 서류의 활성 폼(joint=jointForm, 그 외=form) — 미저장 변경 판정 단일 기준.
   const isJointOpen = store.docTypeId === "joint";
   const activeForm = isJointOpen ? store.jointForm : store.form;
+  const draftDirty = !!docTypeId && isFormDirty(activeForm, store.savedHash, isJointOpen);
+
+  // 진행 중(미저장) 서류 초안 자동 영속 — 새로고침·이탈 시 복원. dirty(작성 중·미저장)면
+  // 현재 store 스냅샷을 저장하고, 저장 완료(저장 직후 savedHash 갱신→not dirty)면 초안을
+  // 비운다(저장본은 contractRepo 가 보관 — 별도 초안 불필요). ★서류 미선택(docTypeId
+  // null·초기/빈 양식)에는 **아무 것도 하지 않는다** — 마운트 직후 빈 상태가 복원 대상
+  // 초안을 덮어쓰지 않게(restorableDraft 적재 보호). best-effort·표시/재개 전용.
+  useEffect(() => {
+    if (!docTypeId) return; // 서류 미선택 = 저장/비움 대상 아님(저장된 초안 보존)
+    if (draftDirty) {
+      saveDraft({
+        docTypeId,
+        category,
+        title: store.title,
+        form: store.form,
+        jointForm: store.jointForm,
+        tab: store.tab,
+        step: store.step,
+      });
+    } else {
+      clearDraft(); // 서류는 열렸으나 not dirty = 방금 저장됨 → 초안 비움
+    }
+  }, [
+    docTypeId,
+    draftDirty,
+    category,
+    store.title,
+    store.form,
+    store.jointForm,
+    store.tab,
+    store.step,
+  ]);
 
   function goHome() {
     // 위저드에서 미저장 변경이 있으면 초기화(reset) 전 확인 — 데이터 유실 방지
@@ -94,8 +137,24 @@ export function TrustApp() {
       return;
     }
     reset();
+    // ★이탈 확정 = 사용자가 명시적으로 버린 작업 → 저장된 초안도 비운다(버린 뒤에도
+    //   "이어서 작성" 으로 되살아나 혼란 주지 않게). 비움의 명시 경로(저장/복원과 동렬).
+    clearDraft();
+    setRestorableDraft(null);
     setCompany(null);
     setView("company");
+  }
+
+  // 진행 중이던 초안을 위저드로 복원(첫 화면 "이어서 작성하기"). store 를 미저장 상태로
+  // 되살리고(restoreDraft) 위저드로 진입한다 — 초안에 단계(category)가 없으면(드문 경우)
+  // 단계 선택으로 보낸다. 복원 후 진입점은 숨긴다(setRestorableDraft null).
+  function resumeDraft() {
+    const d = restorableDraft;
+    if (!d) return;
+    restoreDraft(d);
+    setCompany(ACTIVE_COMPANY);
+    setView(d.category ? "wizard" : "category");
+    setRestorableDraft(null);
   }
   function pickCompany(name: string) {
     setCompany(name);
@@ -260,6 +319,10 @@ export function TrustApp() {
           // 계약이 있으면 바로 내 계약으로. 빈 화면 "새 계약 작성하기" CTA(start)의 대칭(resume).
           savedCount={savedCount}
           onResume={() => setView("contracts")}
+          // 작성 중이던(미저장) 서류 초안이 있으면 "이어서 작성하기" — 끊긴 작성을 그 자리로
+          // 복원한다(저장된 계약 재개와 별개 신호: 진행 중 미저장 초안).
+          draft={restorableDraft}
+          onResumeDraft={resumeDraft}
         />
       )}
       {view === "home" && <HomePage company={company} onPick={pickDoc} />}
@@ -389,11 +452,19 @@ function CompanyPage({
   onPick,
   savedCount,
   onResume,
+  draft,
+  onResumeDraft,
 }: {
   onPick: (name: string) => void;
   savedCount: number;
   onResume?: () => void;
+  draft?: ContractDraft | null;
+  onResumeDraft?: () => void;
 }) {
+  // 작성 중이던 서류 이름(있으면) — 초안 docTypeId 로 표시. 미발견 시 "서류"로 폴백.
+  const draftDocName = draft
+    ? DOCUMENT_TYPES.find((d) => d.id === draft.docTypeId)?.name || "서류"
+    : null;
   return (
     <main className="page active">
       <div className="page-header">
@@ -404,6 +475,31 @@ function CompanyPage({
           수급 후 순차 오픈됩니다.
         </p>
       </div>
+      {/* 작성 중이던(미저장) 서류 초안 "이어서 작성하기" — 새로고침·이탈로 끊긴 위저드
+          입력을 그 자리로 복원. 저장된 계약 재개(아래)와 별개 신호(진행 중 미저장 초안)라
+          그보다 위에 둔다. onResumeDraft 미전달·초안 부재면 미렌더(후방호환). 시각 "→"
+          글리프는 aria-hidden. 표시·재개 전용 — 조문·엔진·검증·산출물 무접촉, 새 CSS 0. */}
+      {onResumeDraft && draft && (
+        <div
+          role="region"
+          aria-label="작성 중이던 서류 이어서 작성하기"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: 18,
+          }}
+        >
+          <span className="field-hint">
+            작성 중이던 <strong>{draftDocName}</strong> 서류가 있습니다.
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={onResumeDraft}>
+            이어서 작성하기<span aria-hidden="true"> →</span>
+          </button>
+        </div>
+      )}
       {/* 돌아온 사용자 "이어서 작업하기" — 첫 화면(신탁사 선택)에서 저장된 계약이 있으면
           바로 내 계약으로 진입. 빈 화면 "새 계약 작성하기" CTA(start)의 대칭(resume) —
           종전엔 이 화면에서 저장 작업 신호가 상단 브레드크럼 "내 계약 (N)" 배지뿐이라
