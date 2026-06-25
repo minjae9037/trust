@@ -80,3 +80,16 @@ export function collateralDocFileName(form: ContractForm, docId: DocId): string 
 export function jointDocFileName(jointForm: JointForm): string {
   return B.jointDocFileName(jointForm);
 }
+
+/** 서류 1건의 PDF "PDF로 저장" 시 브라우저가 제안하는 파일명(인쇄 <title> = `${base} (PDF)`) —
+ *  실제 인쇄 제목과 단일 출처. 위저드가 다운로드 직전에 PDF 경로로 받게 될 이름을 미리 보여
+ *  줄 때 쓴다(표시 전용 — 산출 동작 무변경). 알 수 없는 docId 면 빈 문자열(표시 생략). */
+export function collateralPdfTitle(form: ContractForm, docId: DocId): string {
+  return B.collateralPdfTitle(form, docId);
+}
+
+/** 공동사업표준협약서 PDF "PDF로 저장" 시 브라우저 제안 파일명(인쇄 <title>) — 실제 인쇄 제목과
+ *  단일 출처(`공동사업표준협약서_{갑 상호} (PDF)`). 담보신탁 collateralPdfTitle 의 joint 패리티. */
+export function jointPdfTitle(jointForm: JointForm): string {
+  return B.jointPdfTitle(jointForm);
+}

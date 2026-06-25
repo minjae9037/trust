@@ -10,6 +10,7 @@ import {
   generateCollateralPDF,
   previewDocHTML,
   collateralDocFileName,
+  collateralPdfTitle,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate, interpretSharePct } from "@/lib/engine/calc";
@@ -99,6 +100,9 @@ export function DocStep({ docId }: { docId: DocId }) {
   // 같아 섞일 수 있어(내 계약 "다운로드 파일명 충돌" 경고 참조), 생성 전에 실제 이름을 보여
   // 식별·검수를 돕는다. 표시 전용 — 조문/엔진/검증 게이트(validateDoc)/산출물 동작 무접촉.
   const docxFileName = useMemo(() => collateralDocFileName(form, docId), [form, docId]);
+  // PDF 경로("PDF 생성" → 인쇄창)는 "PDF로 저장" 시 브라우저가 인쇄 HTML <title>(collateralPdfTitle
+  // = `${docFileBase} (PDF)`)을 파일명으로 제안한다 — .docx 와 다른 이름이라 함께 고지(드리프트 0).
+  const pdfFileName = useMemo(() => collateralPdfTitle(form, docId), [form, docId]);
 
   // ── 실시간 미리보기 (M2-1) — 선택한 서류의 완성 문서를 그대로 렌더(WYSIWYG).
   //    docId별 PDF 빌더 HTML을 iframe srcdoc로 격리 표시 → 실제 생성물과 동일.
@@ -653,6 +657,16 @@ export function DocStep({ docId }: { docId: DocId }) {
           <p className="field-hint" style={{ marginTop: 8 }}>
             <span aria-hidden="true">💾 </span>
             저장 파일명: <strong style={{ wordBreak: "break-all" }}>{docxFileName}</strong>
+          </p>
+        )}
+        {/* PDF 경로 — "PDF 생성"은 인쇄창을 띄우고 "PDF로 저장" 시 브라우저가 인쇄 제목
+            (collateralPdfTitle)을 파일명으로 제안한다. .docx 와 이름이 달라(끝에 " (PDF)")
+            함께 고지 — 어느 버튼을 눌러도 받게 될 이름을 생성 전에 알 수 있다. 표시 전용 —
+            🖨 글리프만 aria-hidden(의미는 가시 텍스트), role=status 미부착(중복 낭독 0). */}
+        {ok && pdfFileName && (
+          <p className="field-hint" style={{ marginTop: 4 }}>
+            <span aria-hidden="true">🖨 </span>
+            PDF로 저장 시(브라우저 제안): <strong style={{ wordBreak: "break-all" }}>{pdfFileName}</strong>
           </p>
         )}
       </div>

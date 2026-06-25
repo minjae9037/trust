@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
 import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
-import { generateJointDoc, generateJointPDFDoc, previewJointHTML, jointDocFileName } from "@/lib/engine/docx";
+import { generateJointDoc, generateJointPDFDoc, previewJointHTML, jointDocFileName, jointPdfTitle } from "@/lib/engine/docx";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
 import { genFreshness } from "@/lib/engine/genStatus";
@@ -80,6 +80,9 @@ export function JointForm() {
   // 단일 출처라 미리보기와 실제 다운로드명이 어긋나지 않는다(드리프트 0). 표시 전용 — 조문/
   // 엔진/검증 게이트(validateJoint)/산출물 동작 무접촉.
   const docxFileName = useMemo(() => jointDocFileName(jointForm), [jointForm]);
+  // PDF 경로("PDF 생성" → 인쇄창)는 "PDF로 저장" 시 브라우저가 인쇄 HTML <title>(jointPdfTitle
+  // = `공동사업표준협약서_{갑 상호} (PDF)`)을 파일명으로 제안한다 — .docx 와 다른 이름이라 함께 고지(드리프트 0).
+  const pdfFileName = useMemo(() => jointPdfTitle(jointForm), [jointForm]);
 
   // ── 인라인 검증 피드백 (담보신탁 PartyCard/StepBasic 패리티) — 게이트(validateJoint)는
   //    하단 .validate-box 에 누락을 모아 알려 주지만, "그 필드 옆"에서 입력 즉시 오류를
@@ -388,6 +391,15 @@ export function JointForm() {
           <p className="field-hint" style={{ marginTop: 8 }}>
             <span aria-hidden="true">💾 </span>
             저장 파일명: <strong style={{ wordBreak: "break-all" }}>{docxFileName}</strong>
+          </p>
+        )}
+        {/* PDF 경로 — "PDF 생성"은 인쇄창을 띄우고 "PDF로 저장" 시 브라우저가 인쇄 제목
+            (jointPdfTitle)을 파일명으로 제안한다. .docx 와 이름이 달라(끝에 " (PDF)") 함께
+            고지(담보신탁 DocStep 과 동형). 표시 전용 — 🖨 글리프만 aria-hidden, role=status 미부착. */}
+        {ok && pdfFileName && (
+          <p className="field-hint" style={{ marginTop: 4 }}>
+            <span aria-hidden="true">🖨 </span>
+            PDF로 저장 시(브라우저 제안): <strong style={{ wordBreak: "break-all" }}>{pdfFileName}</strong>
           </p>
         )}
       </section>

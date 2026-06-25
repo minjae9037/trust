@@ -1193,6 +1193,22 @@ function jointFileBase(jointForm) {
 export function jointDocFileName(jointForm) {
   return `${jointFileBase(jointForm)}.docx`;
 }
+/** 산출 PDF "PDF로 저장" 시 브라우저가 제안하는 파일명(서류 1건) — 인쇄 HTML <title>
+ *  (pdfDocTitle: `${docFileBase} (PDF)`)과 동일 단일 출처. 서류 위저드가 다운로드 직전에 PDF
+ *  경로로 받게 될 이름을 미리 보여 줄 때 쓴다(표시 전용 — 산출 동작 무변경). 브라우저는 이
+ *  제목을 파일명으로 제안하고 .pdf 로 저장한다. 알 수 없는 docId 면 "" 반환. */
+export function collateralPdfTitle(f, docId) {
+  const meta = COLLATERAL_OUTPUT_DOCS.find((d) => d.id === docId);
+  if (!meta) return "";
+  return pdfDocTitle(meta.name, f);
+}
+/** 산출 PDF 인쇄 HTML <title>(= "PDF로 저장" 시 브라우저 제안 파일명) — 공동사업표준협약서.
+ *  jointFileBase 기반 단일 출처(`공동사업표준협약서_{갑 상호} (PDF)`). buildJointFullHTML 의
+ *  pdfTitle 과 joint 위저드 미리보기가 같은 식을 쓰게 한다(드리프트 0). collateralPdfTitle 의
+ *  joint 패리티. */
+export function jointPdfTitle(jointForm) {
+  return `${jointFileBase(jointForm)} (PDF)`;
+}
 
 async function generateDoc(docId) {
   if (!docx) {
@@ -3004,8 +3020,8 @@ function buildJointFullHTML() {
     .page-break { page-break-before: always; }
     @media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
   `;
-  const gName = (g.name || "갑").trim();
-  const pdfTitle = `공동사업표준협약서_${gName} (PDF)`;
+  // 위저드 미리보기(jointPdfTitle)와 동일 식 — 단일 출처(드리프트 0).
+  const pdfTitle = jointPdfTitle(jf);
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
 <title>${escHTML(pdfTitle)}</title><style>${CSS}</style></head><body>
 <div class="title">공동사업표준협약서 [분담수행방식]</div>
