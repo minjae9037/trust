@@ -52,6 +52,11 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
   const current = STEPS.find((s) => s.idx === step) || STEPS[0];
   const tabSteps = STEPS.filter((s) => s.tab === tab);
   const totalSteps = STEPS.length;
+  // 하단 이전/다음 단계 버튼이 "어느 단계로 가는지"(목적지)를 미리 알리도록 인접
+  // 단계를 찾는다(STEPS 는 idx 1..13 연속이라 step∓1 = 인접 단계). 경계(첫·마지막)
+  // 에선 undefined → 일반 라벨 유지. 순수 표시·내비 파생(조문·엔진·검증 무접촉).
+  const prevStep = STEPS.find((s) => s.idx === step - 1);
+  const nextStep = STEPS.find((s) => s.idx === step + 1);
 
   // ── 서류별 생성 가능 여부 + 계약 전체 "남은 필수 입력"(중복 제거) — 한 번의 검증 패스로 산출.
   //    docReady: 각 서류 step의 생성 가능 여부(네비 ✓/⚠ 마커). 각 서류 step에 들어가지 않고도
@@ -456,31 +461,53 @@ function CollateralWizard({ docName, category }: { docName: string; category: Ca
 
           <StepContent stepKey={current.key} docId={current.docId} />
 
+          {/* 이전/다음 단계 — "어느 단계로 가는지"(목적지)를 미리 알리는 wayfinding.
+              종전엔 ‹/› 글리프 + "이전 단계"/"다음 단계" 일반 라벨뿐이라, 누르기
+              전엔 어느 단계로 가는지 알 수 없었다(전체 13단계·서류 7종 흐름에서
+              방향 상실). 목적지 단계 라벨(STEP 02·Doc 01)을 버튼 아래 시각 캡션으로
+              보이고, 전체 이름(라벨+제목)은 aria-label·title 로 SR·툴팁에 고지한다
+              (WCAG 2.4.x 예측 가능 내비). 경계(첫·마지막 단계)에선 캡션 없이 일반
+              라벨 유지. 순수 표시·내비 전용 — 조문/엔진/검증(validateDoc)/산출물
+              (docx) 무접촉·새 CSS 0(기존 nav-circle/field-hint + 인라인 style). */}
           <div className="pagenav">
-            <button
-              className="nav-circle"
-              disabled={step <= 1}
-              onClick={() => goStep(step - 1)}
-              aria-label="이전 단계"
-              title="이전 단계"
-            >
-              <span aria-hidden="true">‹</span>
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 50 }}>
+              <button
+                className="nav-circle"
+                disabled={step <= 1}
+                onClick={() => goStep(step - 1)}
+                aria-label={prevStep ? `이전 단계: ${prevStep.label} ${prevStep.title}` : "이전 단계"}
+                title={prevStep ? `이전 단계: ${prevStep.label} ${prevStep.title}` : "이전 단계"}
+              >
+                <span aria-hidden="true">‹</span>
+              </button>
+              {prevStep && (
+                <span className="field-hint" aria-hidden="true" style={{ fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: 1.3 }}>
+                  {prevStep.label}
+                </span>
+              )}
+            </div>
             <div className="nav-label">
               <span>
                 <strong>{step}</strong> / {totalSteps}
               </span>
               <span className="nav-name">{current.title}</span>
             </div>
-            <button
-              className="nav-circle"
-              disabled={step >= totalSteps}
-              onClick={() => goStep(step + 1)}
-              aria-label="다음 단계"
-              title="다음 단계"
-            >
-              <span aria-hidden="true">›</span>
-            </button>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 50 }}>
+              <button
+                className="nav-circle"
+                disabled={step >= totalSteps}
+                onClick={() => goStep(step + 1)}
+                aria-label={nextStep ? `다음 단계: ${nextStep.label} ${nextStep.title}` : "다음 단계"}
+                title={nextStep ? `다음 단계: ${nextStep.label} ${nextStep.title}` : "다음 단계"}
+              >
+                <span aria-hidden="true">›</span>
+              </button>
+              {nextStep && (
+                <span className="field-hint" aria-hidden="true" style={{ fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: 1.3 }}>
+                  {nextStep.label}
+                </span>
+              )}
+            </div>
           </div>
         </section>
       </div>

@@ -50,13 +50,19 @@ console.log("[위저드 pagenav 접근명]");
 // 각 nav-circle 버튼 블록을 추출해 aria-label 동반 여부 검사
 const navCircleBlocks = wizard.match(/<button\s+className="nav-circle"[\s\S]*?<\/button>/g) || [];
 ok(navCircleBlocks.length === 2, `(A0) nav-circle 버튼 2개 존재 (실제 ${navCircleBlocks.length})`);
+// aria-label 은 정적("…") 또는 동적({prevStep ? `이전 단계: …` : "이전 단계"})
+// 둘 다 허용 — 목적지 안내(verify-pagenav-destination) 도입으로 라벨이 동적
+// 표현식이 됐으나 "모든 버튼이 접근명을 가진다"는 의도는 동일(오히려 목적지까지
+// 고지해 강화). 의도 보존 완화(09:09 react·14:23 docx import 완화와 동형).
 ok(
-  navCircleBlocks.every((b) => /aria-label="[^"]+"/.test(b)),
-  "(A1) ★모든 nav-circle 버튼에 aria-label (아이콘 전용 무명 버튼 0)",
+  navCircleBlocks.every((b) => /aria-label=(?:"[^"]+"|\{[\s\S]*?\})/.test(b)),
+  "(A1) ★모든 nav-circle 버튼에 aria-label (정적/동적 — 아이콘 전용 무명 버튼 0)",
 );
 ok(
-  /aria-label="이전 단계"/.test(wizard) && /aria-label="다음 단계"/.test(wizard),
-  "(A2) 이전 단계 / 다음 단계 접근명 명시",
+  /"이전 단계"/.test(wizard) && /"다음 단계"/.test(wizard) &&
+    /이전 단계: \$\{prevStep\.label\}/.test(wizard) &&
+    /다음 단계: \$\{nextStep\.label\}/.test(wizard),
+  "(A2) 이전/다음 단계 접근명 + 목적지(label·title) 동적 안내 명시",
 );
 // 글리프(‹ ›)는 aria-hidden span 으로 감싸 SR 중복(접근명+글리프) 차단
 ok(
