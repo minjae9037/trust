@@ -66,3 +66,10 @@ export function previewJointHTML(jointForm: JointForm): string {
 export function contractFileKey(form: ContractForm): string {
   return B.contractFileKey(form);
 }
+
+/** 서류 1건의 실제 .docx 다운로드 파일명 — generateCollateralDoc 이 저장하는 이름과 단일 출처.
+ *  서류 위저드가 다운로드 직전에 "받게 될 파일명"을 미리 보여 줄 때 쓴다(표시 전용 — 파일명
+ *  산출 동작 무변경). 알 수 없는 docId 면 빈 문자열(표시 생략). */
+export function collateralDocFileName(form: ContractForm, docId: DocId): string {
+  return B.collateralDocFileName(form, docId);
+}

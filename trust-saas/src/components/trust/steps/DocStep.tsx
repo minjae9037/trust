@@ -9,6 +9,7 @@ import {
   generateCollateralDoc,
   generateCollateralPDF,
   previewDocHTML,
+  collateralDocFileName,
 } from "@/lib/engine/docx";
 import { validateDoc } from "@/lib/engine/validate";
 import { parseAmount, fmtKRW, amountToHangul, isPositiveAmount, interpretDate, interpretSharePct } from "@/lib/engine/calc";
@@ -91,6 +92,13 @@ export function DocStep({ docId }: { docId: DocId }) {
 
   // ── 검증 게이트 (M2-2) — 필수 입력 충족 시에만 생성 활성화 ──
   const { ok, missing } = useMemo(() => validateDoc(form, docId), [form, docId]);
+
+  // 다운로드 직전 "받게 될 파일명" 미리보기 — generateCollateralDoc 이 실제 저장하는 .docx
+  // 이름(collateralDocFileName → docFileBase)과 단일 출처라 미리보기와 실제 다운로드명이
+  // 어긋나지 않는다(드리프트 0). 같은 위탁자·체결일·담보물건 소재지의 다른 계약은 파일명이
+  // 같아 섞일 수 있어(내 계약 "다운로드 파일명 충돌" 경고 참조), 생성 전에 실제 이름을 보여
+  // 식별·검수를 돕는다. 표시 전용 — 조문/엔진/검증 게이트(validateDoc)/산출물 동작 무접촉.
+  const docxFileName = useMemo(() => collateralDocFileName(form, docId), [form, docId]);
 
   // ── 실시간 미리보기 (M2-1) — 선택한 서류의 완성 문서를 그대로 렌더(WYSIWYG).
   //    docId별 PDF 빌더 HTML을 iframe srcdoc로 격리 표시 → 실제 생성물과 동일.
@@ -635,6 +643,18 @@ export function DocStep({ docId }: { docId: DocId }) {
             )
           )}
         </div>
+
+        {/* 다운로드 직전 "받게 될 파일명" 미리보기 — 실제 .docx 저장명과 단일 출처
+            (collateralDocFileName). 필수 입력이 충족돼 생성 가능할 때만(=다운로드 직전)
+            표출해 미완 입력의 임시 파일명을 보여 주지 않는다. 표시 전용 — 낭독은 가시
+            텍스트가 전달(글리프만 aria-hidden), role=status 미부착(생성 상태 낭독은 상단
+            영속 라이브 영역 전담 → 중복 낭독 0). 새 CSS 0(기존 field-hint). */}
+        {ok && docxFileName && (
+          <p className="field-hint" style={{ marginTop: 8 }}>
+            <span aria-hidden="true">💾 </span>
+            저장 파일명: <strong style={{ wordBreak: "break-all" }}>{docxFileName}</strong>
+          </p>
+        )}
       </div>
 
       {/* ── 우: 실시간 미리보기 (선택 서류 그대로, 실제 생성물과 동일) ── */}

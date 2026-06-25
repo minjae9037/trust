@@ -1170,6 +1170,15 @@ function docFileBase(metaName, f) {
 function pdfDocTitle(metaName, f) {
   return `${docFileBase(metaName, f)} (PDF)`;
 }
+/** 산출 .docx 다운로드 파일명(서류 1건) — generateDoc 의 fname(line 1440·`${docFileBase}.docx`)
+ *  과 동일 단일 출처. 서류 위저드가 "다운로드 직전"에 실제 받게 될 파일명을 미리 보여 줄 때
+ *  쓰며(표시 전용), 같은 docFileBase 경로를 재사용해 미리보기와 실제 다운로드명이 어긋나지
+ *  않게 한다(드리프트 0). 알 수 없는 docId 면 "" 반환(표시 생략) — 산출 동작 무변경. */
+export function collateralDocFileName(f, docId) {
+  const meta = COLLATERAL_OUTPUT_DOCS.find((d) => d.id === docId);
+  if (!meta) return "";
+  return `${docFileBase(meta.name, f)}.docx`;
+}
 
 async function generateDoc(docId) {
   if (!docx) {
