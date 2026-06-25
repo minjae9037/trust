@@ -44,6 +44,9 @@ export function JointForm() {
   const [msg, setMsg] = useState("");
   // "크게 보기"(새 창) 팝업 차단 안내. 차단 외에는 비워 둔다.
   const [previewNote, setPreviewNote] = useState("");
+  // 미리보기 접기/펼치기(담보신탁 DocStep 과 동형) — 기본 펼침(true·후방호환).
+  // 접으면 입력란이 전체 폭(좁은 화면 force-stack 우회·넓은 화면 입력 집중).
+  const [previewOpen, setPreviewOpen] = useState(true);
   // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
   // 확인이 구버전을 최신으로 오인시키므로(법적 서류=정확성) "다시 생성하세요"로
   // 전환한다(담보신탁 DocStep onDocx/onPdf 신선도와 동일 단일 출처 판정).
@@ -216,7 +219,7 @@ export function JointForm() {
         {genLiveStatus}
       </div>
 
-      <div className="doc-split">
+      <div className={previewOpen ? "doc-split" : "doc-split doc-split--preview-collapsed"}>
         {/* ── 좌: 입력 ── */}
         <div className="doc-split-input">
       <section className="form-panel">
@@ -399,12 +402,37 @@ export function JointForm() {
                 <span aria-hidden="true">🔍 </span>크게 보기
               </button>
             )}
+            {/* 미리보기 접기/펼치기 — 입력란을 전체 폭으로(좁은 화면 force-stack 우회·
+                넓은 화면 입력 집중). 의미는 가시 텍스트(접기/펼치기)가 전달, 선두 글리프는
+                장식이라 aria-hidden. aria-expanded 로 상태를, aria-controls 로 대상 본문을
+                SR 에 고지. previewHtml 유무와 무관하게 항상 노출(빈 상태에서도 폭 확보 가능).
+                담보신탁 DocStep preview-toggle 과 동형. */}
+            <button
+              type="button"
+              className="preview-toggle"
+              onClick={() => setPreviewOpen((v) => !v)}
+              aria-expanded={previewOpen}
+              aria-controls="joint-preview-body"
+              title={
+                previewOpen
+                  ? "미리보기를 접어 입력란을 넓게 씁니다(머리말·크게 보기는 유지)"
+                  : "미리보기를 다시 펼칩니다"
+              }
+            >
+              <span aria-hidden="true">{previewOpen ? "▾ " : "▸ "}</span>
+              {previewOpen ? "접기" : "펼치기"}
+            </button>
           </div>
           {previewNote && (
             <div className="preview-note" role="status" aria-live="polite">
               {previewNote}
             </div>
           )}
+          {/* 접기 대상 본문 — hidden 으로 레이아웃에서 제거(display:none)해 입력란이
+              전체 폭을 쓰게 한다. iframe 은 언마운트하지 않고 hidden 만 토글해 펼칠 때
+              재로딩 없이 직전 미리보기를 즉시 보여준다(접기≠초기화). previewNote 는
+              래퍼 밖이라 접어도 보인다(팝업 차단 안내 유실 방지). 담보신탁 DocStep 과 동형. */}
+          <div id="joint-preview-body" className="doc-preview-body" hidden={!previewOpen}>
           {previewHtml ? (
             // 읽기 전용 미리보기는 정적 HTML+CSS만 렌더한다(스크립트 불필요) → 완전
             // 격리 sandbox(빈 값=allow-* 전무)로 스크립트 실행 불능 + 부모 origin
@@ -425,6 +453,7 @@ export function JointForm() {
               </p>
             </div>
           )}
+          </div>
         </aside>
       </div>
     </main>
