@@ -96,6 +96,31 @@ export function collidingDownloadIds(
   return out;
 }
 
+/**
+ * 작성 중(위저드) 계약의 다운로드 식별 키가 **다른** 저장 계약과 충돌하는지(순수).
+ * 내 계약 목록의 사후 경고(collidingDownloadIds)와 짝이 되는 위저드 사전 점검 — 생성·
+ * 다운로드 직전, 같은 키(위탁자·체결일·소재지)의 다른 저장 계약이 있어 산출 .docx/PDF 가
+ * 섞일 수 있는지 미리 알린다. keyFor 는 collidingDownloadIds 와 **동일한 downloadKeyOf**
+ * (lib/ui/download-key 단일 출처)를 주입해 목록 경고와 판정이 어긋나지 않게 한다(드리프트 0).
+ * currentId(작성 중 계약의 저장 id, 미저장 null)는 제외(자기 자신은 충돌 아님), 빈 키
+ * (식별 불가)면 false. ※ contractRepo 는 엔진을 import 하지 않으므로(가드 런타임 로더 호환)
+ * 키 산출을 외부 주입으로 받는다 — 표시 전용, 저장 행의 식별 키를 비교할 뿐(조문·엔진 무접촉).
+ */
+export function downloadKeyCollidesWithSaved(
+  rows: ContractRow[],
+  currentId: string | null,
+  currentKey: string | null,
+  keyFor: (r: ContractRow) => string | null,
+): boolean {
+  if (!currentKey) return false;
+  return rows.some((r) => r.id !== currentId && keyFor(r) === currentKey);
+}
+
+/** 현재 저장된 모든 계약 행의 스냅샷(동기) — 위저드의 사전 충돌 점검 등 즉시 조회용. */
+export function snapshotContracts(): ContractRow[] {
+  return readAll();
+}
+
 function readAll(): ContractRow[] {
   if (typeof window === "undefined") return [];
   try {

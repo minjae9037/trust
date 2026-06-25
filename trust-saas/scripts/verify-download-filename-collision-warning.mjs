@@ -54,6 +54,7 @@ const read = (...p) => readFileSync(join(__dir, "..", ...p), "utf8");
 const builders = read("src", "lib", "engine", "docx", "builders.js");
 const docxIndex = read("src", "lib", "engine", "docx", "index.ts");
 const repo = read("src", "lib", "contractRepo.ts");
+const keymod = read("src", "lib", "ui", "download-key.ts");
 const view = read("src", "components", "trust", "ContractsView.tsx");
 const globals = read("src", "app", "globals.css");
 
@@ -125,22 +126,31 @@ console.log("\n[B] contractRepo 순수 그룹핑 — collidingDownloadIds");
   ok(JSON.stringify(frozen) === snap, "행동: 입력 배열 무변형(순수 함수)");
 }
 
-console.log("\n[C] ContractsView 배선 — downloadKeyOf·useMemo·경고 줄·접근명");
+console.log("\n[C] 단일 출처 downloadKeyOf(lib/ui/download-key) + ContractsView 배선");
 {
   ok(/collidingDownloadIds,/.test(view) && /from "@\/lib\/contractRepo"/.test(view),
      "contractRepo 에서 collidingDownloadIds import");
-  ok(/contractFileKey \} from "@\/lib\/engine\/docx"/.test(view),
-     "엔진 docx 파사드에서 contractFileKey import(실제 다운로드명 단일 출처)");
-  // downloadKeyOf — coll/joint 분리 + 빈 위탁자 null
-  const at = view.indexOf("function downloadKeyOf(");
-  ok(at >= 0, "downloadKeyOf 정의 존재");
-  const body = view.slice(at, at + 520);
+  // downloadKeyOf = 내 계약 목록·위저드 공유 단일 출처(lib/ui/download-key) — 드리프트 0.
+  // ※ contractRepo 는 엔진 import 0(가드 런타임 로더 호환) → 키 산출은 UI 보조 모듈에 둔다.
+  ok(/export function downloadKeyOf\(/.test(keymod),
+     "download-key: downloadKeyOf export(다운로드 식별 키 단일 출처)");
+  ok(/import \{ contractFileKey \} from "@\/lib\/engine\/docx"/.test(keymod),
+     "download-key: contractFileKey import(실제 다운로드명 엔진 단일 출처)");
+  ok(!/from "@\/lib\/engine\/docx"/.test(repo),
+     "contractRepo: 엔진 import 부재(가드 런타임 로더 호환 — 키 산출은 download-key 에 위임)");
+  const at = keymod.indexOf("export function downloadKeyOf(");
+  const body = keymod.slice(at, at + 520);
   ok(/if \(!id\.trustor\) return null;/.test(body),
      "downloadKeyOf: 위탁자(갑) 미입력 → null(빈 초안 충돌 경고 제외)");
   ok(/r\.doc_type === "joint"/.test(body) && /`joint:\$\{id\.trustor\}`/.test(body),
      "downloadKeyOf: joint=`joint:{갑}`(공동사업표준협약서_{갑} 식별부)");
   ok(/`coll:\$\{contractFileKey\(r\.form_data as ContractForm\)\}`/.test(body),
      "downloadKeyOf: collateral=`coll:{contractFileKey}`(엔진 단일 출처)");
+  // ContractsView 는 downloadKeyOf 를 download-key 에서 import(로컬 재정의 0 — 드리프트 방지)
+  ok(/import \{ downloadKeyOf \} from "@\/lib\/ui\/download-key"/.test(view),
+     "ContractsView: downloadKeyOf 를 lib/ui/download-key 에서 import");
+  ok(!/function downloadKeyOf\(/.test(view),
+     "ContractsView: 로컬 downloadKeyOf 재정의 부재(단일 출처)");
   // useMemo — 전체 rows 기준(검색·필터와 무관)
   ok(/const collidingIds = useMemo\(\(\) => collidingDownloadIds\(rows, downloadKeyOf\), \[rows\]\);/.test(view),
      "collidingIds = useMemo(collidingDownloadIds(rows, downloadKeyOf), [rows]) — 전체 rows");

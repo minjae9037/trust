@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
+import {
+  downloadKeyCollidesWithSaved,
+  snapshotContracts,
+  subscribeContracts,
+  contractCount,
+} from "@/lib/contractRepo";
+import { downloadKeyOf } from "@/lib/ui/download-key";
 import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
 import { DOC_FIELDS, COLLATERAL_OUTPUT_DOCS, STEPS } from "@/lib/engine/schema";
 import type { DocId } from "@/lib/engine/model";
@@ -49,7 +56,7 @@ function useDebounced<T>(value: T, delayMs: number): T {
 }
 
 export function DocStep({ docId }: { docId: DocId }) {
-  const { form, updateDocContent, setStep, setTab, step } = useContractStore();
+  const { form, updateDocContent, setStep, setTab, step, currentContractId, docTypeId } = useContractStore();
 
   // 누락 항목 → 해당 입력 단계로 이동 + 그 입력 필드까지 스크롤·포커스(JointForm
   // focusMissing 의 DocStep 짝 — JointForm 은 단일 폼이라 필드만, 여긴 스텝 점프 후
@@ -103,6 +110,24 @@ export function DocStep({ docId }: { docId: DocId }) {
   // PDF 경로("PDF 생성" → 인쇄창)는 "PDF로 저장" 시 브라우저가 인쇄 HTML <title>(collateralPdfTitle
   // = `${docFileBase} (PDF)`)을 파일명으로 제안한다 — .docx 와 다른 이름이라 함께 고지(드리프트 0).
   const pdfFileName = useMemo(() => collateralPdfTitle(form, docId), [form, docId]);
+
+  // 다운로드 직전 "파일명 충돌" 사전 경고 — 내 계약 목록의 사후 충돌 경고(ContractsView)와
+  // 짝이 되는 위저드 사전 점검. 같은 다운로드 식별 키(위탁자·체결일·담보물건 소재지)의 다른
+  // 저장 계약이 있으면, 지금 생성·다운로드할 .docx/PDF 가 그 계약 파일과 섞일 수 있다(브라우저가
+  // 덮어쓰거나 "(1)" 자동부여 — 신탁 서류는 법적 효력 문서라 섞임은 정확성 위험). downloadKeyOf
+  // 는 목록 경고(collidingDownloadIds)와 동일한 contractRepo 단일 출처라 두 표면의 판정이
+  // 어긋나지 않는다(드리프트 0). 작성 중 계약 자신(currentContractId)은 제외. 저장 변경에
+  // 구독(useSyncExternalStore)해 다른 계약을 저장·삭제하면 경고가 살아 있게 한다(staleness 0).
+  // ★표시 전용 — 조문/엔진/검증 게이트(validateDoc)/산출물(docx) 동작 무접촉(식별 키 비교만).
+  const currentDownloadKey = useMemo(
+    () => downloadKeyOf({ doc_type: docTypeId ?? "", form_data: form }),
+    [docTypeId, form],
+  );
+  const savedCount = useSyncExternalStore(subscribeContracts, contractCount, () => 0);
+  const filenameCollision = useMemo(
+    () => downloadKeyCollidesWithSaved(snapshotContracts(), currentContractId, currentDownloadKey, downloadKeyOf),
+    [savedCount, currentContractId, currentDownloadKey],
+  );
 
   // ── 실시간 미리보기 (M2-1) — 선택한 서류의 완성 문서를 그대로 렌더(WYSIWYG).
   //    docId별 PDF 빌더 HTML을 iframe srcdoc로 격리 표시 → 실제 생성물과 동일.
@@ -667,6 +692,26 @@ export function DocStep({ docId }: { docId: DocId }) {
           <p className="field-hint" style={{ marginTop: 4 }}>
             <span aria-hidden="true">🖨 </span>
             PDF로 저장 시(브라우저 제안): <strong style={{ wordBreak: "break-all" }}>{pdfFileName}</strong>
+          </p>
+        )}
+        {/* 다운로드 직전 "파일명 충돌" 사전 경고 — 같은 식별 키(위탁자·체결일·담보물건 소재지)의
+            다른 저장 계약이 있어 받게 될 .docx/PDF 가 섞일 수 있을 때. 막지 않는 안내(차단 적색
+            아님·var(--c-brown))이며 입력 지점 advisory 패밀리와 동형(role=status·aria-live=polite,
+            ⚠ 글리프만 aria-hidden). 새 CSS 0(기존 field-hint + 인라인 style). 표시 전용 — 산출/
+            검증/조문 무접촉. ★정확성: 파일명은 위탁자·체결일·소재지로 정해져 계약 "제목"과 무관
+            하므로(downloadKeyOf/contractFileKey), 이름변경이 아니라 식별값 구분·파일명 직접 변경을
+            실제 해소책으로 안내한다(내 계약 목록 충돌 경고와 동일 문구·출처). */}
+        {ok && filenameCollision && (
+          <p
+            className="field-hint"
+            role="status"
+            aria-live="polite"
+            style={{ marginTop: 6, color: "var(--c-brown)" }}
+          >
+            <span aria-hidden="true">⚠ </span>
+            다른 계약과 다운로드 파일명이 같아 받게 될 .docx·PDF 가 섞일 수 있습니다 — 파일명은
+            위탁자·체결일·담보물건 소재지로 정해집니다(계약 제목과 무관). 값이 실제로 다르면 정확히
+            입력해 구분하시고, 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요.
           </p>
         )}
       </div>

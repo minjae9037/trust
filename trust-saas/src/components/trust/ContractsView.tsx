@@ -17,8 +17,9 @@ import {
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
 import { validateDoc, validateJoint, type Missing } from "@/lib/engine/validate";
-import { generateCollateralDoc, generateJointDoc, previewDocHTML, contractFileKey } from "@/lib/engine/docx";
+import { generateCollateralDoc, generateJointDoc, previewDocHTML } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
+import { downloadKeyOf } from "@/lib/ui/download-key";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
 import { collateralMissingUnion } from "@/lib/ui/contract-missing";
 import { splitStatusGlyph } from "@/lib/ui/status-glyph";
@@ -158,24 +159,8 @@ function rowJointMissing(row: ContractRow): string[] {
   }
 }
 
-/**
- * 행의 "다운로드 파일명 식별 키"(순수) — 두 계약의 산출 .docx 가 섞이는지 판정용.
- * 실제 다운로드명과 **동일 단일 출처**를 쓴다: collateral 등은 엔진 `contractFileKey`
- * (위탁자·체결일·소재지 = docFileBase 의 식별부), joint 는 `공동사업표준협약서_{갑}` 의
- * 식별부(gap.name). 두 종류는 서류종류명 접두가 달라 서로 충돌하지 않으므로 키에 종류
- * 접두("coll:"/"joint:")를 붙여 분리한다. 위탁자(갑) 미입력으로 식별 불가한 빈 초안은
- * null → 충돌 경고에서 제외(노이즈 방지). ※ 표시 전용 — 산출/검증/조문 무접촉.
- */
-function downloadKeyOf(r: ContractRow): string | null {
-  const id = contractIdentity(r);
-  if (!id.trustor) return null;
-  if (r.doc_type === "joint") return `joint:${id.trustor}`;
-  try {
-    return `coll:${contractFileKey(r.form_data as ContractForm)}`;
-  } catch {
-    return null;
-  }
-}
+// 다운로드 파일명 식별 키(downloadKeyOf)는 contractRepo 단일 출처 — 내 계약 목록의 사후
+// 충돌 경고(collidingDownloadIds)와 위저드의 사전 충돌 점검이 같은 함수를 써 어긋나지 않는다.
 
 type StatusFilter = "all" | "draft" | "completed";
 // SortKey 는 영속 경계(listPref)가 단일 출처 — 저장 가능한 정렬 키 집합과 일치 보장.
