@@ -54,7 +54,7 @@ const read = (...p) => readFileSync(path.join(root, ...p), "utf8");
 const PERSONA = "당신은 한국 대체투자 전문 어드바이저입니다.";
 const CTX = "[참고자료 1] 담보신탁: 위탁자가 부동산을 신탁하고 우선수익권을 발급…";
 
-console.log("\n[A] groundingStrength — 임계 경계 분기");
+console.log("\n[A] groundingStrength — 임계 경계 분기(점수 단독, identity=false)");
 {
   ok(STRONG_GROUNDING_SCORE === 6, "강·약 경계 점수 = 6(임계 3의 두 번째 corroborating 신호)");
   ok(groundingStrength(3) === "weak", "3점(겨우 임계만 넘김) → weak");
@@ -62,6 +62,16 @@ console.log("\n[A] groundingStrength — 임계 경계 분기");
   ok(groundingStrength(STRONG_GROUNDING_SCORE) === "strong", "경계값 6점 → strong");
   ok(groundingStrength(15) === "strong", "15점(강한 매칭) → strong");
   ok(groundingStrength(0) === "weak", "0점 → weak");
+}
+
+console.log("\n[A2] groundingStrength — 정체성 매칭(identity)이면 점수 미만이어도 strong");
+{
+  // 핵심 정의 질문("담보신탁이 무엇인가요?")이 점수 5(임계 6 미만)인데도 정체성 매칭
+  // 으로 strong 이 되는 정책. ★점수 단독 분기(identity=false)는 [A] 그대로 보존.
+  ok(groundingStrength(5, true) === "strong", "5점이라도 identity=true → strong(정의 질문 구제)");
+  ok(groundingStrength(3, true) === "strong", "3점이라도 identity=true → strong(canonical 복합어 정확 포함)");
+  ok(groundingStrength(0, true) === "strong", "0점이라도 identity=true → strong(점수 무관 정체성 신호)");
+  ok(groundingStrength(5, false) === "weak", "identity=false 면 5점은 종전대로 weak(오탐 차단)");
 }
 
 console.log("\n[B] 약한 grounding 블록 = GROUNDING_PREFIX + WEAK_GROUNDING_NOTE + contextText");
@@ -104,7 +114,7 @@ console.log("\n[F] route.ts 가 회수 최고점수로 강도 산출·전달");
 {
   const route = read("src", "app", "api", "advisor", "route.ts");
   ok(/import\s*\{[^}]*groundingStrength[^}]*\}\s*from\s*["']@\/lib\/advisor\/system["']/.test(route), "groundingStrength import");
-  ok(/groundingStrength\(\s*retrieved\[0\]\?\.score\s*\?\?\s*0\s*\)/.test(route), "retrieved[0]?.score 로 강도 산출(회수 0건이면 0)");
+  ok(/groundingStrength\(\s*retrieved\[0\]\?\.score\s*\?\?\s*0,\s*retrieved\[0\]\?\.identity\s*\?\?\s*false\s*\)/.test(route), "retrieved[0]?.score + identity 로 강도 산출(회수 0건이면 0·false)");
   ok(/buildAdvisorSystem\(ADVISOR_PERSONA,\s*contextText,\s*strength\)/.test(route), "buildAdvisorSystem 에 strength 전달");
 }
 

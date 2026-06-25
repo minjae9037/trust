@@ -41,10 +41,20 @@ export const WEAK_GROUNDING_NOTE =
   "약하면 일반 실무 원칙으로 답하되 근거가 불확실함을 밝히고, 참고자료에 없는 수치·법조항·" +
   "절차·고유 조건은 지어내지 마세요.\n\n";
 
-/** 회수 최고점수 → grounding 강도. 강(strong)=GROUNDING_PREFIX 만, 약(weak)=주의 지침 덧댐.
- *  ⚠️ 순수 함수 — 임계 정책만 결정(주입 문구·조립은 buildAdvisorSystem 담당). */
-export function groundingStrength(topScore: number): "strong" | "weak" {
-  return topScore >= STRONG_GROUNDING_SCORE ? "strong" : "weak";
+/** 회수 최고점수(+정체성 매칭) → grounding 강도. 강(strong)=GROUNDING_PREFIX 만,
+ *  약(weak)=주의 지침 덧댐.
+ *
+ *  ★identity(정체성 매칭): 질의가 회수 1위 청크의 *고유 복합 도메인어*(topic 4자 이상,
+ *    예 "담보신탁")를 정확히 포함하면, 어휘 점수가 임계 미만이어도 strong 으로 본다.
+ *    "담보신탁이 무엇인가요?"는 topScore≈5(태그 1매칭+본문)로 6 미만이라 종전엔 weak 으로
+ *    오분류돼, 제품 1차 범위인 담보신탁의 정확한 청크를 받고도 사용자에겐 "관련도 낮음"
+ *    칩이·LLM 엔 "주제가 어긋났을 수 있음" 주의가 붙었다. 질의가 청크 canonical 복합어를
+ *    정확히 담았다면 정의상 on-topic 이므로 점수와 무관하게 strong(retrieve.ts identity 신호).
+ *
+ *  ⚠️ 순수 함수 — 임계/정체성 정책만 결정(주입 문구·조립은 buildAdvisorSystem 담당).
+ *  후방호환: identity 미지정(2-arg 미만 호출)이면 false → 종전 점수 단독 판정과 동일. */
+export function groundingStrength(topScore: number, identity = false): "strong" | "weak" {
+  return topScore >= STRONG_GROUNDING_SCORE || identity ? "strong" : "weak";
 }
 
 /** 지식코퍼스 회수 0건(grounding 없음)일 때 주입하는 범위 주의 지침.

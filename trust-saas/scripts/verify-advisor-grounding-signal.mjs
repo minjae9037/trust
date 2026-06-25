@@ -66,6 +66,9 @@ console.log("\n[A] groundingStrength 경계 — 헤더 값(strength)의 출처")
   ok(groundingStrength(5) === "weak", "5점 = weak(겨우 임계만 넘긴 tangential)");
   ok(groundingStrength(3) === "weak", "3점 = weak(단발 태그 매칭)");
   ok(groundingStrength(0) === "weak", "0점 = weak(회수 0건 — 단, 칩은 sources 시에만)");
+  // 정체성 매칭이면 점수 미만이어도 strong → "관련도 낮음" 칩 미노출(정의 질문 구제).
+  ok(groundingStrength(5, true) === "strong", "5점+identity → strong(칩 미노출·핵심 정의 질문)");
+  ok(groundingStrength(5, false) === "weak", "5점+identity=false → weak(종전 동일·오탐 차단)");
 }
 
 console.log("\n[B] route.ts 라이브 경로 — X-Advisor-Grounding 헤더 노출");

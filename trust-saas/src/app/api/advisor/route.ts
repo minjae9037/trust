@@ -143,8 +143,11 @@ export async function POST(req: Request) {
   // 수치·조항을 지어내지 않게 가드레일을 건다(추정 금지·전문가 확인 권고).
   // ★회수는 됐으나 최고점수가 약하면(겨우 임계만 넘긴 tangential grounding) 강한 매칭과
   //   동일한 "근거로 활용" 프레이밍 대신 약한 grounding 주의(WEAK_GROUNDING_NOTE)를 덧대
-  //   LLM 이 빈약한 자료에 과의존하지 않게 한다(strength 는 회수 최고점수로만 결정).
-  const strength = groundingStrength(retrieved[0]?.score ?? 0);
+  //   LLM 이 빈약한 자료에 과의존하지 않게 한다(strength 는 회수 최고점수 + 정체성 매칭으로 결정).
+  //   ★정체성 매칭(retrieved[0].identity): 질의가 1위 청크의 고유 복합 도메인어("담보신탁" 등)를
+  //   정확히 포함하면 점수가 임계 미만이어도 strong — 핵심 정의 질문("담보신탁이 무엇인가요?")이
+  //   정확한 청크를 받고도 "관련도 낮음"으로 오분류되던 갭을 메운다(gap-report 미적중 최다).
+  const strength = groundingStrength(retrieved[0]?.score ?? 0, retrieved[0]?.identity ?? false);
   const systemBlocks = buildAdvisorSystem(ADVISOR_PERSONA, contextText, strength);
 
   const rs = new ReadableStream<Uint8Array>({

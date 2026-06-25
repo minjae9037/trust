@@ -45,6 +45,30 @@ function josaStem(token: string): string | null {
 export interface Retrieved {
   chunk: KnowledgeChunk;
   score: number;
+  /**
+   * 정체성(identity) 매칭 — 질의가 이 청크의 *고유 복합 도메인어*(topic 의 4자 이상
+   * 토큰, 예 "담보신탁"·"우선수익권"·"관리형토지신탁")를 조사 제거 후 **정확히** 포함하는가.
+   *
+   * ★왜 필요: 어휘 점수만으로는 "담보신탁이 무엇인가요?" 같은 핵심 정의 질문이 단어 하나라
+   *   topScore≈5(태그 1매칭+본문)로 STRONG_GROUNDING_SCORE(6) 미만 → '약한 grounding'으로
+   *   오분류돼, 제품 1차 범위인 담보신탁의 정확한 청크를 받고도 사용자에겐 "관련도 낮음" 칩이,
+   *   LLM 엔 "주제가 어긋났을 수 있음" 주의가 붙었다(gap-report 2026-06-22 미적중 최다 질문).
+   *   질의가 청크의 canonical 복합어를 정확히 담았다면 그 청크는 정의상 on-topic 이므로,
+   *   점수와 무관하게 grounding 을 strong 으로 보는 강한 신호다(groundingStrength 에서 사용).
+   *
+   * ⚠️ 보수적 경계(오탐 차단): topic 토큰 중 **4자 이상**만 본다 — 짧은 일반어
+   *   ("신탁"2·"구조"2·"단계"2·"세제"2·"요점"2·"pf"2)는 제외해, 일반 단어를 정확히 친
+   *   질의가 특정 복합 청크를 strong 으로 끌어올리지 않게 한다. 점수(score)는 절대 바꾸지
+   *   않는다(가산만의 채점 계약·기존 retrieve 가드 전부 보존) — 이 신호는 grounding 강도
+   *   판정에만 쓰인다.
+   */
+  identity: boolean;
+}
+
+/** 청크 정체성 토큰 — topic 을 토큰화해 4자 이상(고유 복합 도메인어)만 남긴다. */
+const MIN_IDENTITY_LEN = 4;
+function identityTokens(topic: string): string[] {
+  return tokenize(topic).filter((t) => t.length >= MIN_IDENTITY_LEN);
 }
 
 /**
@@ -92,10 +116,18 @@ export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []):
   const scored: Retrieved[] = corpus.map((chunk) => {
     const tagBlob = chunk.tags.join(" ").toLowerCase();
     const textBlob = (chunk.topic + " " + chunk.text).toLowerCase();
+    // 정체성 토큰(topic 의 4자 이상) — 질의가 이 중 하나를 raw/stem 으로 정확히 포함하면
+    // identity=true(grounding 강도 판정용·점수 무변경).
+    const idTokens = identityTokens(chunk.topic);
+    let identity = false;
     let score = 0;
     for (let i = 0; i < qTokens.length; i++) {
       const t = qTokens[i];
       const stem = qStems[i];
+      // 정체성 매칭 — raw 토큰 또는 조사 제거 stem 이 topic 의 고유 복합어와 *정확히* 일치.
+      if (!identity && (idTokens.includes(t) || (stem !== null && idTokens.includes(stem)))) {
+        identity = true;
+      }
       // 태그 매칭(+3, 토큰당 1회): raw 토큰이 태그의 부분(기존) OR 조사 제거 stem 이
       // 태그의 부분(신규 — "담보신탁이"→"담보신탁"). OR 라 stem 은 기존 매칭을 못 지운다.
       if (tagBlob.includes(t) || (stem !== null && tagBlob.includes(stem))) score += 3;
@@ -114,7 +146,7 @@ export function retrieve(query: string, topK = 3, extra: KnowledgeChunk[] = []):
     }
     // 사용자가 직접 올린 Q&A 근거(qna-)는 동일 관련도면 우선 반영되도록 소폭 가중.
     if (chunk.id.startsWith("qna-")) score *= 1.25;
-    return { chunk, score };
+    return { chunk, score, identity };
   });
 
   // 임계: 기본 KNOWLEDGE 는 3, back-data(bd-)는 노이즈 차단 위해 더 높게(6).
