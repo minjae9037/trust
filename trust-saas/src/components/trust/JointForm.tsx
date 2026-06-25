@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
+import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
 import { generateJointDoc, generateJointPDFDoc, previewJointHTML } from "@/lib/engine/docx";
 import { openDocPreviewWindow } from "@/lib/ui/preview-window";
 import { validateJoint, jointFieldIdForMissing } from "@/lib/engine/validate";
@@ -46,7 +47,8 @@ export function JointForm() {
   const [previewNote, setPreviewNote] = useState("");
   // 미리보기 접기/펼치기(담보신탁 DocStep 과 동형) — 기본 펼침(true·후방호환).
   // 접으면 입력란이 전체 폭(좁은 화면 force-stack 우회·넓은 화면 입력 집중).
-  const [previewOpen, setPreviewOpen] = useState(true);
+  // 마지막 선택은 localStorage(previewPref)에 영속돼 DocStep 과 공유·유지된다.
+  const [previewOpen, togglePreview] = usePreviewOpen();
   // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
   // 확인이 구버전을 최신으로 오인시키므로(법적 서류=정확성) "다시 생성하세요"로
   // 전환한다(담보신탁 DocStep onDocx/onPdf 신선도와 동일 단일 출처 판정).
@@ -410,7 +412,7 @@ export function JointForm() {
             <button
               type="button"
               className="preview-toggle"
-              onClick={() => setPreviewOpen((v) => !v)}
+              onClick={togglePreview}
               aria-expanded={previewOpen}
               aria-controls="joint-preview-body"
               title={

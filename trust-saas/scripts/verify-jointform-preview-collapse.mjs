@@ -57,10 +57,12 @@ const read = (...p) => readFileSync(join(__dir, "..", ...p), "utf8");
 const joint = read("src", "components", "trust", "JointForm.tsx");
 const globals = read("src", "app", "globals.css");
 
-console.log("\n[A] JointForm 상태/외곽 배선 — previewOpen useState(true)·외곽 div 조건부 클래스");
+console.log("\n[A] JointForm 상태/외곽 배선 — previewOpen=usePreviewOpen()(SSR 기본 펼침·영속)·외곽 div 조건부 클래스");
 {
-  ok(/const \[previewOpen, setPreviewOpen\] = useState\(true\);/.test(joint),
-     "previewOpen 상태 = useState(true) — 기본 펼침(첫 진입 무변경·후방호환)");
+  ok(/const \[previewOpen, togglePreview\] = usePreviewOpen\(\);/.test(joint),
+     "previewOpen 상태 = usePreviewOpen() — SSR 기본 펼침(첫 진입 무변경·후방호환)·영속 토글 단일 출처");
+  ok(/import \{ usePreviewOpen \} from "@\/lib\/store\/usePreviewOpen";/.test(joint),
+     "usePreviewOpen 훅 import(미리보기 접힘 선호 영속 — DocStep 공용)");
   ok(/className=\{previewOpen \? "doc-split" : "doc-split doc-split--preview-collapsed"\}/.test(joint),
      "외곽 div 클래스 = 펼침이면 doc-split·접힘이면 doc-split--preview-collapsed 부가");
 }
@@ -70,8 +72,8 @@ console.log("\n[B] 토글 버튼 배선 — preview-toggle·토글 onClick·aria
   const at = joint.indexOf('className="preview-toggle"');
   ok(at >= 0, "preview-toggle 버튼 존재");
   const block = joint.slice(at - 60, at + 520);
-  ok(/onClick=\{\(\) => setPreviewOpen\(\(v\) => !v\)\}/.test(block),
-     "onClick = setPreviewOpen((v) => !v) — 상태 토글");
+  ok(/onClick=\{togglePreview\}/.test(block),
+     "onClick = togglePreview — 영속 토글(usePreviewOpen 단일 출처)");
   ok(/aria-expanded=\{previewOpen\}/.test(block),
      "aria-expanded={previewOpen} — 펼침/접힘 상태 SR 고지");
   ok(/aria-controls="joint-preview-body"/.test(block),

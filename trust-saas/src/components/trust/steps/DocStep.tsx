@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
+import { usePreviewOpen } from "@/lib/store/usePreviewOpen";
 import { DOC_FIELDS, COLLATERAL_OUTPUT_DOCS, STEPS } from "@/lib/engine/schema";
 import type { DocId } from "@/lib/engine/model";
 import {
@@ -63,8 +64,9 @@ export function DocStep({ docId }: { docId: DocId }) {
   // 쌓여(order:-1, 60vh) 폼에 닿으려면 지나쳐 스크롤해야 하고, 넓은 화면에서도
   // 입력에 집중할 땐 미리보기 열을 접어 입력란을 전체 폭으로 쓰게 한다. 접어도
   // 머리말의 초안 배지·갱신 표시·"크게 보기"는 그대로라 검수 동선은 유지된다.
-  // 표시 전용(조문/엔진/검증 게이트/산출물 무접촉) — 기본 펼침.
-  const [previewOpen, setPreviewOpen] = useState(true);
+  // 표시 전용(조문/엔진/검증 게이트/산출물 무접촉) — 기본 펼침. 마지막 선택은
+  // localStorage(previewPref)에 영속돼 문서 간·새로고침 후에도 유지된다(JointForm 공용).
+  const [previewOpen, togglePreview] = usePreviewOpen();
   // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
   // 확인이 오해를 부르므로(법적 서류=정확성) "다시 생성하세요"로 전환한다.
   const [genSnap, setGenSnap] = useState<string | null>(null);
@@ -657,7 +659,7 @@ export function DocStep({ docId }: { docId: DocId }) {
           <button
             type="button"
             className="preview-toggle"
-            onClick={() => setPreviewOpen((v) => !v)}
+            onClick={togglePreview}
             aria-expanded={previewOpen}
             aria-controls="doc-preview-body"
             title={
