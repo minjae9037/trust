@@ -99,8 +99,10 @@ console.log("\n[F] openLabel 구성 — 제목 + 상태 + 준비도");
   ok(/서류 \$\{readiness\.ready\}\/\$\{readiness\.total\} 생성 가능/.test(view),
     "readyLabel collateral 준비도(N/N)");
   ok(/jointReady \? "협약서 생성 가능" : "필수 입력 누락"/.test(view), "readyLabel joint 준비도");
-  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\} — 열기`;/.test(view),
-    "openLabel = 제목+상태+준비도 — 열기");
+  // 남은 필수 입력 요약(missingLabel)이 준비도와 "— 열기" 사이에 합성될 수 있어(무관
+  // 기능 추가 내성), 양 끝의 불변 구성만 단언한다(바이트 동일성 아님).
+  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}[^`]*— 열기`;/.test(view),
+    "openLabel = 제목+상태+준비도(…) — 열기");
 }
 
 console.log("\n[G] 무회귀 — 열기 버튼·이름변경 분리·onOpen 배선 보존");

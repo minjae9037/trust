@@ -1,0 +1,181 @@
+/* ============================================================
+   회귀 가드 — 내 계약 목록 카드의 "남은 필수 입력" 요약(rowMissing)
+
+   배경(검증 흐름 UX, 비-산출물): 계약 목록(ContractsView)의 카드는 준비도 칩으로
+   "서류 N/7 생성 가능"(몇 종)만 보여 줬다. 정작 *무엇이* 남았는지는 계약을 열어
+   각 서류 검증박스를 일일이 뒤져야 알 수 있었다(칩 title 도 "열기 → 각 서류에서 확인").
+   Wizard 헤더에는 7종에 걸친 누락 입력을 중복 없이 모은 "남은 필수 입력" 체크리스트가
+   이미 있었으나(missingList), 저장된 계약 목록에는 그 목록 패리티가 없었다. 본 가드는
+   카드에 그 요약을 더한 rowMissing 의 불변식을 잠근다.
+
+   핵심 불변식(정확성 가드레일):
+     - 남은 필수 입력 = validateDoc(검증 게이트)이 보고한 누락 항목과 동일 출처
+       (별도 판정 로직 없음 — 7종 산출 서류의 missing 을 label 기준 중복 제거해 합집합).
+     - rowMissing 이 비면(빈 배열) ⟺ readyDocIds 가 7종 전부(allReady) — 칩과 모순 0.
+     - 담보신탁(collateral) 외·손상 저장본은 빈 배열(요약 미표시·SR 고지 없음·크래시 방지).
+
+   단언:
+     (A) 빈 계약 → 공통 누락 라벨(위탁자·우선수익자) 포함 · 라벨 중복 제거(같은 라벨 1회)
+     (B) 공통필수 입력(위탁자·우선수익자·대출금액·물건) → 남은 입력 = 정확히 2건
+         {신탁부동산 가격, 신탁재산 원본가액}(= 미준비 2종 appform·valReport 의 고유 누락)
+     (C) 전체 충족 → 남은 입력 0건 · 칩 정합(rowMissing 빈 ⟺ ready 7/7)
+     (D) 담보신탁 외(joint/fund)·손상 저장본 → [](요약 미표시·크래시 방지)
+     (E) 배선(ContractsView.tsx) — type Missing import · rowMissing 정의(collateral 한정·
+         label dedup) · openLabel 에 남은 입력 SR 고지(missingLabel) · 요약 줄(aria-hidden·
+         ⚠·앞 4건 slice·외 N건) · readyDocIds/일괄생성/검수 미리보기(회귀) 보존
+
+   ContractsView.tsx 의 rowMissing() 와 동일 로직 재현(컴포넌트 내부 함수라 import 불가
+   — 기존 contracts 가드와 동일 재현 패턴).
+
+   실행:
+     cd trust-saas
+     node --experimental-strip-types --loader ./scripts/ts-ext-loader.mjs scripts/verify-contracts-row-missing.mjs
+   ============================================================ */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { blankContractForm } from "../src/lib/engine/model.ts";
+import { validateDoc } from "../src/lib/engine/validate.ts";
+import { COLLATERAL_OUTPUT_DOCS } from "../src/lib/engine/schema.ts";
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const src = (rel) => readFileSync(join(__dir, "..", rel), "utf8");
+
+let pass = 0;
+let fail = 0;
+const ok = (cond, label) => {
+  if (cond) { pass++; console.log("  PASS  " + label); }
+  else { fail++; console.log("  FAIL  " + label); }
+};
+
+// ContractsView.tsx 의 rowMissing(row) 재현 — 7종 산출 서류의 validateDoc.missing 을
+// label 기준 중복 제거해 합친다(collateral 한정·손상 격리).
+function rowMissing(row) {
+  if (row.doc_type !== "collateral") return [];
+  const form = row.form_data;
+  try {
+    const seen = new Set();
+    const list = [];
+    for (const d of COLLATERAL_OUTPUT_DOCS) {
+      const { missing } = validateDoc(form, d.id);
+      for (const mi of missing) {
+        if (seen.has(mi.label)) continue;
+        seen.add(mi.label);
+        list.push(mi);
+      }
+    }
+    return list;
+  } catch {
+    return [];
+  }
+}
+// readyDocIds 재현(칩 정합 교차검증용) — 검수/일괄생성 가드와 동일.
+function readyDocIds(row) {
+  if (row.doc_type !== "collateral") return null;
+  try {
+    return COLLATERAL_OUTPUT_DOCS.filter((d) => validateDoc(row.form_data, d.id).ok).map((d) => d.id);
+  } catch {
+    return null;
+  }
+}
+const rowOf = (form, doc_type = "collateral") => ({ doc_type, form_data: form });
+
+const commonFilled = () => {
+  const form = blankContractForm();
+  form.trustors[0].name = "주식회사 갑";
+  form.priorities[0].name = "을은행";
+  form.priorities[0].loanAmount = "5000000000";
+  form.properties[0].address = "서울특별시 강남구 테헤란로 1";
+  return form;
+};
+const fullFilled = () => {
+  const form = commonFilled();
+  form.docContents.appform.valuationPrice = "10000000000";
+  form.docContents.valReport.principalValue = "10000000000";
+  return form;
+};
+
+console.log("\n[A] 빈 계약 — 공통 누락 라벨 포함 · 라벨 중복 제거");
+{
+  const m = rowMissing(rowOf(blankContractForm()));
+  const labels = m.map((x) => x.label);
+  ok(labels.includes("위탁자 (성명/상호)"), "빈 계약 → '위탁자 (성명/상호)' 누락 포함");
+  ok(labels.includes("우선수익자 (성명/상호)"), "빈 계약 → '우선수익자 (성명/상호)' 누락 포함");
+  ok(m.length > 0, `빈 계약 → 남은 입력 ${m.length}건(>0)`);
+  // 공통 누락(위탁자 등)은 7종 모두의 missing 에 반복 등장 — 합집합에서 1회만.
+  ok(new Set(labels).size === labels.length, "라벨 중복 제거(같은 라벨 1회만 — 7종 반복 등장 무관)");
+  // Missing 항목 형태(label·where·stepIdx) 보존 — Wizard missingList 와 동형.
+  ok(m.every((x) => typeof x.label === "string" && typeof x.stepIdx === "number"), "각 항목 label·stepIdx 형태 보존");
+}
+
+console.log("\n[B] 공통필수 입력 → 남은 입력 = {신탁부동산 가격, 신탁재산 원본가액} 정확히 2건");
+{
+  const m = rowMissing(rowOf(commonFilled()));
+  const labels = m.map((x) => x.label);
+  ok(m.length === 2, `공통필수 → 남은 입력 2건 (실제 ${m.length}: ${labels.join(" / ")})`);
+  ok(labels.includes("신탁부동산 가격"), "남은 입력에 appform 고유 '신탁부동산 가격'");
+  ok(labels.includes("신탁재산 원본가액"), "남은 입력에 valReport 고유 '신탁재산 원본가액'");
+  // 공통 항목(위탁자·우선수익자·대출금액·물건)은 채웠으므로 더는 남지 않음.
+  ok(!labels.includes("위탁자 (성명/상호)"), "채운 공통 항목(위탁자)은 남은 입력에서 제외");
+  ok(!labels.includes("우선수익자 대출금액"), "채운 공통 항목(대출금액)은 남은 입력에서 제외");
+  // 칩 정합: 미준비 2종(appform·valReport) ⟺ 그 2종 고유 누락만 남음.
+  const ready = readyDocIds(rowOf(commonFilled()));
+  ok(ready.length === 5, `칩 정합 — 준비 5/7(미준비 2종) (실제 ${ready.length})`);
+}
+
+console.log("\n[C] 전체 충족 → 남은 입력 0건 · 칩 정합(rowMissing 빈 ⟺ ready 7/7)");
+{
+  const m = rowMissing(rowOf(fullFilled()));
+  ok(m.length === 0, `전체 충족 → 남은 입력 0건 (실제 ${m.length})`);
+  const ready = readyDocIds(rowOf(fullFilled()));
+  ok(ready.length === COLLATERAL_OUTPUT_DOCS.length, `전체 충족 → 준비 ${ready.length}/${COLLATERAL_OUTPUT_DOCS.length}`);
+  // 불변식: 남은 입력이 빔 ⟺ 7종 전부 준비(allReady) — 칩과 모순 0.
+  ok((m.length === 0) === (ready.length === COLLATERAL_OUTPUT_DOCS.length), "불변식: rowMissing 빈 ⟺ ready 전부");
+}
+
+console.log("\n[D] 담보신탁 외·손상 저장본 → [](요약 미표시·크래시 방지)");
+{
+  ok(rowMissing(rowOf(blankContractForm(), "joint")).length === 0, "joint → [](미표시)");
+  ok(rowMissing(rowOf(blankContractForm(), "fund")).length === 0, "fund → [](미표시)");
+  ok(rowMissing({ doc_type: "collateral", form_data: {} }).length === 0, "빈 객체 form_data → [](크래시 방지)");
+  ok(rowMissing({ doc_type: "collateral", form_data: null }).length === 0, "null form_data → [](크래시 방지)");
+}
+
+console.log("\n[E] 배선(ContractsView.tsx) — rowMissing 정의 · 요약 줄 · SR 고지 · 회귀");
+{
+  const cv = src("src/components/trust/ContractsView.tsx");
+  ok(/import\s*\{[^}]*\btype Missing\b[^}]*\}\s*from\s*"@\/lib\/engine\/validate"/.test(cv),
+    "type Missing import(@/lib/engine/validate)");
+
+  const m = cv.match(/function rowMissing\(row: ContractRow\): Missing\[\]\s*\{[\s\S]*?\n\}/);
+  ok(!!m, "rowMissing 함수 추출");
+  const body = m ? m[0] : "";
+  ok(/if \(row\.doc_type !== "collateral"\) return \[\];/.test(body), "rowMissing: collateral 외 → [](요약 미표시)");
+  ok(/for \(const d of COLLATERAL_OUTPUT_DOCS\)/.test(body), "rowMissing: 7종 산출 서류 순회(검증 게이트 단일 출처)");
+  ok(/validateDoc\(form, d\.id\)/.test(body), "rowMissing: validateDoc 결과 재사용(별도 판정 로직 없음)");
+  ok(/seen\.has\(mi\.label\)/.test(body) && /seen\.add\(mi\.label\)/.test(body), "rowMissing: label 기준 중복 제거");
+  ok(/catch \{\s*return \[\];\s*\}/.test(body), "rowMissing: 손상 저장본 try/catch 격리");
+
+  // 미완일 때만 집계(allReady·null 이면 빈 배열 — 표시·SR 고지 없음).
+  ok(/const missing = readiness && !allReady \? rowMissing\(r\) : \[\];/.test(cv),
+    "카드: missing = 미완(준비도 있음·!allReady)일 때만 rowMissing");
+  // SR 고지: 카드 aria-label(openLabel)에 남은 입력 포함(요약 줄 aria-hidden 의 짝).
+  ok(/남은 필수 입력 \$\{missing\.length\}건: \$\{missing\.map\(\(mi\) => mi\.label\)\.join\(", "\)\}/.test(cv),
+    "openLabel: 남은 필수 입력 N건 + 라벨 목록 SR 고지(missingLabel)");
+  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}\$\{missingLabel\} — 열기`;/.test(cv),
+    "openLabel: missingLabel 합성(접근명에 포함)");
+  // 시각 요약 줄: aria-hidden(중복 낭독 0)·⚠·앞 4건 slice·외 N건.
+  ok(/\{missing\.length > 0 && \(/.test(cv), "요약 줄: missing 있을 때만 렌더");
+  ok(/aria-hidden="true"[\s\S]{0,80}⚠ 남은 필수 입력:/.test(cv), "요약 줄: aria-hidden + ⚠ 남은 필수 입력 머리말");
+  ok(/missing\.slice\(0, 4\)\.map\(\(mi\) => mi\.label\)\.join\(" · "\)/.test(cv), "요약 줄: 앞 4건만 표시(slice)");
+  ok(/missing\.length > 4 \? ` 외 \$\{missing\.length - 4\}건` : ""/.test(cv), "요약 줄: 4건 초과 시 '외 N건'");
+
+  // 회귀: 준비도/일괄생성/검수 미리보기 보존
+  ok(/function readyDocIds\(row: ContractRow\): DocId\[\] \| null/.test(cv), "회귀: readyDocIds 보존(단일 출처)");
+  ok(/async function generateRowDocs\(row: ContractRow\)/.test(cv), "회귀: 일괄 생성 generateRowDocs 보존");
+  ok(/function previewRowDocs\(row: ContractRow\)/.test(cv), "회귀: 검수 미리보기 previewRowDocs 보존");
+  ok(/className=\{"ready-chip " \+ \(allReady \? "ok" : "warn"\)\}/.test(cv), "회귀: 준비도 칩(N/7) 보존");
+}
+
+console.log(`\n결과: ${pass} PASS / ${fail} FAIL\n`);
+process.exit(fail === 0 ? 0 : 1);

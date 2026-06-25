@@ -105,8 +105,11 @@ console.log("\n[C] 무회귀 — 가시 텍스트·title·onClick 배선·카드
   ok(/onClick=\{\(\) => onDuplicate\(r\.id\)\}/.test(src), "복제 onClick 배선 보존");
   // 카드 본문 div 의 기존 aria-label(openLabel) 유지 — 본 변경과 독립.
   ok(/"aria-label": openLabel/.test(src), "카드 본문 div aria-label(openLabel) 유지");
-  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\} — 열기`/.test(src),
-    "openLabel 정의 보존(카드 본문 접근명)");
+  // openLabel = 제목+상태+준비도(+남은 입력) — 열기. 남은 필수 입력 요약(missingLabel)이
+  // 준비도와 "— 열기" 사이에 합성될 수 있어(무관 기능 추가 내성), 양 끝의 불변 구성만
+  // 단언한다(제목·상태·준비도로 시작, "— 열기"로 끝 — 바이트 동일성 아님).
+  ok(/const openLabel = `\$\{r\.title\}, \$\{statusLabel\}\$\{readyLabel\}[^`]*— 열기`/.test(src),
+    "openLabel 정의 보존(제목+상태+준비도 … — 열기)");
 }
 
 console.log(`\n결과: ${pass} PASS / ${fail} FAIL  (단언 ${pass + fail}개)`);

@@ -15,7 +15,7 @@ import {
   type ContractRow,
 } from "@/lib/contractRepo";
 import { DOCUMENT_TYPES, CATEGORY_LABEL, COLLATERAL_OUTPUT_DOCS } from "@/lib/engine/schema";
-import { validateDoc, validateJoint } from "@/lib/engine/validate";
+import { validateDoc, validateJoint, type Missing } from "@/lib/engine/validate";
 import { generateCollateralDoc, generateJointDoc, previewDocHTML } from "@/lib/engine/docx";
 import type { Category, ContractForm, DocId, JointForm } from "@/lib/engine/model";
 import { openMultiDocPreviewWindow } from "@/lib/ui/preview-window";
@@ -89,6 +89,37 @@ function docReadiness(row: ContractRow): { ready: number; total: number } | null
   const ids = readyDocIds(row);
   if (ids === null) return null;
   return { ready: ids.length, total: COLLATERAL_OUTPUT_DOCS.length };
+}
+
+/**
+ * 계약별 "남은 필수 입력"(라벨 기준 중복 제거 목록) — 담보신탁(collateral)만, 7종 산출
+ * 서류에 걸쳐 validateDoc(검증 게이트와 동일 로직)이 보고한 누락 항목을 모은다.
+ * Wizard 헤더 missingList 의 **목록 패리티** — 그간 저장된 계약 카드는 "N/7 생성 가능"
+ * 건수 칩만 있어, 정작 *무엇이* 남았는지는 계약을 열어 각 서류 검증박스를 일일이 뒤져야
+ * 알 수 있었다(카드 칩 title 도 "열기 → 각 서류에서 확인"이라 안내). 공통 누락(위탁자·
+ * 우선수익자 등)은 7종 모두의 missing 에 반복 등장하므로 label 기준 1회만 담는다. 전부
+ * 준비됐으면 빈 배열(readyDocIds 가 7종 전부일 때). joint·기타 종류·손상 저장본은 빈 배열.
+ * ※ 조문·엔진·검증 판정 무접촉 — 이미 산출된 validateDoc.missing 을 목록 수준에서 모을 뿐.
+ */
+function rowMissing(row: ContractRow): Missing[] {
+  if (row.doc_type !== "collateral") return [];
+  // doc_type==="collateral" 가드로 form_data 는 ContractForm 임이 보장된다.
+  const form = row.form_data as ContractForm;
+  try {
+    const seen = new Set<string>();
+    const list: Missing[] = [];
+    for (const d of COLLATERAL_OUTPUT_DOCS) {
+      const { missing } = validateDoc(form, d.id);
+      for (const mi of missing) {
+        if (seen.has(mi.label)) continue;
+        seen.add(mi.label);
+        list.push(mi);
+      }
+    }
+    return list;
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -612,6 +643,11 @@ export function ContractsView({
           const docName = DOCUMENT_TYPES.find((d) => d.id === r.doc_type)?.name || r.doc_type;
           const readiness = docReadiness(r);
           const allReady = readiness !== null && readiness.ready === readiness.total;
+          // 일부 서류만 준비된 경우(미완)의 "남은 필수 입력" 목록 — 전부 준비(allReady)·
+          // 산출정의 없는 종류(readiness===null)면 빈 배열이라 표시도 SR 고지도 없다.
+          // 카드 칩의 "N/7 생성 가능"이 '몇 종'인지만 알려 주던 것을, '무엇이' 남았는지까지
+          // 열지 않고 카드에서 바로 보여 준다(검증 흐름 UX — 표시 전용·게이트 무접촉).
+          const missing = readiness && !allReady ? rowMissing(r) : [];
           // joint(공동사업표준협약서) 준비도 — collateral 의 "N/7" 대신 단일 협약서 생성 가능 여부.
           const jointReady = jointReadiness(r);
           // 위탁자·물건 소재지 — 실무 식별 기준(제목만으론 "(사본)"·동명 구분이 어려움).
@@ -632,7 +668,14 @@ export function ContractsView({
             : jointReady !== null
               ? `, ${jointReady ? "협약서 생성 가능" : "필수 입력 누락"}`
               : "";
-          const openLabel = `${r.title}, ${statusLabel}${readyLabel} — 열기`;
+          // 카드 본문(role=button)의 접근명에 남은 필수 입력을 포함 — 시각 사용자는 아래
+          // 빨강 요약 줄(aria-hidden)을 보지만, SR 사용자는 카드 aria-label 이 내부 텍스트를
+          // 가리므로(name 계산 우선) 여기에 실어 줘야 '무엇이' 남았는지 듣는다(요약 줄과 동일 출처).
+          const missingLabel =
+            missing.length > 0
+              ? `, 남은 필수 입력 ${missing.length}건: ${missing.map((mi) => mi.label).join(", ")}`
+              : "";
+          const openLabel = `${r.title}, ${statusLabel}${readyLabel}${missingLabel} — 열기`;
           return (
             <div key={r.id} className="contract-card">
               <div
@@ -740,6 +783,20 @@ export function ContractsView({
                     );
                   })()}
                 </div>
+                {/* 남은 필수 입력 요약 — '몇 종'(준비도 칩)에 더해 '무엇이' 남았는지 한 줄로
+                    (앞 4건 + "외 N건"). 계약을 열지 않고도 무엇을 채워야 하는지 바로 보인다.
+                    줄 전체 aria-hidden — 낭독은 카드 aria-label(openLabel)이 전담(중복 0).
+                    검증 게이트 무접촉(rowMissing=validateDoc.missing 집계)·새 CSS 0. */}
+                {missing.length > 0 && (
+                  <div
+                    className="field-hint"
+                    style={{ marginTop: 5, color: "var(--c-danger)" }}
+                    aria-hidden="true"
+                  >
+                    ⚠ 남은 필수 입력: {missing.slice(0, 4).map((mi) => mi.label).join(" · ")}
+                    {missing.length > 4 ? ` 외 ${missing.length - 4}건` : ""}
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
                 <div style={{ display: "flex", gap: 8 }}>
