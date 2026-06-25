@@ -59,6 +59,12 @@ export function DocStep({ docId }: { docId: DocId }) {
   const [msg, setMsg] = useState("");
   // "크게 보기"(새 창) 팝업 차단 안내. 차단 외에는 비워 둔다.
   const [previewNote, setPreviewNote] = useState("");
+  // 미리보기 패널 접기/펼치기 — 좁은 화면(≤1080px)에선 미리보기가 입력 위로
+  // 쌓여(order:-1, 60vh) 폼에 닿으려면 지나쳐 스크롤해야 하고, 넓은 화면에서도
+  // 입력에 집중할 땐 미리보기 열을 접어 입력란을 전체 폭으로 쓰게 한다. 접어도
+  // 머리말의 초안 배지·갱신 표시·"크게 보기"는 그대로라 검수 동선은 유지된다.
+  // 표시 전용(조문/엔진/검증 게이트/산출물 무접촉) — 기본 펼침.
+  const [previewOpen, setPreviewOpen] = useState(true);
   // 마지막 생성(Word/PDF) 시점의 입력 스냅샷. 이후 입력이 바뀌면 "✓ 완료"
   // 확인이 오해를 부르므로(법적 서류=정확성) "다시 생성하세요"로 전환한다.
   const [genSnap, setGenSnap] = useState<string | null>(null);
@@ -180,7 +186,7 @@ export function DocStep({ docId }: { docId: DocId }) {
   }
 
   return (
-    <div className="doc-split">
+    <div className={previewOpen ? "doc-split" : "doc-split doc-split--preview-collapsed"}>
       {/* SR 영속 라이브 영역(WCAG 4.1.3) — 생성 진행·완료·오류·stale 상태를 항상-렌더
           단일 영역으로 고지(조건부 마운트 시 첫 메시지 미고지 결함 차단). 하단 시각 span
           은 낭독 책임 없음(role=status 미부착=중복 낭독 0). 시각 무변경(.sr-only). */}
@@ -644,12 +650,36 @@ export function DocStep({ docId }: { docId: DocId }) {
               <span aria-hidden="true">🔍 </span>크게 보기
             </button>
           )}
+          {/* 미리보기 접기/펼치기 — 입력란을 전체 폭으로(좁은 화면 force-stack 우회·
+              넓은 화면 입력 집중). 의미는 가시 텍스트(접기/펼치기)가 전달, 선두 글리프는
+              장식이라 aria-hidden. aria-expanded 로 상태를, aria-controls 로 대상 본문을
+              SR 에 고지. previewHtml 유무와 무관하게 항상 노출(빈 상태에서도 폭 확보 가능). */}
+          <button
+            type="button"
+            className="preview-toggle"
+            onClick={() => setPreviewOpen((v) => !v)}
+            aria-expanded={previewOpen}
+            aria-controls="doc-preview-body"
+            title={
+              previewOpen
+                ? "미리보기를 접어 입력란을 넓게 씁니다(머리말·크게 보기는 유지)"
+                : "미리보기를 다시 펼칩니다"
+            }
+          >
+            <span aria-hidden="true">{previewOpen ? "▾ " : "▸ "}</span>
+            {previewOpen ? "접기" : "펼치기"}
+          </button>
         </div>
         {previewNote && (
           <div className="preview-note" role="status" aria-live="polite">
             {previewNote}
           </div>
         )}
+        {/* 접기 대상 본문 — hidden 으로 레이아웃에서 제거(display:none)해 입력란이
+            전체 폭을 쓰게 한다. iframe 은 언마운트하지 않고 hidden 만 토글해 펼칠 때
+            재로딩 없이 직전 미리보기를 즉시 보여준다(접기≠초기화). previewNote 는
+            래퍼 밖이라 접어도 보인다(팝업 차단 안내 유실 방지). */}
+        <div id="doc-preview-body" className="doc-preview-body" hidden={!previewOpen}>
         {previewHtml ? (
           // 읽기 전용 미리보기는 정적 HTML+CSS만 렌더한다(스크립트 불필요) → 완전
           // 격리 sandbox(빈 값=allow-* 전무)로 ① 스크립트 실행 불능 ② 부모 origin
@@ -672,6 +702,7 @@ export function DocStep({ docId }: { docId: DocId }) {
             </p>
           </div>
         )}
+        </div>
       </aside>
     </div>
   );

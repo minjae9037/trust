@@ -83,7 +83,9 @@ console.log("\n[C] ★영속 라이브 영역 — sr-only·role=status·aria-liv
   const before = regionIdx > 0 ? ds.slice(Math.max(0, regionIdx - 80), regionIdx) : "";
   ok(!before.trimEnd().endsWith("&& ("), "영속 영역이 조건부(&& ()로 게이트되지 않음(항상 DOM)");
   // doc-split 루트 직후(좌측 입력 컬럼보다 앞)에 배치 = 항상 렌더
-  const splitIdx = ds.indexOf('<div className="doc-split">');
+  // (루트 className 은 미리보기 접기 토글로 조건부 — previewOpen ? "doc-split" : "doc-split …"
+  //  로 바뀌었으므로 className 시작 부분으로 앵커링. 의도=SR 영역이 루트 직후·입력 컬럼 앞.)
+  const splitIdx = ds.search(/<div className=\{previewOpen \? "doc-split"/);
   const inputColIdx = ds.indexOf('<div className="doc-split-input">');
   ok(splitIdx >= 0 && splitIdx < regionIdx && regionIdx < inputColIdx,
     "영속 영역이 doc-split 루트 직후·좌측 입력 컬럼 앞(항상 DOM)");
