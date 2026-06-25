@@ -1125,16 +1125,31 @@ function renderAnnexPreviewHTML() {
    .docx 다운로드명과 PDF 인쇄 제목(= "PDF로 저장" 시 브라우저가 제안하는 파일명)을
    한 곳에서 만들어 두 경로가 어긋나지 않게 한다. 위탁자·체결일을 포함해 계약마다
    파일명이 구별되도록 한다 — 종전 PDF 인쇄 제목은 서류종류명만 담아(예: "담보신탁
-   계약서 (PDF)") 모든 고객·모든 계약의 PDF가 같은 이름으로 저장돼 섞일 수 있었다. */
+   계약서 (PDF)") 모든 고객·모든 계약의 PDF가 같은 이름으로 저장돼 섞일 수 있었다.
+   추가로, 같은 위탁자가 같은 날 여러 건(서로 다른 담보물건)을 작성하면 `{종류}_{위탁자}_
+   {날짜}` 까지 동일해 파일이 또 섞이므로, 첫 담보물건 소재지를 식별 토큰으로 덧붙여
+   계약끼리 구별한다(예: …_20260301_서울 강남구 테헤란로 152). */
 function docFileDateToken(c) {
   c = c || {};
   return c.day
     ? `${c.year}${String(c.month).padStart(2, "0")}${String(c.day).padStart(2, "0")}`
     : `${c.year}${String(c.month).padStart(2, "0")}`;
 }
+/** 첫 담보물건 소재지를 파일명-안전 식별 토큰으로 — 금칙문자 제거·공백 정리·길이 제한.
+ *  소재지 미입력이거나 joint 폼(properties 없음)이면 "" 반환 → 종전 base 와 동일(무회귀). */
+function docFilePropToken(f) {
+  const raw = ((f && f.properties && f.properties[0] && f.properties[0].address) || "").trim();
+  if (!raw) return "";
+  return raw
+    .replace(/[\\/:*?"<>|]/g, " ") // 파일명 금칙문자(경로 구분자 등) → 공백
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 20);
+}
 function docFileBase(metaName, f) {
   const trustor = (f && f.trustors && f.trustors[0] && f.trustors[0].name) || "위탁자";
-  return `${metaName}_${trustor}_${docFileDateToken(f && f.common)}`;
+  const prop = docFilePropToken(f);
+  return `${metaName}_${trustor}_${docFileDateToken(f && f.common)}${prop ? `_${prop}` : ""}`;
 }
 function pdfDocTitle(metaName, f) {
   return `${docFileBase(metaName, f)} (PDF)`;
