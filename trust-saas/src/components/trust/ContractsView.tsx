@@ -726,8 +726,11 @@ export function ContractsView({
           // 다른 계약과 다운로드 파일명이 같으면(.docx 섞임 위험) 카드 접근명에도 실어, 시각의
           // 아래 경고 줄(aria-hidden)을 못 보는 SR 사용자도 카드 이름에서 함께 듣는다(동일 출처).
           const collision = collidingIds.has(r.id);
+          // 파일명은 위탁자·체결일·담보물건 소재지로만 정해진다(서류종류명_위탁자_체결일_소재지) —
+          // 계약 "제목"은 다운로드 파일명에 들어가지 않으므로, 이름변경으로는 섞임이 해소되지 않는다.
+          // 실제 해소책(값이 다르면 정확 입력 / 같은 계약이면 받은 파일명 직접 변경)을 정확히 안내한다.
           const collisionLabel = collision
-            ? ", 주의: 다른 계약과 다운로드 파일명이 같아 .docx 가 섞일 수 있습니다(제목·체결일·담보물건 소재지로 구분 권장)"
+            ? ", 주의: 다른 계약과 다운로드 파일명이 같아 .docx 가 섞일 수 있습니다 — 파일명은 위탁자·체결일·담보물건 소재지로 정해집니다(계약 제목과 무관). 값이 실제로 다르면 정확히 입력해 구분하시고, 같은 계약이면 받은 파일 이름을 직접 바꿔 주세요"
             : "";
           const openLabel = `${r.title}, ${statusLabel}${readyLabel}${missingLabel}${collisionLabel} — 열기`;
           return (
@@ -822,14 +825,17 @@ export function ContractsView({
                 {/* 다운로드 파일명 충돌 경고 — 위탁자·체결일·담보물건 소재지가 다른 계약과 같아
                     산출 .docx 가 섞일 수 있을 때. 막지 않는 안내(차단 적색 아님·var(--c-brown))이며
                     줄 전체 aria-hidden — 낭독은 카드 aria-label(openLabel)이 전담(중복 0). 새 CSS 0
-                    (기존 field-hint + 인라인 style). 표시 전용 — 산출/검증/조문 무접촉. */}
+                    (기존 field-hint + 인라인 style). 표시 전용 — 산출/검증/조문 무접촉.
+                    ★정확성: 파일명은 `{서류종류명}_{위탁자}_{체결일}_{소재지}` 라 계약 "제목"과 무관하다
+                    (contractFileKey/docFileBase). 카드의 이름변경(제목)으로는 섞임이 풀리지 않으므로
+                    실제 식별 항목(위탁자·체결일·소재지)과 받은 파일명 직접 변경을 정확히 안내한다. */}
                 {collision && (
                   <div
                     className="field-hint"
                     style={{ marginTop: 4, color: "var(--c-brown)" }}
                     aria-hidden="true"
                   >
-                    ⚠ 다른 계약과 다운로드 파일명이 같습니다 — 제목·체결일·담보물건 소재지를 구분하면 .docx 가 섞이지 않습니다.
+                    ⚠ 다른 계약과 다운로드 파일명이 같습니다 — 파일명은 위탁자·체결일·담보물건 소재지로 정해집니다(계약 제목과 무관). 값이 실제로 다르면 정확히 입력해 구분하고, 같은 계약이면 받은 .docx 파일 이름을 직접 바꿔 주세요.
                   </div>
                 )}
                 <div className="field-hint" style={{ marginTop: 5 }}>
