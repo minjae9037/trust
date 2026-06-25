@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DOC_LABEL, parseAction, sanitizeHistory } from "@/lib/advisor/action-marker";
+import { clearSession, loadSession, saveSession } from "@/lib/advisor/sessionRepo";
 import { advisorErrorMessage } from "@/lib/advisor/error-message";
 import { demotedHeadingTag } from "@/lib/advisor/markdown";
 import { isSubmitEnter } from "@/lib/ui/keys";
@@ -68,6 +69,10 @@ export function AdvisorChat() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  // 지난 상담 세션(localStorage) — 마운트 후 클라이언트에서만 채운다(SSR 스냅샷 null →
+  // 하이드레이션 일치). 저장본이 있으면 빈 상태에 "이어서 대화하기" 복원 진입점을 띄운다.
+  // 복원·새 대화 시 null 로 비운다. 표시·재개 전용(엔진·검색·로깅 무접촉).
+  const [savedSession, setSavedSession] = useState<Msg[] | null>(null);
   const [feedbackSent, setFeedbackSent] = useState<Record<number, "up" | "down">>({});
   const [copied, setCopied] = useState<number | null>(null);
   // 스크린리더 전용 상태 고지(WCAG 4.1.3) — 스트리밍 본문 대신 "생성 중/도착/중지" 같은
@@ -83,9 +88,34 @@ export function AdvisorChat() {
   // 교체된 "의견 감사합니다" 텍스트로 포커스를 옮기기 위한 1회성 표식(WCAG 2.4.3).
   const justFedRef = useRef<number | null>(null);
 
+  // 마운트 시 저장된 상담 세션 적재(클라이언트 전용) — 저장본이 있으면 빈 상태에 복원
+  // 진입점을 노출한다(진행 중 대화 위에 끼어들지 않음 — 빈 상태에서만 보임).
+  useEffect(() => {
+    const saved = loadSession();
+    if (saved.length > 0) setSavedSession(saved);
+  }, []);
+
+  // 완료된 대화를 자동 저장(영속) — 생성 중(busy)이 아니고 대화가 있을 때만 쓴다. 빈
+  // 상태(msgs 0)에서는 저장본을 건드리지 않는다(마운트 직후 빈 상태가 직전 세션을 덮어쓰지
+  // 않게 — 비움은 명시적 "새 대화"만 담당). saveSession 이 완료 라운드만 추려 저장한다.
+  useEffect(() => {
+    if (!busy && msgs.length > 0) saveSession(msgs);
+  }, [msgs, busy]);
+
   // 생성 중지: 진행 중인 fetch/스트림을 abort 한다(부분 답변은 보존, error 미표시).
   function stopGenerating() {
     abortRef.current?.abort();
+  }
+
+  // 지난 상담 이어가기 — 저장된 세션을 현재 대화로 복원한다(빈 상태에서만 노출되는 진입점).
+  // 복원 후 진입점은 숨기고(savedSession=null), 피드백·복사 상태를 초기화한다(새 대화 맥락).
+  function resumeSession() {
+    if (!savedSession || busy) return;
+    setMsgs(savedSession);
+    setSavedSession(null);
+    setFeedbackSent({});
+    setCopied(null);
+    scrollDown();
   }
 
   // 새 대화 시작 — 현재 대화 이력·피드백·복사 상태를 비워 빈 상태(제안 칩)로 되돌린다.
@@ -102,6 +132,8 @@ export function AdvisorChat() {
     setFeedbackSent({});
     setCopied(null);
     setLiveMsg(""); // SR 상태도 비움(빈 문자열은 재낭독되지 않음)
+    clearSession(); // 저장된 상담 세션도 비운다(저장본 삭제의 단일 경로)
+    setSavedSession(null); // 복원 진입점도 숨김(방금 새 대화를 시작했으므로)
   }
 
   // ★사용자 동작 결과 스크린리더 고지 공용 헬퍼(WCAG 4.1.3 Status Messages) — 복사·피드백
@@ -312,6 +344,37 @@ export function AdvisorChat() {
           <div className="advisor-empty-glyph" aria-hidden="true">信託</div>
           <h2>무엇을 도와드릴까요?</h2>
           <p>PF·신탁·자산유동화·딜 구조화·세무 — 대체투자 실무를 물어보세요.</p>
+          {/* 재방문 재개 진입점 — 저장된 지난 상담이 있을 때만(클라이언트 마운트 후) 노출.
+              저장본 없는 첫 방문은 미표출(빈 상태 무변경). 표시·내비게이션 전용 — 새 CSS 0
+              (기존 토큰 var(--c-paper)/--c-line/--r-lg + field-hint/btn-primary/btn-sm). */}
+          {savedSession && savedSession.length > 0 && (
+            <div
+              role="region"
+              aria-label="지난 상담 이어서 하기"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                width: "100%",
+                maxWidth: 680,
+                margin: "6px 0 2px",
+                padding: "12px 16px",
+                border: "1px solid var(--c-line)",
+                borderRadius: "var(--r-lg)",
+                background: "var(--c-paper)",
+              }}
+            >
+              <span className="field-hint" style={{ margin: 0 }}>
+                <span aria-hidden="true">↩ </span>
+                지난 상담 <strong>{savedSession.filter((m) => m.role === "user").length}개 질문</strong>이 저장돼 있습니다.
+              </span>
+              <button type="button" className="btn btn-primary btn-sm" onClick={resumeSession}>
+                이어서 대화하기<span aria-hidden="true"> →</span>
+              </button>
+            </div>
+          )}
           <div className="advisor-suggest">
             {SUGGESTIONS.map((s) => (
               <button key={s} className="suggest-chip" onClick={() => ask(s)}>
