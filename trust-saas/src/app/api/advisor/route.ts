@@ -129,12 +129,15 @@ export async function POST(req: Request) {
   const sourcesHeader = Buffer.from(JSON.stringify(sources), "utf8").toString("base64");
 
   // [수집] 자가고도화 루프 — 질문·RAG 적중여부 로깅(검색 0건 = 지식 공백 후보)
+  // ★retrievalQuery(=실제 회수에 쓴 맥락 질의)도 함께 남긴다 — gap-report 재채점이 라우트와
+  //   동일 질의로 채점해 맥락 의존 후속질문을 거짓 공백으로 오집계하지 않게(단발이면 q 와 같아 미기록).
   if (lastUser) {
     void logQuery(
       lastUser.content,
       retrieved.length > 0,
       retrieved[0]?.score ?? 0,
-      retrieved.map((r) => r.chunk.id)
+      retrieved.map((r) => r.chunk.id),
+      retrievalQuery
     );
   }
 

@@ -24,6 +24,14 @@ export interface QaLogEntry {
   ts: string;
   type: "query" | "feedback";
   q?: string; // 질문(앞부분만)
+  /**
+   * 실제 회수 질의 — 라우트가 retrieve() 에 넘긴 질의(멀티턴이면 buildRetrievalQuery 가
+   * 직전 사용자 발화를 합친 맥락 질의). 단발(첫 턴)이면 q 와 같아 **미기록**(로그 군더더기 0).
+   * ★자가고도화 [분석] 재채점 정직성: gap-report 가 단발 q 만으로 재채점하면 맥락 의존
+   *   후속질문("그럼 절차는?")이 회수 0건으로 거짓 공백 집계됐다(라우트는 맥락을 합쳐 실제로는
+   *   grounding 됨). rquery 를 남겨 분석이 라우트와 동일 질의로 재채점하도록 한다.
+   */
+  rquery?: string;
   hit?: boolean; // RAG 적중(근거 청크 1개 이상)
   topScore?: number; // 최상위 청크 점수(신뢰도) — 낮으면 약한 적중=공백 후보
   topicIds?: string[]; // 검색된 청크 id
@@ -50,14 +58,25 @@ export async function appendLog(entry: Omit<QaLogEntry, "ts">): Promise<void> {
   }
 }
 
-/** 질문 1건 적재 (PII 치환 후 길이 제한해 저장) */
+/**
+ * 질문 1건 적재 (PII 치환 후 길이 제한해 저장).
+ * @param retrievalQuery 라우트가 실제 retrieve() 에 넘긴 질의(buildRetrievalQuery 산출).
+ *   단발이면 q 와 같아 미기록 — 멀티턴 맥락 질의일 때만 rquery 로 보존(분석 재채점 라우트 패리티).
+ */
 export function logQuery(
   q: string,
   hit: boolean,
   topScore: number,
-  topicIds: string[]
+  topicIds: string[],
+  retrievalQuery?: string
 ): Promise<void> {
-  return appendLog({ type: "query", q: redactForLog(q).slice(0, 300), hit, topScore, topicIds });
+  const redQ = redactForLog(q).slice(0, 300);
+  // rquery 는 q 보다 길 수 있어(여러 턴 결합) cap 을 넓게 두되 PII 치환·길이 제한은 동일 규약.
+  // 단발(맥락 미결합)이면 redacted 값이 q 와 같아 미기록 — 로그를 부풀리지 않는다.
+  const redR =
+    retrievalQuery !== undefined ? redactForLog(retrievalQuery).slice(0, 600) : undefined;
+  const rquery = redR !== undefined && redR !== redQ ? redR : undefined;
+  return appendLog({ type: "query", q: redQ, rquery, hit, topScore, topicIds });
 }
 
 export function logFeedback(q: string, rating: "up" | "down", note?: string): Promise<void> {
