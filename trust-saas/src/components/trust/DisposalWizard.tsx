@@ -41,16 +41,9 @@ export function DisposalWizard({ docName }: { docName: string }) {
     }
   }, [debounced]);
 
-  // 최소 충족: 위탁자명 1 + 신탁부동산 1 (이 둘이 있어야 계약서가 의미를 가진다)
-  const hasTrustor = form.trustors.some((t) => (t.name || "").trim());
-  const hasProperty = form.properties.some((p) => (p.address || "").trim());
-  const ready = hasTrustor && hasProperty;
-
+  // 입력 충족 여부와 무관하게 항상 생성 가능(대표님 지시 2026-06-22). 미입력 칸은
+  // 계약서에 [ ]·빈칸/플레이스홀더로 출력된다(빈 양식 저장 허용).
   function onPdf() {
-    if (!ready) {
-      setMsg("위탁자명과 신탁부동산을 먼저 입력하세요.");
-      return;
-    }
     const opened = generateDisposalPDF(form, "contract");
     setMsg(
       opened
@@ -58,11 +51,8 @@ export function DisposalWizard({ docName }: { docName: string }) {
         : "PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도하세요.",
     );
   }
+
   async function onDocx() {
-    if (!ready) {
-      setMsg("위탁자명과 신탁부동산을 먼저 입력하세요.");
-      return;
-    }
     setMsg("Word 파일 생성 중…");
     try {
       await generateDisposalDoc(form, "contract");
@@ -95,9 +85,9 @@ export function DisposalWizard({ docName }: { docName: string }) {
         <div className="page-eyebrow">{docName}</div>
         <h1 className="page-title">부동산처분신탁계약</h1>
         <p className="page-desc">
-          ① 위탁자·수익자 → ② 신탁부동산 → ③ 기본정보(계약체결일) 입력 후{" "}
-          <strong>처분신탁계약서</strong>를 미리보고 PDF로 생성합니다. (본문 제1~23조 표준 ·
-          별첨4 신탁특약은 별도 협의로 첨부)
+          ① 당사자 · ② 신탁부동산 · ③ 기본정보를 입력하면 <strong>처분신탁계약서</strong>에
+          반영됩니다. <strong>④ 계약서</strong> 탭에서 언제든 Word·PDF로 저장할 수 있습니다(미입력
+          시 빈 양식으로 생성). 본문 제1~23조 + 별첨1~4(신탁특약) 표준 포함.
         </p>
       </div>
 
@@ -120,21 +110,20 @@ export function DisposalWizard({ docName }: { docName: string }) {
         {tab === "doc" && (
           <div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-              <button className="btn btn-accent" onClick={onDocx} disabled={!ready}>
+              <button className="btn btn-accent" onClick={onDocx}>
                 Word(.docx) 생성
               </button>
-              <button className="btn btn-accent" onClick={onPdf} disabled={!ready}>
+              <button className="btn btn-accent" onClick={onPdf}>
                 PDF 생성
               </button>
               <button className="btn btn-ghost" onClick={onBig}>
                 크게 보기
               </button>
             </div>
-            {!ready && (
-              <p className="field-hint" style={{ color: "var(--c-danger)" }}>
-                ① 당사자 탭의 위탁자명과 ② 신탁부동산을 입력하면 계약서가 완성됩니다.
-              </p>
-            )}
+            <p className="field-hint">
+              입력하지 않은 항목은 계약서에 빈칸/[ ]으로 출력됩니다. 당사자·신탁부동산·체결일을
+              채우면 그대로 반영됩니다.
+            </p>
             {msg && (
               <p className="field-hint" role="status" aria-live="polite">
                 {msg}
