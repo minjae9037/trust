@@ -18,6 +18,7 @@ import { StepBasic } from "./steps/StepBasic";
 import { StepConditions } from "./steps/StepConditions";
 import { DocStep } from "./steps/DocStep";
 import { JointForm } from "./JointForm";
+import { DisposalWizard } from "./DisposalWizard";
 
 interface Props {
   docTypeId: string;
@@ -28,6 +29,7 @@ interface Props {
 export function Wizard({ docTypeId, docName, category }: Props) {
   // joint 은 전용 폼
   if (docTypeId === "joint") return <JointForm />;
+  if (docTypeId === "disposal") return <DisposalWizard docName={docName} />;
   if (docTypeId === "fund") return <FundPlaceholder docName={docName} />;
   return <CollateralWizard docName={docName} category={category} />;
 }

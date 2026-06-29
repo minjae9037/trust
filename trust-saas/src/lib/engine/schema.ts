@@ -45,7 +45,7 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   { id: "loan_c", name: "차입형토지신탁(C)", ready: false },
   { id: "loan_d", name: "차입형토지신탁(D)", ready: false },
   { id: "sale_mgmt", name: "분양관리신탁", ready: false },
-  { id: "disposal", name: "처분신탁", ready: false },
+  { id: "disposal", name: "처분신탁", ready: true },
 ];
 
 export interface CategoryDef {
