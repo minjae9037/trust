@@ -18,9 +18,14 @@ export function generateCollateralPDF(form: ContractForm, docId: DocId): boolean
   return B.generateCollateralPDF(form, docId);
 }
 
-/** 처분신탁 계약서 PDF(인쇄창) 생성 — C-2 MVP(계약서만, .docx 후속). */
+/** 처분신탁 계약서 PDF(인쇄창) 생성 — 계약서만. */
 export function generateDisposalPDF(form: ContractForm, docId: DocId): boolean {
   return B.generateDisposalPDF(form, docId);
+}
+
+/** 처분신탁 계약서 .docx 생성·다운로드 — 계약서만. */
+export function generateDisposalDoc(form: ContractForm, docId: DocId): Promise<void> {
+  return B.generateDisposalDoc(form, docId);
 }
 
 /** 공동사업표준협약서 .docx 생성·다운로드 */

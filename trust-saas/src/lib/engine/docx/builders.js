@@ -8,6 +8,8 @@ import * as docx from "docx";
 import { COLLATERAL_OUTPUT_DOCS, DOC_FIELDS } from "../schema";
 // 처분신탁 본문 23조 — clauses/disposalBody.ts(5종 교차검증 verbatim)를 단일 출처로 import(중복 방지)
 import { DISPOSAL_BODY } from "../clauses/disposalBody";
+// 처분신탁 별첨4 신탁특약 — 신영 표준양식 verbatim(제1~7조)
+import { DISPOSAL_ANNEX4, DISPOSAL_ANNEX4_INTRO } from "../clauses/disposalAnnex4";
 
 // 모듈 전역 상태 (참조 HTML 의 전역 state 대체)
 const state = { form: null, jointForm: null };
@@ -258,14 +260,19 @@ function getContractPreambleText() {
 }
 
 /* 본문 제1~31조 — docx.js 요소 빌더 (4단계 통합 출력에서 사용) */
-function buildBodyChildren() {
+function buildBodyChildren(opts) {
   const { Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
   const out = [];
+  // 처분신탁 등 다른 상품도 같은 조립 로직을 쓰도록 파라미터화(기본값=담보 — 회귀 0).
+  const o = opts || {};
+  const docTitle = o.title || "부동산담보신탁계약서";
+  const preambleTpl = o.preamble || CONTRACT_PREAMBLE;
+  const bodyArts = o.body || CONTRACT_BODY;
 
-  // 페이지2 최상단 — '부동산담보신탁계약서' (bold, 11pt = size 22, 가운데)
+  // 페이지2 최상단 — 계약서 제목 (bold, 11pt = size 22, 가운데)
   out.push(new Paragraph({
     alignment: AlignmentType.CENTER, spacing: { after: 200 },
-    children: [new TextRun({ text: "부동산담보신탁계약서", bold: true, size: 22 })]
+    children: [new TextRun({ text: docTitle, bold: true, size: 22 })]
   }));
 
   // 신탁본문 — Heading 1 (Word 탐색창 최상위 항목)
@@ -278,9 +285,9 @@ function buildBodyChildren() {
   // 전문(前文) — 위탁자명 부분만 하이라이트 + after 절의 정의(이하 "위탁자/수탁자") BOLD
   const names = state.form.trustors.map(t => (t.name || "").trim()).filter(Boolean);
   const trustorJoined = names.length ? names.join(", ") : "[위탁자]";
-  const splitIdx = CONTRACT_PREAMBLE.indexOf("{trustors}");
-  const before = CONTRACT_PREAMBLE.slice(0, splitIdx);
-  const after = CONTRACT_PREAMBLE.slice(splitIdx + "{trustors}".length);
+  const splitIdx = preambleTpl.indexOf("{trustors}");
+  const before = preambleTpl.slice(0, splitIdx);
+  const after = preambleTpl.slice(splitIdx + "{trustors}".length);
   out.push(new Paragraph({
     spacing: { after: 220 }, alignment: AlignmentType.JUSTIFIED,
     children: [
@@ -290,7 +297,7 @@ function buildBodyChildren() {
     ]
   }));
 
-  CONTRACT_BODY.forEach(art => {
+  bodyArts.forEach(art => {
     // 조 제목 — Heading 2 (Word 탐색창 2단계 항목)
     out.push(new Paragraph({
       heading: HeadingLevel.HEADING_2,
@@ -728,8 +735,9 @@ function getContractDateText() {
   const c = state.form.common;
   return c.day ? `${c.year}년  ${c.month}월  ${c.day}일` : `${c.year}년  ${c.month}월     일`;
 }
-function buildCoverChildren() {
+function buildCoverChildren(opts) {
   const { Paragraph, TextRun, AlignmentType, PageBreak } = docx;
+  const coverTitle = (opts && opts.title) || "부동산담보신탁계약서";
   const f = state.form;
   const names = f.trustors.map(t => (t.name || "").trim()).filter(Boolean);
   const trustorLine = names.length ? names.join(", ") : "[위탁자]";
@@ -738,7 +746,7 @@ function buildCoverChildren() {
   return [
     ...blank(12),                                                                    // ↓ 제목 약 1/4 위치
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 },
-      children: [new TextRun({ text: "부동산담보신탁계약서", bold: true, size: 48 })] }),
+      children: [new TextRun({ text: coverTitle, bold: true, size: 48 })] }),
     ...blank(9),                                                                     // ↓ 연월일 가운데
     new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 },
       children: [new TextRun({ text: getContractDateText(), bold: true, size: 40, shading: hlShading() })] }),
@@ -2485,13 +2493,21 @@ function buildDisposalContractFullHTML() {
       <p style="padding-left:0.6cm;">- 매매계약 무효·취소·해제로 계약보증금을 위약금으로 귀속시킨 경우 당해 처분보수액의 10%.</p>
     </section>`;
 
-  // 별첨 4 — 신탁특약 (MVP: 별도 협의 첨부)
+  // 별첨 4 — 신탁특약 (신영 표준양식 제1~7조 verbatim)
+  const dAnnex4Arts = DISPOSAL_ANNEX4.map((art) => {
+    const lines = art.c.map((line) => {
+      const cls = line.l === 1 ? "indent-1" : line.l === 2 ? "indent-2" : "";
+      return `<p class="${cls}">${splitDefBoldHTML(line.t)}</p>`;
+    }).join("");
+    return `<h2 class="art-title">${escHTML(art.title)}</h2>${lines}`;
+  }).join("");
   const annex4HTML = `
     <section class="annex page-break">
       <h2 class="annex-label">[별첨 4]</h2>
       <p>&nbsp;</p>
       <h1 class="section-h1 annex-subtitle">신 탁 특 약</h1>
-      <p class="preamble">본 건 신탁특약은 당사자 간 별도 협의하여 첨부한다. (처분조건·처분가격·처분방법·절차 등 신탁본문 제9조에서 정하지 않은 사항을 정한다.)</p>
+      <p class="preamble">${splitDefBoldHTML(DISPOSAL_ANNEX4_INTRO)}</p>
+      ${dAnnex4Arts}
     </section>`;
 
   const CSS = `
@@ -3047,6 +3063,110 @@ function generateJointPDF() {
 /* ================================================================
    공개 API (타입드 파사드 index.ts 에서 사용)
    ================================================================ */
+/* ================================================================
+   처분신탁 계약서 .docx — cover+본문23조+서명+별첨1~4 (C-2 후속, 2026-06-22)
+   buildCoverChildren/buildBodyChildren/buildSignatureChildren 파라미터화 재사용
+   (담보 기본값 무변경). 별첨은 처분 전용. 담보 경로 무접촉.
+   ================================================================ */
+async function generateDisposalDocx() {
+  if (!docx) { alert("docx 라이브러리가 로드되지 않았습니다."); return; }
+  const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType, PageBreak, Footer, PageNumber
+  } = docx;
+  const f = state.form;
+  const TABLE_W = 9360;
+  const thin = { style: BorderStyle.SINGLE, size: 2, color: "999999" };
+  const borders = { top: thin, bottom: thin, left: thin, right: thin };
+  const cell = (text, o = {}) => new TableCell({
+    width: { size: o.w || 4680, type: WidthType.DXA }, borders,
+    shading: o.header ? { fill: "F0E8D8", type: ShadingType.CLEAR } : undefined,
+    margins: { top: 60, bottom: 60, left: 110, right: 110 },
+    children: [new Paragraph({ alignment: o.align || AlignmentType.LEFT, children: [new TextRun({ text: String(text == null ? "" : text), bold: !!o.header, size: 18 })] })]
+  });
+  const tbl = (rows, widths) => new Table({ width: { size: TABLE_W, type: WidthType.DXA }, columnWidths: widths, rows });
+  const annexLabel = (label, subtitle) => [
+    new Paragraph({ children: [new PageBreak()] }),
+    new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { after: 60 }, children: [new TextRun({ text: label, bold: true, size: 22 })] }),
+    new Paragraph({ children: [] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: subtitle, bold: true, underline: {}, size: 24 })] }),
+  ];
+  const para = (text, indent) => new Paragraph({ spacing: { after: 50 }, alignment: AlignmentType.JUSTIFIED, indent: indent ? { left: indent } : undefined, children: splitDefBold(text, { size: 18 }) });
+
+  // 별첨1 — 신탁부동산 목록 및 처분예정가격
+  const a1 = getAnnex1Data();
+  const a1rows = [new TableRow({ children: [cell("번호", { w: 900, header: true, align: AlignmentType.CENTER }), cell("소 재 지", { w: 4500, header: true, align: AlignmentType.CENTER }), cell("면적(㎡)", { w: 1600, header: true, align: AlignmentType.CENTER }), cell("처분예정가격(원)", { w: 2360, header: true, align: AlignmentType.CENTER })] })];
+  if (a1.length) a1.forEach((r, i) => a1rows.push(new TableRow({ children: [cell(String(i + 1), { w: 900, align: AlignmentType.CENTER }), cell(r.address + (r.category ? ` (${r.category})` : ""), { w: 4500 }), cell(r.area, { w: 1600, align: AlignmentType.CENTER }), cell("[              ]", { w: 2360, align: AlignmentType.CENTER })] })));
+  else a1rows.push(new TableRow({ children: [cell("(신탁부동산 미입력)", { w: 9360, align: AlignmentType.CENTER })] }));
+
+  // 별첨2 — 수익자의 표시
+  const a2 = getAnnex2Data();
+  const bl = a2.beneficiaries && a2.beneficiaries.length ? a2.beneficiaries : [];
+  const beneRows = [];
+  if (bl.length) bl.forEach((b) => {
+    beneRows.push(new TableRow({ children: [cell("성 명(상 호)", { w: 2800, header: true }), cell(b.name, { w: 6560 })] }));
+    beneRows.push(new TableRow({ children: [cell(b.type === "개인" ? "생년월일" : "법인등록번호", { w: 2800, header: true }), cell(b.corpReg, { w: 6560 })] }));
+    beneRows.push(new TableRow({ children: [cell("주소", { w: 2800, header: true }), cell(b.address, { w: 6560 })] }));
+  });
+  else beneRows.push(new TableRow({ children: [cell("(수익자 미입력)", { w: 9360, align: AlignmentType.CENTER })] }));
+
+  // 별첨3 — 신탁보수(처분보수표)
+  const a3rows = [new TableRow({ children: [cell("처분가격", { w: 4680, header: true, align: AlignmentType.CENTER }), cell("보수율", { w: 4680, header: true, align: AlignmentType.CENTER })] }),
+  ...ANNEX3_DISPOSAL_FEE_ROWS.map((r) => new TableRow({ children: [cell(r[0], { w: 4680, align: AlignmentType.CENTER }), cell(r[1], { w: 4680, align: AlignmentType.CENTER })] }))];
+
+  const children = [
+    ...buildCoverChildren({ title: "부동산처분신탁계약서" }),
+    ...buildBodyChildren({ title: "부동산처분신탁계약서", preamble: DISPOSAL_PREAMBLE_TPL, body: DISPOSAL_BODY }),
+    ...buildSignatureChildren(),
+    ...annexLabel("[별첨 1]", "신탁부동산 목록 및 처분예정가격"), tbl(a1rows, [900, 4500, 1600, 2360]),
+    new Paragraph({ spacing: { before: 60 }, children: [new TextRun({ text: "※ 처분예정가격은 당사자 협의로 기재합니다.", size: 16, color: "666666" })] }),
+    ...annexLabel("[별첨 2]", "수익자의 표시"), tbl(beneRows, [2800, 6560]),
+    ...annexLabel("[별첨 3]", "신 탁 보 수"),
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: "1. 처분보수 — 처분가격 기준 아래 산식에 따라 산정", bold: true, size: 18 })] }),
+    tbl(a3rows, [4680, 4680]),
+    new Paragraph({ spacing: { before: 120, after: 40 }, children: [new TextRun({ text: "2. 관리보수 — 별도 약정에 따라 매 1년 단위 산정·지급(1년 미만 일할)", bold: true, size: 18 })] }),
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: "3. 매매계약사무보수 — 매매계약 무효·취소·해제로 계약보증금 위약금 귀속 시 당해 처분보수액의 10%", bold: true, size: 18 })] }),
+    ...annexLabel("[별첨 4]", "신 탁 특 약"),
+    new Paragraph({ spacing: { after: 160 }, alignment: AlignmentType.JUSTIFIED, children: splitDefBold(DISPOSAL_ANNEX4_INTRO, { size: 18 }) }),
+    ...DISPOSAL_ANNEX4.flatMap((art) => [
+      new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 60 }, children: [new TextRun({ text: art.title, bold: true, size: 20 })] }),
+      ...art.c.map((line) => para(line.t, line.l === 1 ? INDENT_HO : line.l === 2 ? INDENT_MOK : INDENT_HANG)),
+    ]),
+  ];
+
+  let blob;
+  try {
+    const doc = new Document({
+      styles: { default: { document: { run: { font: "맑은 고딕", size: 20 }, paragraph: { spacing: { line: 276, lineRule: "auto" } } } } },
+      sections: [{
+        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+        footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ children: [PageNumber.CURRENT], size: 18 }), new TextRun({ text: " / ", size: 18 }), new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18 })] })] }) },
+        children,
+      }],
+    });
+    const raw = await Packer.toBlob(doc);
+    blob = new Blob([raw], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  } catch (e) {
+    alert("docx 생성 중 오류: " + (e.message || e));
+    console.error(e);
+    return;
+  }
+  const tname = (f.trustors.find((t) => (t.name || "").trim()) || {}).name || "위탁자";
+  const fname = `부동산처분신탁계약서_${tname}.docx`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = fname; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/** 처분신탁 계약서 .docx 생성·다운로드 (계약서만). */
+export async function generateDisposalDoc(form, docId) {
+  state.form = form;
+  if (docId !== "contract") { alert("처분신탁은 현재 계약서만 지원합니다."); return; }
+  return generateDisposalDocx();
+}
+
 export async function generateCollateralDoc(form, docId) {
   state.form = form;
   return generateDoc(docId);

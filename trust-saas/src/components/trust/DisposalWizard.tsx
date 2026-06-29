@@ -11,7 +11,7 @@
    ================================================================ */
 import { useEffect, useMemo, useState } from "react";
 import { useContractStore } from "@/lib/store/contractStore";
-import { previewDisposalHTML, generateDisposalPDF } from "@/lib/engine/docx";
+import { previewDisposalHTML, generateDisposalPDF, generateDisposalDoc } from "@/lib/engine/docx";
 import { StepParties } from "./steps/StepParties";
 import { StepProperty } from "./steps/StepProperty";
 import { StepBasic } from "./steps/StepBasic";
@@ -57,6 +57,19 @@ export function DisposalWizard({ docName }: { docName: string }) {
         ? "PDF 인쇄창을 열었습니다 — 인쇄 대화상자에서 '대상 → PDF로 저장'을 선택하세요."
         : "PDF 창을 열지 못했습니다 — 브라우저 팝업 차단을 해제한 뒤 다시 시도하세요.",
     );
+  }
+  async function onDocx() {
+    if (!ready) {
+      setMsg("위탁자명과 신탁부동산을 먼저 입력하세요.");
+      return;
+    }
+    setMsg("Word 파일 생성 중…");
+    try {
+      await generateDisposalDoc(form, "contract");
+      setMsg("✓ Word(.docx) 생성 완료 — 다운로드를 확인하세요.");
+    } catch (e) {
+      setMsg("오류: " + (e instanceof Error ? e.message : String(e)));
+    }
   }
   function onBig() {
     const w = window.open("", "_blank", "width=1040,height=1000");
@@ -107,6 +120,9 @@ export function DisposalWizard({ docName }: { docName: string }) {
         {tab === "doc" && (
           <div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <button className="btn btn-accent" onClick={onDocx} disabled={!ready}>
+                Word(.docx) 생성
+              </button>
               <button className="btn btn-accent" onClick={onPdf} disabled={!ready}>
                 PDF 생성
               </button>
